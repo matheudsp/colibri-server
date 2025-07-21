@@ -3,7 +3,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { validate } from './env.validation';
 import { cacheConfig } from './cache.config';
 import { CacheModule } from '@nestjs/cache-manager';
-
+import { LoggerModule } from 'nestjs-pino';
+import { loggerConfig } from './logger.config';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -11,12 +12,16 @@ import { CacheModule } from '@nestjs/cache-manager';
       validate,
       envFilePath: [`.env.${process.env.NODE_ENV}`, '.env'],
     }),
+    LoggerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: loggerConfig,
+    }),
     CacheModule.registerAsync({
       inject: [ConfigService],
       useFactory: cacheConfig,
     }),
   ],
   providers: [],
-  exports: [ConfigModule, CacheModule],
+  exports: [ConfigModule, CacheModule, LoggerModule],
 })
 export class AppConfigModule {}

@@ -4,13 +4,16 @@ import { AppConfigModule } from './config/config.module';
 import { RateLimitModule } from './core/rate-limit/rate-limit.module';
 import { SwaggerModule } from '@nestjs/swagger';
 import { FlagsModule } from './feature-flags/flags.module';
-import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { AuthExceptionFilter } from './common/filters/auth-exception.filter';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { JwtAuthGuard } from './auth/guards/auth.guard';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './modules/users/users.module';
-
+import { RolesGuard } from './auth/guards/roles.guard';
+import { LogModule } from './modules/logs/logs.module';
+import { LoggerModule } from './core/logger/logger.module';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 @Module({
   imports: [
     AppConfigModule,
@@ -18,8 +21,10 @@ import { UserModule } from './modules/users/users.module';
     RateLimitModule,
     SwaggerModule,
     FlagsModule,
+    LoggerModule,
     AuthModule,
     UserModule,
+    LogModule,
   ],
   providers: [
     {
@@ -29,6 +34,14 @@ import { UserModule } from './modules/users/users.module';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: LoggingInterceptor,
     },
     {
       provide: APP_FILTER,
