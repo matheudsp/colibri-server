@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { CameraType, UserRole } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 
 export class UserResponseDto {
   @ApiProperty({ format: 'uuid' })
@@ -17,6 +17,4 @@ export class UserResponseDto {
   @ApiProperty()
   status!: boolean;
 
-  @ApiProperty()
-  cameraType!: CameraType | null;
 }

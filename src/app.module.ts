@@ -9,6 +9,7 @@ import { AuthExceptionFilter } from './common/filters/auth-exception.filter';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { JwtAuthGuard } from './auth/guards/auth.guard';
 import { AuthModule } from './auth/auth.module';
+import { UserModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -18,8 +19,8 @@ import { AuthModule } from './auth/auth.module';
     SwaggerModule,
     FlagsModule,
     AuthModule,
+    UserModule,
   ],
-
   providers: [
     {
       provide: APP_PIPE,

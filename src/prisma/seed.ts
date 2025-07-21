@@ -1,5 +1,5 @@
 import * as argon2 from 'argon2';
-import { PrismaClient, Prisma, PaymentStatus } from '@prisma/client';
+import { PrismaClient, Prisma, PaymentStatus, UserRole } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -18,14 +18,13 @@ async function main() {
   console.log('🌱 Iniciando o processo de seed...');
 
   console.log('🗑️ Limpando dados existentes...');
+
+  await prisma.log.deleteMany();
   await prisma.foto.deleteMany();
-  await prisma.itemVistoria.deleteMany();
-  await prisma.ambiente.deleteMany();
-  await prisma.vistoria.deleteMany();
-  await prisma.pagamento.deleteMany();
+  await prisma.payment.deleteMany();
   await prisma.documento.deleteMany();
-  await prisma.contrato.deleteMany();
-  await prisma.imovel.deleteMany();
+  await prisma.contract.deleteMany();
+  await prisma.property.deleteMany();
   await prisma.user.deleteMany();
   console.log('🗑️ Dados limpos com sucesso.');
 
@@ -39,7 +38,7 @@ async function main() {
       email: 'admin@imobilia.io',
       password: adminPassword,
       cpf: generateRandomCpf(),
-      role: 'ADMIN',
+      role: UserRole.ADMIN,
     },
   });
 
@@ -50,7 +49,7 @@ async function main() {
       password: userPassword,
       cpf: generateRandomCpf(),
       phone: '11987654321',
-      role: 'LOCADOR',
+      role: UserRole.LOCADOR,
     },
   });
 
@@ -61,32 +60,17 @@ async function main() {
       password: userPassword,
       cpf: generateRandomCpf(),
       phone: '21912345678',
-      role: 'LOCATARIO',
+      role: UserRole.LOCATARIO,
     },
   });
+  console.log('👤 Usuários criados:', { admin, locador, locatario });
 
-  const vistoriador = await prisma.user.create({
-    data: {
-      name: 'Carlos Vistoriador',
-      email: 'carlos.vistoriador@imobilia.io',
-      password: userPassword,
-      cpf: generateRandomCpf(),
-      role: 'VISTORIADOR',
-    },
-  });
-  console.log('👤 Usuários criados:', {
-    admin,
-    locador,
-    locatario,
-    vistoriador,
-  });
-
-  console.log('🏠 Criando imóvel...');
-  const imovel = await prisma.imovel.create({
+  console.log('🏠 Criando imóvel com fotos...');
+  const property = await prisma.property.create({
     data: {
       title: 'Apartamento moderno no centro da cidade',
       description:
-        'Lindo apartamento com 2 quartos, sendo 1 suíte. Cozinha planejada e varanda gourmet. Perto de tudo!',
+        'Lindo apartamento com 2 quartos, sendo 1 suíte. Cozinha planejada e varanda gourmet.',
       cep: '01001-000',
       street: 'Praça da Sé',
       number: '123',
@@ -98,17 +82,29 @@ async function main() {
       numRooms: 2,
       numBathrooms: 2,
       numParking: 1,
-      isAvailable: false, // O imóvel será alugado no contrato abaixo
+      isAvailable: false,
       landlordId: locador.id,
+      photos: {
+        create: [
+          {
+            filePath: '/uploads/properties/apartamento_centro_01.jpg',
+            description: 'Vista da sala de estar',
+          },
+          {
+            filePath: '/uploads/properties/apartamento_centro_02.jpg',
+            description: 'Cozinha com armários',
+          },
+        ],
+      },
     },
   });
-  console.log('🏠 Imóvel criado:', imovel);
+  console.log('🏠 Imóvel criado:', property);
 
   console.log('✍️ Criando contrato de aluguel...');
   const hoje = new Date();
-  const contrato = await prisma.contrato.create({
+  const contract = await prisma.contract.create({
     data: {
-      imovelId: imovel.id,
+      propertyId: property.id,
       landlordId: locador.id,
       tenantId: locatario.id,
       status: 'ATIVO',
@@ -117,100 +113,34 @@ async function main() {
       iptuFee: 150.0,
       durationInMonths: 30,
       guaranteeType: 'DEPOSITO_CAUCAO',
-      securityDeposit: 5000.0, // 2x o valor do aluguel
+      securityDeposit: 5000.0,
       startDate: hoje,
       endDate: new Date(new Date().setMonth(hoje.getMonth() + 30)),
     },
   });
-  console.log('✍️ Contrato criado:', contrato);
+  console.log('✍️ Contrato criado:', contract);
 
   console.log('💵 Gerando pagamentos...');
-  const pagamentos: Prisma.PagamentoCreateManyInput[] = [];
+  const payments: Prisma.PaymentCreateManyInput[] = [];
 
   for (let i = 0; i < 12; i++) {
-    const vencimento = new Date(hoje);
-    vencimento.setMonth(vencimento.getMonth() + i);
-    vencimento.setDate(5); // Vencimento todo dia 5
+    const dueDate = new Date(hoje);
+    dueDate.setMonth(dueDate.getMonth() + i);
+    dueDate.setDate(5);
 
-    pagamentos.push({
-      contractId: contrato.id,
+    payments.push({
+      contractId: contract.id,
       amountDue:
-        contrato.rentAmount +
-        (contrato.condoFee ?? 0) +
-        (contrato.iptuFee ?? 0),
-      dueDate: vencimento,
+        contract.rentAmount +
+        (contract.condoFee ?? 0) +
+        (contract.iptuFee ?? 0),
+      dueDate: dueDate,
       status: i < 2 ? PaymentStatus.PAGO : PaymentStatus.PENDENTE,
-      paidAt: i < 2 ? vencimento : undefined,
+      paidAt: i < 2 ? dueDate : undefined,
     });
   }
-  await prisma.pagamento.createMany({ data: pagamentos });
-  console.log(`💵 12 pagamentos gerados para o contrato ${contrato.id}.`);
-
-  console.log('🕵️ Criando vistoria de entrada completa...');
-  const vistoria = await prisma.vistoria.create({
-    data: {
-      imovelId: imovel.id,
-      contractId: contrato.id,
-      inspectorId: vistoriador.id,
-      type: 'ENTRADA',
-      inspectionDate: new Date(),
-      observations:
-        'Vistoria geral de entrada realizada com sucesso. Imóvel em bom estado.',
-
-      ambientes: {
-        create: [
-          {
-            name: 'Cozinha',
-            description:
-              'Cozinha com armários planejados e bancada de granito.',
-            itens: {
-              create: [
-                {
-                  name: 'Pia de Inox',
-                  state: 'Em perfeito estado, sem riscos ou amassados.',
-                  photos: {
-                    create: [
-                      { filePath: '/uploads/vistoria/cozinha_pia_01.jpg' },
-                    ],
-                  },
-                },
-                {
-                  name: 'Piso de Porcelanato',
-                  state:
-                    'Bom estado, com leve desgaste natural perto da geladeira.',
-                },
-              ],
-            },
-          },
-          {
-            name: 'Sala de Estar',
-            description: 'Sala ampla para dois ambientes com acesso à varanda.',
-            itens: {
-              create: [
-                {
-                  name: 'Parede (Pintura)',
-                  state:
-                    'Pintura nova, cor branco gelo, sem marcas ou manchas.',
-                },
-                {
-                  name: 'Janela da Varanda',
-                  state:
-                    'Vidro e esquadrias em perfeito estado. Fechando normalmente.',
-                  photos: {
-                    create: [
-                      { filePath: '/uploads/vistoria/sala_janela_01.jpg' },
-                      { filePath: '/uploads/vistoria/sala_janela_02.jpg' },
-                    ],
-                  },
-                },
-              ],
-            },
-          },
-        ],
-      },
-    },
-  });
-  console.log('🕵️ Vistoria de entrada criada:', vistoria);
+  await prisma.payment.createMany({ data: payments });
+  console.log(`💵 12 pagamentos gerados para o contrato ${contract.id}.`);
 
   console.log('✅ Seed finalizado com sucesso!');
 }

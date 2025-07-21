@@ -19,7 +19,6 @@ export class UserService {
       email: true,
       role: true,
       status: true,
-      cameraType: true,
     };
   }
 

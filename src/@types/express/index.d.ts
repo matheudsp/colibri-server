@@ -4,7 +4,7 @@ type UserFromRequest = {
   sub: string;
   email: string;
   role: UserRole;
-  status: boolean;
+  isActive: boolean;
 };
 
 declare global {

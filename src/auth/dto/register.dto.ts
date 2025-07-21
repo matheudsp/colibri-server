@@ -28,6 +28,15 @@ export class RegisterDto {
 
   @Expose()
   @ApiProperty({
+    example: '12345678900',
+    description: 'CPF do usuário (apenas números)',
+  })
+  @IsString({ message: 'O CPF deve ser uma string' })
+  @IsNotEmpty({ message: 'O CPF não pode estar vazio' })
+  cpf!: string;
+
+  @Expose()
+  @ApiProperty({
     example: 'senhaSegura123',
     description: 'Senha com mínimo 6 caracteres',
   })

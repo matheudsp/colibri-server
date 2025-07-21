@@ -6,7 +6,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'properties:own:create',
     'properties:own:manage',
     'contracts:own:view',
-    'inspections:own:view',
   ],
   [UserRole.LOCATARIO]: [
     'contracts:own:view',

@@ -16,9 +16,4 @@ export class LoginDto {
   @ValidateIf((o) => !o.accessKeyToken)
   password?: string;
 
-  @Expose()
-  @ApiProperty({ required: false })
-  @IsString()
-  @ValidateIf((o) => !o.email && !o.password)
-  accessKeyToken?: string;
 }

@@ -12,7 +12,7 @@ export const setupSwagger = (app: INestApplication) => {
       scheme: 'bearer',
       bearerFormat: 'JWT',
     })
-    .addServer('/api/v1', 'Base Path')
+    // .addServer('/api/v1', 'Base Path')
     .setContact('Suporte', '', 'suporte@empresa.com')
     .setLicense('MIT', '')
     .build();
