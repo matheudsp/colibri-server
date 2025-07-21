@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { validate } from './env.validation';
+import { cacheConfig } from './cache.config';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
@@ -9,8 +11,12 @@ import { validate } from './env.validation';
       validate,
       envFilePath: [`.env.${process.env.NODE_ENV}`, '.env'],
     }),
+    CacheModule.registerAsync({
+      inject: [ConfigService],
+      useFactory: cacheConfig,
+    }),
   ],
   providers: [],
-  exports: [ConfigModule],
+  exports: [ConfigModule, CacheModule],
 })
 export class AppConfigModule {}

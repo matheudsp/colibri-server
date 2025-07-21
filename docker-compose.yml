@@ -1,0 +1,53 @@
+services:
+  # --- Aplicação NestJS ---
+  # api:
+  #   build:
+  #     context: .
+  #     dockerfile: dockerfile.yml
+  #   ports:
+  #     - '${PORT}:${PORT}'
+  #   env_file:
+  #     - .env
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_started
+
+  db:
+    image: postgres:15-alpine
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Banco de Dados Redis (Para filas Bull) ---
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+
+  # --- Redis Exporter (Métricas do Redis) ---
+  redis_exporter:
+    image: oliver006/redis_exporter
+    ports:
+      - '9121:9121'
+    command:
+      - '--redis.addr=redis://redis:6379'
+    depends_on:
+      - redis
+
+# --- Volumes para persistência ---
+volumes:
+  postgres_data:
+  redis_data:

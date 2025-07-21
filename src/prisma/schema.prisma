@@ -8,54 +8,47 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// --- ENUMS ---
+
 enum UserRole {
-  ADMIN // Administrador da plataforma
-  LOCADOR // Proprietário do imóvel
-  LOCATARIO // Inquilino
-  VISTORIADOR // Responsável pelas vistorias (pode ser um terceiro)
+  ADMIN
+  LOCADOR
+  LOCATARIO
 }
 
 enum ContractStatus {
-  PENDENTE_DOCUMENTACAO // Aguardando inquilino/locador enviarem documentos
-  EM_ANALISE // Documentação em análise de crédito/verificação
-  AGUARDANDO_ASSINATURAS // Pronto para assinatura digital das partes
-  ATIVO // Contrato vigente e aluguel em andamento
-  FINALIZADO // Contrato encerrado após o fim do prazo e vistoria de saída
-  CANCELADO // Contrato cancelado antes ou durante a vigência
+  PENDENTE_DOCUMENTACAO
+  EM_ANALISE
+  AGUARDANDO_ASSINATURAS
+  ATIVO
+  FINALIZADO
+  CANCELADO
 }
 
 enum GuaranteeType {
-  DEPOSITO_CAUCAO // Depósito de segurança
-  FIADOR // Pessoa física como garantia
-  SEGURO_FIANCA // Apólice de seguro
-  SEM_GARANTIA // Contrato sem garantia adicional
-}
-
-enum InspectionType {
-  ENTRADA // Vistoria realizada antes da entrega das chaves
-  SAIDA // Vistoria realizada na devolução do imóvel
+  DEPOSITO_CAUCAO
+  FIADOR
+  SEGURO_FIANCA
+  SEM_GARANTIA
 }
 
 enum DocumentType {
-  // Documentos de identificação
   IDENTIDADE_FRENTE
   IDENTIDADE_VERSO
   CPF
-  // Documentos de comprovação
   COMPROVANTE_RENDA
   COMPROVANTE_ENDERECO
-  // Documentos gerados pelo sistema
   CONTRATO_ALUGUEL
-  LAUDO_VISTORIA_ENTRADA
-  LAUDO_VISTORIA_SAIDA
 }
 
 enum PaymentStatus {
-  PENDENTE // Pagamento aguardando quitação
-  PAGO // Pagamento confirmado
-  ATRASADO // Pagamento vencido e não quitado
-  ISENTO // Pagamento isento (ex: primeiro mês proporcional)
+  PENDENTE
+  PAGO
+  ATRASADO
+  ISENTO
 }
+
+// --- MODELS ---
 
 model User {
   id        String    @id @default(uuid())
@@ -74,59 +67,52 @@ model User {
   city   String?
   state  String?
 
-  propertiesOwned     Imovel[]    @relation("LandlordProperties") // Imóveis que o usuário (como LOCADOR) possui
-  contractsAsLandlord Contrato[]  @relation("LandlordContracts") // Contratos onde o usuário é o LOCADOR
-  contractsAsTenant   Contrato[]  @relation("TenantContracts") // Contratos onde o usuário é o LOCATARIO
-  documents           Documento[] // Documentos pessoais do usuário
-  inspectionsMade     Vistoria[] // Vistorias realizadas por este usuário (se for VISTORIADOR)
-  log                 Log[]
+  propertiesOwned     Property[]  @relation("LandlordProperties")
+  contractsAsLandlord Contract[]  @relation("LandlordContracts")
+  contractsAsTenant   Contract[]  @relation("TenantContracts")
+  documents           Documento[]
+  logs                Log[]
 }
 
-model Imovel {
-  id          String  @id @default(uuid())
-  title       String // Ex: "Apartamento aconchegante perto do metrô"
-  description String? @db.Text
-
-  cep        String
-  street     String
-  number     String
-  complement String?
-  district   String
-  city       String
-  state      String
-
-  areaInM2     Float // Área em metros quadrados
+model Property {
+  id           String  @id @default(uuid())
+  title        String
+  description  String? @db.Text
+  cep          String
+  street       String
+  number       String
+  complement   String?
+  district     String
+  city         String
+  state        String
+  areaInM2     Float
   numRooms     Int     @default(0)
   numBathrooms Int     @default(0)
   numParking   Int     @default(0)
-  isAvailable  Boolean @default(true) // Se o imóvel está disponível para aluguel
+  isAvailable  Boolean @default(true)
 
-  landlordId  String
-  landlord    User       @relation("LandlordProperties", fields: [landlordId], references: [id])
-  contracts   Contrato[]
-  inspections Vistoria[]
+  landlordId String
+  landlord   User       @relation("LandlordProperties", fields: [landlordId], references: [id])
+  contracts  Contract[]
+  photos     Foto[]
 }
 
-model Contrato {
-  id     String         @id @default(uuid())
-  status ContractStatus @default(PENDENTE_DOCUMENTACAO)
+model Contract {
+  id               String         @id @default(uuid())
+  status           ContractStatus @default(PENDENTE_DOCUMENTACAO)
+  rentAmount       Float
+  condoFee         Float?
+  iptuFee          Float?
+  startDate        DateTime
+  endDate          DateTime
+  durationInMonths Int
+  guaranteeType    GuaranteeType  @default(SEM_GARANTIA)
+  securityDeposit  Float?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
-  rentAmount Float // Valor do aluguel mensal
-  condoFee   Float? // Taxa de condomínio
-  iptuFee    Float? // Valor do IPTU (mensal ou anual)
-
-  startDate        DateTime // Início da vigência
-  endDate          DateTime // Fim da vigência
-  durationInMonths Int // Duração em meses
-
-  guaranteeType   GuaranteeType @default(SEM_GARANTIA)
-  securityDeposit Float? // Valor do depósito caução, se aplicável
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  imovelId String
-  imovel   Imovel @relation(fields: [imovelId], references: [id])
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
 
   landlordId String
   landlord   User   @relation("LandlordContracts", fields: [landlordId], references: [id])
@@ -134,99 +120,47 @@ model Contrato {
   tenantId String
   tenant   User   @relation("TenantContracts", fields: [tenantId], references: [id])
 
-  payments    Pagamento[]
-  documents   Documento[]
-  inspections Vistoria[]
+  payments  Payment[]
+  documents Documento[]
 }
 
-model Pagamento {
-  id         String @id @default(uuid())
+model Payment {
+  id         String        @id @default(uuid())
   contractId String
-
-  amountDue  Float // Valor devido
-  amountPaid Float? // Valor efetivamente pago
-  dueDate    DateTime // Data de vencimento
-  paidAt     DateTime? // Data do pagamento
+  amountDue  Float
+  amountPaid Float?
+  dueDate    DateTime
+  paidAt     DateTime?
   status     PaymentStatus @default(PENDENTE)
-
-  // Relação
-  contract Contrato @relation(fields: [contractId], references: [id])
-}
-
-model Vistoria {
-  id          String  @id @default(uuid())
-  imovelId    String
-  contractId  String? // Opcional, pode ser feita antes de existir um contrato
-  inspectorId String // ID do User com role VISTORIADOR ou LOCADOR/LOCATARIO
-
-  type           InspectionType
-  inspectionDate DateTime
-  observations   String?        @db.Text
-
-  imovel    Imovel     @relation(fields: [imovelId], references: [id])
-  contract  Contrato?  @relation(fields: [contractId], references: [id])
-  inspector User       @relation(fields: [inspectorId], references: [id])
-  ambientes Ambiente[]
-}
-
-model Ambiente {
-  id          String  @id @default(uuid())
-  vistoriaId  String
-  name        String
-  description String?
-
-  // Relações
-  vistoria Vistoria       @relation(fields: [vistoriaId], references: [id])
-  itens    ItemVistoria[]
-  photos   Foto[]
-}
-
-model ItemVistoria {
-  id           String  @id @default(uuid())
-  ambienteId   String
-  name         String // Ex: "Piso", "Parede Esquerda", "Pia"
-  state        String // Descrição do estado: "Em bom estado", "Com risco", "Manchado"
-  observations String?
-
-  ambiente Ambiente @relation(fields: [ambienteId], references: [id])
-  photos   Foto[]
+  contract   Contract      @relation(fields: [contractId], references: [id])
 }
 
 model Foto {
-  id          String  @id @default(uuid())
+  id          String   @id @default(uuid())
   filePath    String
   description String?
-
-  ambienteId String?
-  ambiente   Ambiente? @relation(fields: [ambienteId], references: [id])
-
-  itemVistoriaId String?
-  itemVistoria   ItemVistoria? @relation(fields: [itemVistoriaId], references: [id])
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id])
 }
 
 model Documento {
-  id       String       @id @default(uuid())
-  type     DocumentType
-  filePath String
-  status   String       @default("PENDENTE") // PENDENTE, APROVADO, REJEITADO
-
-  userId String? // Associado a um usuário (ex: RG, CPF)
-  user   User?   @relation(fields: [userId], references: [id])
-
-  contractId String? // Associado a um contrato (ex: PDF do contrato assinado)
-  contract   Contrato? @relation(fields: [contractId], references: [id])
-
-  uploadedAt DateTime @default(now())
+  id         String       @id @default(uuid())
+  type       DocumentType
+  filePath   String
+  status     String       @default("PENDENTE")
+  userId     String?
+  user       User?        @relation(fields: [userId], references: [id])
+  contractId String?
+  contract   Contract?    @relation(fields: [contractId], references: [id])
+  uploadedAt DateTime     @default(now())
 }
 
 model Log {
   id        String   @id @default(uuid())
   userId    String
-  action    String // Ex: "CREATE_CONTRACT", "UPLOAD_DOCUMENT", "UPDATE_PAYMENT_STATUS"
-  details   String?  @db.Text
-  targetId  String // ID do registro afetado (ex: id do contrato, do pagamento)
-  tableName String // Nome da tabela afetada (ex: "Contrato")
+  action    String
+  targetId  String
+  tableName String
   createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 }
