@@ -41,6 +41,12 @@ enum DocumentType {
   CONTRATO_ALUGUEL
 }
 
+enum DocumentStatus {
+  REPROVADO
+  AGUARDANDO_APROVACAO
+  APROVADO
+}
+
 enum PaymentStatus {
   PENDENTE
   PAGO
@@ -51,15 +57,14 @@ enum PaymentStatus {
 // --- MODELS ---
 
 model User {
-  id        String    @id @default(uuid())
-  name      String
-  email     String    @unique
-  password  String
-  cpf       String    @unique
-  phone     String?
-  birthDate DateTime?
-  role      UserRole  @default(LOCATARIO)
-  status    Boolean   @default(true)
+  id       String   @id @default(uuid())
+  name     String
+  email    String   @unique
+  password String
+  cpf      String?  @unique
+  phone    String?
+  role     UserRole @default(LOCATARIO)
+  status   Boolean  @default(true)
 
   cep    String?
   street String?
@@ -144,15 +149,15 @@ model Photo {
 }
 
 model Document {
-  id         String       @id @default(uuid())
+  id         String         @id @default(uuid())
   type       DocumentType
   filePath   String
-  status     String       @default("PENDENTE")
+  status     DocumentStatus @default(AGUARDANDO_APROVACAO)
   userId     String?
-  user       User?        @relation(fields: [userId], references: [id])
+  user       User?          @relation(fields: [userId], references: [id])
   contractId String?
-  contract   Contract?    @relation(fields: [contractId], references: [id])
-  uploadedAt DateTime     @default(now())
+  contract   Contract?      @relation(fields: [contractId], references: [id])
+  uploadedAt DateTime       @default(now())
 }
 
 model Log {

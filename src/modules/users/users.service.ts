@@ -1,4 +1,6 @@
 import {
+  BadRequestException,
+  ConflictException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -6,11 +8,16 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { SearchUserDto } from './dto/search-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { Prisma } from '@prisma/client';
-
+import { Prisma, type User, type UserRole } from '@prisma/client';
+import * as argon2 from 'argon2';
+import type { CreateUserDto } from './dto/create-user.dto';
+import { LogHelperService } from '../logs/log-helper.service';
 @Injectable()
 export class UserService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private logHelper: LogHelperService,
+  ) {}
 
   private userSafeFields() {
     return {
@@ -69,6 +76,40 @@ export class UserService {
     return this.prisma.user.findMany({
       where,
       select: this.userSafeFields(),
+    });
+  }
+  async findOrCreate(data: CreateUserDto, role: UserRole): Promise<User> {
+    const { email, cpf, name, password } = data;
+
+    const existingUser = await this.prisma.user.findFirst({
+      where: { OR: [{ email }, { cpf }] },
+    });
+
+    if (existingUser) {
+      if (existingUser.email === email || existingUser.cpf === cpf) {
+        return existingUser;
+      }
+
+      throw new ConflictException('E-mail ou CPF já associado a outra conta.');
+    }
+
+    if (!name || !password || !cpf) {
+      throw new BadRequestException(
+        'Para criar um novo usuário, é necessário fornecer nome, CPF e senha.',
+      );
+    }
+
+    const hashedPassword = await argon2.hash(password);
+
+    return this.prisma.user.create({
+      data: {
+        name,
+        email,
+        cpf,
+        password: hashedPassword,
+        role,
+        status: true,
+      },
     });
   }
 

@@ -1,13 +1,14 @@
 import { Controller, Post, Body, UseGuards, Get } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
+
 import { CurrentUser } from 'src/common/decorator/current-user.decorator';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { Public } from 'src/common/decorator/public.decorator';
 import { JwtAuthGuard } from './guards/auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { ApiBearerAuth } from '@nestjs/swagger';
+import type { CreateUserDto } from 'src/modules/users/dto/create-user.dto';
 // import { ForgotPasswordDto } from './dto/forgot-password.dto';
 // import { ResetPasswordDto } from './dto/reset-password.dto';
 
@@ -30,7 +31,7 @@ export class AuthController {
 
   @Post('register')
   @Public()
-  async register(@Body() registerDto: RegisterDto) {
+  async register(@Body() registerDto: CreateUserDto) {
     return this.authService.register(registerDto);
   }
 

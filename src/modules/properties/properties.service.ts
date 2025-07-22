@@ -248,10 +248,18 @@ export class PropertiesService {
       );
     }
 
-    return this.prisma.property.update({
+    await this.prisma.property.update({
       where: { id },
       data: updatePropertyDto,
+      select: { id: true },
     });
+    await this.logHelper.createLog(
+      currentUser?.sub,
+      'UPDATE',
+      'Property',
+      property.id,
+    );
+    return property;
   }
 
   async remove(id: string, currentUser: { sub: string; role: string }) {
@@ -265,6 +273,12 @@ export class PropertiesService {
       );
     }
     await this.prisma.property.delete({ where: { id } });
+    await this.logHelper.createLog(
+      currentUser?.sub,
+      'DELETE',
+      'Property',
+      property.id,
+    );
     return { message: 'Imóvel removido com sucesso.' };
   }
 }

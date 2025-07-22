@@ -6,16 +6,16 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import * as argon2 from 'argon2';
 import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
-import * as crypto from 'crypto';
+
 import { JwtService } from '@nestjs/jwt';
 import { JwtPayload } from '../common/interfaces/jwt.payload.interface';
 import { RegisterResponse } from '../common/interfaces/response.register.interface';
 import { LoginResponse } from '../common/interfaces/response.login.interface';
-import { ADMIN_EMAILS } from '../common/constants/admin-emails.constant';
 import { User } from '@prisma/client';
 import { UserResponseDto } from '../modules/users/dto/response-user.dto';
-import { ROLES } from '../common/constants/roles.constant';
+import { UserService } from 'src/modules/users/users.service';
+import { ROLES } from 'src/common/constants/roles.constant';
+import type { CreateUserDto } from 'src/modules/users/dto/create-user.dto';
 // import { EmailJobType } from '../queue/jobs/email.job';
 // import { InjectQueue } from '@nestjs/bull';
 // import { Queue } from 'bull';
@@ -25,6 +25,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private userService: UserService,
     // @InjectQueue('email') private emailQueue: Queue,
   ) {}
 
@@ -73,33 +74,11 @@ export class AuthService {
     return this.generateToken(user);
   }
 
-  async register(registerDto: RegisterDto): Promise<RegisterResponse> {
-    const { name, email, password, cpf } = registerDto;
-
-    if (!name || !email || !password || !cpf) {
-      throw new BadRequestException('Todos os campos são obrigatórios');
-    }
-
-    const isAdmin = ADMIN_EMAILS.includes(email);
-    const role = isAdmin ? ROLES.ADMIN : ROLES.LOCATARIO;
-
-    const userExists = await this.prisma.user.findFirst({
-      where: { OR: [{ email }, { cpf }] },
-    });
-
-    if (userExists) {
-      throw new BadRequestException('Email ou CPF já cadastrado.');
-    }
-
-    const user = await this.prisma.user.create({
-      data: {
-        ...registerDto,
-        role,
-        cpf,
-        password: await argon2.hash(password),
-        status: true,
-      },
-    });
+  async register(registerDto: CreateUserDto): Promise<RegisterResponse> {
+    const user = await this.userService.findOrCreate(
+      registerDto,
+      ROLES.LOCADOR,
+    );
 
     const payload: JwtPayload = {
       sub: user.id,

@@ -4,10 +4,12 @@ import { ContractsController } from './contracts.controller';
 import { ContractsService } from './contracts.service';
 import { PropertiesModule } from '../properties/properties.module';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { UserModule } from '../users/users.module';
+import { LogHelperService } from '../logs/log-helper.service';
 
 @Module({
-  imports: [PropertiesModule],
+  imports: [PropertiesModule, UserModule],
   controllers: [ContractsController],
-  providers: [ContractsService, PrismaService],
+  providers: [ContractsService, PrismaService, LogHelperService],
 })
 export class ContractsModule {}

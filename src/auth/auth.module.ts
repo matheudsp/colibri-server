@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { jwtConfig } from 'src/config/jwt.config';
 import { ConfigService } from '@nestjs/config';
 import { PrismaModule } from 'src/prisma/prisma.module';
+import { UserModule } from 'src/modules/users/users.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { PrismaModule } from 'src/prisma/prisma.module';
     }),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     PrismaModule,
+    UserModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],

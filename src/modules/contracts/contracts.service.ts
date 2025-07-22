@@ -3,6 +3,8 @@ import {
   NotFoundException,
   UnauthorizedException,
   ForbiddenException,
+  BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateContractDto } from './dto/create-contract.dto';
@@ -10,12 +12,16 @@ import { UpdateContractDto } from './dto/update-contract.dto';
 import { User, UserRole, PaymentStatus, Prisma } from '@prisma/client';
 import { PropertiesService } from '../properties/properties.service';
 import { ROLES } from 'src/common/constants/roles.constant';
+import { UserService } from '../users/users.service';
+import { LogHelperService } from '../logs/log-helper.service';
 
 @Injectable()
 export class ContractsService {
   constructor(
     private prisma: PrismaService,
     private propertiesService: PropertiesService,
+    private userService: UserService,
+    private logHelper: LogHelperService,
   ) {}
 
   async create(
@@ -28,8 +34,18 @@ export class ContractsService {
       );
     }
 
+    const {
+      propertyId,
+      tenantEmail,
+      tenantName,
+      tenantCpf,
+      tenantPassword,
+      ...contractData
+    } = createContractDto;
+
     const property = await this.propertiesService.findOne(
-      createContractDto.propertyId,
+      propertyId,
+      currentUser,
     );
     if (property.landlordId !== currentUser.sub) {
       throw new UnauthorizedException(
@@ -37,22 +53,33 @@ export class ContractsService {
       );
     }
 
+    const tenant = await this.userService.findOrCreate(
+      {
+        email: tenantEmail,
+        name: tenantName,
+        cpf: tenantCpf,
+        password: tenantPassword,
+      },
+      ROLES.LOCATARIO,
+    );
+
     // Calcula a data final baseada na data de início e duração
-    const startDate = new Date(createContractDto.startDate);
+    const startDate = new Date(contractData.startDate);
     const endDate = new Date(startDate);
-    endDate.setMonth(startDate.getMonth() + createContractDto.durationInMonths);
+    endDate.setMonth(startDate.getMonth() + contractData.durationInMonths);
 
     const contract = await this.prisma.contract.create({
       data: {
-        ...createContractDto,
+        ...contractData,
+        propertyId,
         landlordId: currentUser.sub,
-        startDate: startDate,
-        endDate: endDate, // Salva a data final calculada
+        tenantId: tenant.id,
+        startDate,
+        endDate,
       },
     });
 
     const payments: Prisma.PaymentCreateManyInput[] = [];
-
     for (let i = 0; i < contract.durationInMonths; i++) {
       const dueDate = new Date(contract.startDate);
       dueDate.setMonth(dueDate.getMonth() + i);
@@ -66,9 +93,14 @@ export class ContractsService {
         status: PaymentStatus.PENDENTE,
       });
     }
-
-    // Gera todos os pagamentos do contrato de uma vez
     await this.prisma.payment.createMany({ data: payments });
+
+    await this.logHelper.createLog(
+      currentUser?.sub,
+      'CREATE',
+      'Contract',
+      contract.id,
+    );
 
     return contract;
   }
@@ -148,10 +180,17 @@ export class ContractsService {
         'Você não tem permissão para atualizar este contrato.',
       );
     }
-    return this.prisma.contract.update({
+    await this.prisma.contract.update({
       where: { id },
       data: updateContractDto,
     });
+    await this.logHelper.createLog(
+      currentUser?.sub,
+      'UPDATE',
+      'Contract',
+      contract.id,
+    );
+    return contract;
   }
 
   async remove(id: string, currentUser: { sub: string; role: string }) {
@@ -164,10 +203,15 @@ export class ContractsService {
         'Você não tem permissão para remover este contrato.',
       );
     }
-    // Lógica para remoção (ex: soft delete ou remoção em cascata)
-    // Aqui, vamos apenas deletar o contrato para simplificar
+    // A aplicar soft delete ou remoção em cascata
     await this.prisma.payment.deleteMany({ where: { contractId: id } });
     await this.prisma.contract.delete({ where: { id } });
+    await this.logHelper.createLog(
+      currentUser?.sub,
+      'DELETE',
+      'Contract',
+      contract.id,
+    );
     return { message: 'Contrato removido com sucesso.' };
   }
 }
