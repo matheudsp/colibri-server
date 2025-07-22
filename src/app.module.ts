@@ -14,6 +14,10 @@ import { RolesGuard } from './auth/guards/roles.guard';
 import { LogModule } from './modules/logs/logs.module';
 import { LoggerModule } from './core/logger/logger.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { PropertiesModule } from './modules/properties/properties.module';
+import { ContractsModule } from './modules/contracts/contracts.module';
+
+
 @Module({
   imports: [
     AppConfigModule,
@@ -25,6 +29,8 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     AuthModule,
     UserModule,
     LogModule,
+    PropertiesModule,
+    ContractsModule,
   ],
   providers: [
     {

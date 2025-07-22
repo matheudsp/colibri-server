@@ -20,9 +20,9 @@ async function main() {
   console.log('🗑️ Limpando dados existentes...');
 
   await prisma.log.deleteMany();
-  await prisma.foto.deleteMany();
+  await prisma.photo.deleteMany();
   await prisma.payment.deleteMany();
-  await prisma.documento.deleteMany();
+  await prisma.document.deleteMany();
   await prisma.contract.deleteMany();
   await prisma.property.deleteMany();
   await prisma.user.deleteMany();

@@ -67,10 +67,10 @@ model User {
   city   String?
   state  String?
 
-  propertiesOwned     Property[]  @relation("LandlordProperties")
-  contractsAsLandlord Contract[]  @relation("LandlordContracts")
-  contractsAsTenant   Contract[]  @relation("TenantContracts")
-  documents           Documento[]
+  propertiesOwned     Property[] @relation("LandlordProperties")
+  contractsAsLandlord Contract[] @relation("LandlordContracts")
+  contractsAsTenant   Contract[] @relation("TenantContracts")
+  documents           Document[]
   logs                Log[]
 }
 
@@ -94,7 +94,7 @@ model Property {
   landlordId String
   landlord   User       @relation("LandlordProperties", fields: [landlordId], references: [id])
   contracts  Contract[]
-  photos     Foto[]
+  photos     Photo[]
 }
 
 model Contract {
@@ -121,7 +121,7 @@ model Contract {
   tenant   User   @relation("TenantContracts", fields: [tenantId], references: [id])
 
   payments  Payment[]
-  documents Documento[]
+  documents Document[]
 }
 
 model Payment {
@@ -135,7 +135,7 @@ model Payment {
   contract   Contract      @relation(fields: [contractId], references: [id])
 }
 
-model Foto {
+model Photo {
   id          String   @id @default(uuid())
   filePath    String
   description String?
@@ -143,7 +143,7 @@ model Foto {
   property    Property @relation(fields: [propertyId], references: [id])
 }
 
-model Documento {
+model Document {
   id         String       @id @default(uuid())
   type       DocumentType
   filePath   String
