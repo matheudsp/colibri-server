@@ -16,6 +16,8 @@ import { LoggerModule } from './core/logger/logger.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { PropertiesModule } from './modules/properties/properties.module';
 import { ContractsModule } from './modules/contracts/contracts.module';
+import { PaymentsModule } from './modules/payments/payments.module';
+import { QueueModule } from './queue/queue.module';
 
 
 @Module({
@@ -26,11 +28,13 @@ import { ContractsModule } from './modules/contracts/contracts.module';
     SwaggerModule,
     FlagsModule,
     LoggerModule,
+    QueueModule,
     AuthModule,
     UserModule,
     LogModule,
     PropertiesModule,
     ContractsModule,
+    PaymentsModule,
   ],
   providers: [
     {

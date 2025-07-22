@@ -6,9 +6,10 @@ import { PropertiesModule } from '../properties/properties.module';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UserModule } from '../users/users.module';
 import { LogHelperService } from '../logs/log-helper.service';
+import { QueueModule } from 'src/queue/queue.module';
 
 @Module({
-  imports: [PropertiesModule, UserModule],
+  imports: [PropertiesModule, UserModule, QueueModule],
   controllers: [ContractsController],
   providers: [ContractsService, PrismaService, LogHelperService],
 })

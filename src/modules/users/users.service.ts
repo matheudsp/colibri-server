@@ -12,11 +12,16 @@ import { Prisma, type User, type UserRole } from '@prisma/client';
 import * as argon2 from 'argon2';
 import type { CreateUserDto } from './dto/create-user.dto';
 import { LogHelperService } from '../logs/log-helper.service';
+import { Queue } from 'bull';
+import { InjectQueue } from '@nestjs/bull';
+import { ROLES } from 'src/common/constants/roles.constant';
+import { EmailJobType, type NewAccountJob } from 'src/queue/jobs/email.job';
 @Injectable()
 export class UserService {
   constructor(
     private prisma: PrismaService,
     private logHelper: LogHelperService,
+    @InjectQueue('email') private readonly emailQueue: Queue,
   ) {}
 
   private userSafeFields() {
@@ -81,27 +86,31 @@ export class UserService {
   async findOrCreate(data: CreateUserDto, role: UserRole): Promise<User> {
     const { email, cpf, name, password } = data;
 
+    const whereClause: Prisma.UserWhereInput = cpf
+      ? { OR: [{ email }, { cpf }] }
+      : { email };
     const existingUser = await this.prisma.user.findFirst({
-      where: { OR: [{ email }, { cpf }] },
+      where: whereClause,
     });
 
     if (existingUser) {
+      // Se encontrou um usuário com os dados informados, retorna ele
       if (existingUser.email === email || existingUser.cpf === cpf) {
         return existingUser;
       }
-
+      // Se os dados (email/cpf) já existem em contas diferentes, é um conflito
       throw new ConflictException('E-mail ou CPF já associado a outra conta.');
     }
 
-    if (!name || !password || !cpf) {
+    if (!name || !password || !email) {
       throw new BadRequestException(
-        'Para criar um novo usuário, é necessário fornecer nome, CPF e senha.',
+        'Para criar um novo usuário, é necessário fornecer nome, email e senha.',
       );
     }
 
     const hashedPassword = await argon2.hash(password);
 
-    return this.prisma.user.create({
+    const newUser = await this.prisma.user.create({
       data: {
         name,
         email,
@@ -111,6 +120,16 @@ export class UserService {
         status: true,
       },
     });
+
+    const jobPayload: NewAccountJob = {
+      user: { name: newUser.name, email: newUser.email },
+      // Envia a senha em texto plano APENAS se foi o locador que a criou
+      // Se for um auto-registro (via AuthService), o password não deve ser enviado
+      temporaryPassword: role === ROLES.LOCATARIO ? data.password : undefined,
+    };
+    await this.emailQueue.add(EmailJobType.NEW_ACCOUNT, jobPayload);
+
+    return newUser;
   }
 
   async findOne(id: string) {

@@ -1,0 +1,31 @@
+<div>
+  <h2>Olá {{name}},</h2>
+
+  <p>Sua conta no <strong>{{appName}}</strong> foi criada com sucesso! </p>
+   {{#if temporaryPassword}}
+  <ul style="list-style: none; padding: 0;">
+    <p>Seguem suas credenciais de acesso:</p>
+    <li><strong>E‑mail:</strong> {{email}}</li>
+    <li><strong>Senha provisória:</strong> {{temporaryPassword}}</li>
+  </ul>
+  {{/if}}
+  {{#if action}}
+    <p>Para acessar, clique no botão abaixo:</p>
+    <a
+      href="{{action.url}}"
+      style="display: inline-block; padding: 10px 20px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 5px;"
+    >
+      {{action.text}}
+    </a>
+  {{else}}
+    <p>Você pode fazer login diretamente em: <a href="{{loginUrl}}">{{loginUrl}}</a></p>
+  {{/if}}
+  {{#if temporaryPassword}}
+    <p>Recomendamos trocar sua senha após o primeiro acesso.</p>
+  {{/if}}
+  <p>Se tiver qualquer dúvida, entre em contato com <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>.</p>
+
+  <footer style="margin-top: 20px; font-size: 0.9em; color: #666;">
+    <p>© {{currentYear}} {{appName}}. Todos os direitos reservados.</p>
+  </footer>
+</div>

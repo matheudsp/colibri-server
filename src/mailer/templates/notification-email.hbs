@@ -1,0 +1,16 @@
+<div>
+  <h2>Olá {{name}},</h2>
+  <h3>{{notification.title}}</h3>
+  <p>{{notification.message}}</p>
+  {{#if action}}
+    <a
+      href='{{action.url}}'
+      style='padding: 10px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 5px;'
+    >
+      {{action.text}}
+    </a>
+  {{/if}}
+  <footer>
+    <p>© {{currentYear}} {{appName}}. Todos os direitos reservados.</p>
+  </footer>
+</div>

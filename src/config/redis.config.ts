@@ -10,7 +10,7 @@ export const redisConfig = (
     host: configService.get<string>('REDIS_HOST'),
     port: configService.get<number>('REDIS_PORT'),
     password: configService.get<string>('REDIS_PASSWORD'),
-    keyPrefix: configService.get<string>('REDIS_PREFIX', 'fagon:'),
+    keyPrefix: configService.get<string>('REDIS_PREFIX', 'colibri:'),
     tls: configService.get<boolean>('REDIS_TLS') ? {} : undefined,
     retryStrategy: (times: number) => {
       const delay = Math.min(times * 50, 2000);

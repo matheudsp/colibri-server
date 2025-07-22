@@ -9,11 +9,20 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
-import { User, UserRole, PaymentStatus, Prisma } from '@prisma/client';
+import {
+  User,
+  UserRole,
+  PaymentStatus,
+  Prisma,
+  ContractStatus,
+} from '@prisma/client';
 import { PropertiesService } from '../properties/properties.service';
 import { ROLES } from 'src/common/constants/roles.constant';
 import { UserService } from '../users/users.service';
 import { LogHelperService } from '../logs/log-helper.service';
+import { EmailJobType, type NotificationJob } from 'src/queue/jobs/email.job';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 
 @Injectable()
 export class ContractsService {
@@ -22,6 +31,7 @@ export class ContractsService {
     private propertiesService: PropertiesService,
     private userService: UserService,
     private logHelper: LogHelperService,
+    @InjectQueue('email') private emailQueue: Queue,
   ) {}
 
   async create(
@@ -76,24 +86,25 @@ export class ContractsService {
         tenantId: tenant.id,
         startDate,
         endDate,
+        status: ContractStatus.PENDENTE_DOCUMENTACAO,
       },
     });
 
-    const payments: Prisma.PaymentCreateManyInput[] = [];
-    for (let i = 0; i < contract.durationInMonths; i++) {
-      const dueDate = new Date(contract.startDate);
-      dueDate.setMonth(dueDate.getMonth() + i);
-      payments.push({
-        contractId: contract.id,
-        amountDue:
-          contract.rentAmount +
-          (contract.condoFee ?? 0) +
-          (contract.iptuFee ?? 0),
-        dueDate: dueDate,
-        status: PaymentStatus.PENDENTE,
-      });
-    }
-    await this.prisma.payment.createMany({ data: payments });
+    // const payments: Prisma.PaymentCreateManyInput[] = [];
+    // for (let i = 0; i < contract.durationInMonths; i++) {
+    //   const dueDate = new Date(contract.startDate);
+    //   dueDate.setMonth(dueDate.getMonth() + i);
+    //   payments.push({
+    //     contractId: contract.id,
+    //     amountDue:
+    //       contract.rentAmount +
+    //       (contract.condoFee ?? 0) +
+    //       (contract.iptuFee ?? 0),
+    //     dueDate: dueDate,
+    //     status: PaymentStatus.PENDENTE,
+    //   });
+    // }
+    // await this.prisma.payment.createMany({ data: payments });
 
     await this.logHelper.createLog(
       currentUser?.sub,
@@ -101,6 +112,22 @@ export class ContractsService {
       'Contract',
       contract.id,
     );
+
+    if (property && tenant) {
+      const jobPayload: NotificationJob = {
+        user: { email: tenant.email, name: tenant.name },
+        notification: {
+          title: 'Seu contrato de aluguel foi iniciado!',
+          message: `O proprietário do imóvel "${property.title}" iniciou um processo de locação com você. O próximo passo é enviar seus documentos para análise.`,
+        },
+        action: {
+          text: 'Acessar e Enviar Documentos',
+          path: `/contracts/${contract.id}/documents`,
+        },
+      };
+
+      await this.emailQueue.add(EmailJobType.NOTIFICATION, jobPayload);
+    }
 
     return contract;
   }
