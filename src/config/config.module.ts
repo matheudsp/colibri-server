@@ -8,6 +8,9 @@ import { loggerConfig } from './logger.config';
 import { BullModule } from '@nestjs/bull';
 import { bullConfig } from './bull.config';
 import { TerminusModule } from '@nestjs/terminus';
+import { supabaseConfig } from './supabase.config';
+import { SupabaseModule } from 'nestjs-supabase-js';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -26,6 +29,14 @@ import { TerminusModule } from '@nestjs/terminus';
     CacheModule.registerAsync({
       inject: [ConfigService],
       useFactory: cacheConfig,
+    }),
+    SupabaseModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (...args: unknown[]) => {
+        const configService = args[0] as ConfigService;
+        const config = supabaseConfig(configService);
+        return config;
+      },
     }),
     TerminusModule,
   ],
