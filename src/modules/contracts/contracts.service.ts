@@ -55,7 +55,6 @@ export class ContractsService {
 
     const property = await this.propertiesService.findOne(
       propertyId,
-      currentUser,
     );
     if (property.landlordId !== currentUser.sub) {
       throw new UnauthorizedException(

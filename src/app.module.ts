@@ -18,6 +18,7 @@ import { PropertiesModule } from './modules/properties/properties.module';
 import { ContractsModule } from './modules/contracts/contracts.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { QueueModule } from './queue/queue.module';
+import { CondominiumsModule } from './modules/condominiums/condominiums.module';
 
 
 @Module({
@@ -35,6 +36,7 @@ import { QueueModule } from './queue/queue.module';
     PropertiesModule,
     ContractsModule,
     PaymentsModule,
+    CondominiumsModule,
   ],
   providers: [
     {

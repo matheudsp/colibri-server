@@ -73,8 +73,8 @@ export class PropertiesService {
         take: limit,
         where,
         include: {
-          landlord: { select: { name: true, email: true } },
-          photos: true,
+          landlord: { select: { name: true, email: true, phone: true } },
+          photos: { take: 1 },
         },
       }),
       this.prisma.property.count({ where }),
@@ -110,10 +110,8 @@ export class PropertiesService {
         include: {
           property: {
             include: {
-              landlord: { select: { name: true, email: true } },
-              photos: {
-                select: { id: true, filePath: true, description: true },
-              },
+              landlord: { select: { name: true, email: true, phone: true } },
+              photos: { take: 1 },
             },
           },
         },
@@ -134,13 +132,7 @@ export class PropertiesService {
     };
   }
 
-  async findOne(id: string, currentUser?: { role: string }) {
-    if (currentUser?.role === ROLES.LOCATARIO) {
-      throw new ForbiddenException(
-        'Locatários não têm permissão para listar agências',
-      );
-    }
-
+  async findOne(id: string) {
     const property = await this.prisma.property.findUnique({
       where: { id },
       include: {
@@ -160,12 +152,6 @@ export class PropertiesService {
     currentUser: { role: string; sub: string },
   ) {
     const { title, state, city, page = 1, limit = 10 } = params;
-
-    if (currentUser.role === ROLES.LOCATARIO) {
-      throw new ForbiddenException(
-        'Locatários não têm permissão para pesquisar imóveis.',
-      );
-    }
 
     const skip = (page - 1) * limit;
 
@@ -240,7 +226,7 @@ export class PropertiesService {
     const property = await this.findOne(id);
 
     if (
-      property.landlordId !== currentUser.sub &&
+      property.landlordId !== currentUser.sub ||
       currentUser.role !== ROLES.ADMIN
     ) {
       throw new UnauthorizedException(
@@ -248,7 +234,7 @@ export class PropertiesService {
       );
     }
 
-    await this.prisma.property.update({
+    const updatedProperty = await this.prisma.property.update({
       where: { id },
       data: updatePropertyDto,
       select: { id: true },
@@ -257,15 +243,15 @@ export class PropertiesService {
       currentUser?.sub,
       'UPDATE',
       'Property',
-      property.id,
+      updatedProperty.id,
     );
-    return property;
+    return updatedProperty;
   }
 
   async remove(id: string, currentUser: { sub: string; role: string }) {
     const property = await this.findOne(id);
     if (
-      property.landlordId !== currentUser.sub &&
+      property.landlordId !== currentUser.sub ||
       currentUser.role !== ROLES.ADMIN
     ) {
       throw new UnauthorizedException(

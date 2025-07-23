@@ -115,11 +115,8 @@ export class PropertiesController {
     status: 404,
     description: 'Property not found',
   })
-  findOne(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() currentUser: JwtPayload,
-  ) {
-    return this.propertiesService.findOne(id, currentUser);
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.propertiesService.findOne(id);
   }
 
   @Patch(':id')
@@ -142,7 +139,12 @@ export class PropertiesController {
 
   @Delete(':id')
   @Roles(ROLES.ADMIN, ROLES.LOCADOR)
-  remove(@Param('id') id: string, @CurrentUser() currentUser: JwtPayload) {
+  @ApiOperation({ summary: 'Delete a property' })
+  @ApiResponse({ status: 204, description: 'Property deleted' })
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() currentUser: JwtPayload,
+  ) {
     return this.propertiesService.remove(id, currentUser);
   }
 }

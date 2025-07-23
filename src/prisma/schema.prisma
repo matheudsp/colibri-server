@@ -72,34 +72,59 @@ model User {
   city   String?
   state  String?
 
-  propertiesOwned     Property[] @relation("LandlordProperties")
-  contractsAsLandlord Contract[] @relation("LandlordContracts")
-  contractsAsTenant   Contract[] @relation("TenantContracts")
+  condominiums        Condominium[] @relation("LandlordCondominiums")
+  propertiesOwned     Property[]    @relation("LandlordProperties")
+  contractsAsLandlord Contract[]    @relation("LandlordContracts")
+  contractsAsTenant   Contract[]    @relation("TenantContracts")
   documents           Document[]
   logs                Log[]
 }
 
+model Condominium {
+  id   String @id @default(uuid())
+  name String
+
+  cep      String
+  street   String
+  number   String
+  district String
+  city     String
+  state    String
+
+  landlordId String
+  landlord   User   @relation("LandlordCondominiums", fields: [landlordId], references: [id])
+
+  properties Property[]
+}
+
 model Property {
-  id           String  @id @default(uuid())
-  title        String
-  description  String? @db.Text
-  cep          String
-  street       String
-  number       String
-  complement   String?
-  district     String
-  city         String
-  state        String
+  id          String  @id @default(uuid())
+  title       String
+  description String? @db.Text
+
+  cep      String?
+  street   String?
+  district String?
+  city     String?
+  state    String?
+
+  number     String
+  complement String?
+
   areaInM2     Float
   numRooms     Int     @default(0)
   numBathrooms Int     @default(0)
   numParking   Int     @default(0)
   isAvailable  Boolean @default(true)
 
+  condominiumId String?
+  condominium   Condominium? @relation(fields: [condominiumId], references: [id])
+
   landlordId String
-  landlord   User       @relation("LandlordProperties", fields: [landlordId], references: [id])
-  contracts  Contract[]
-  photos     Photo[]
+  landlord   User   @relation("LandlordProperties", fields: [landlordId], references: [id])
+
+  contracts Contract[]
+  photos    Photo[]
 }
 
 model Contract {

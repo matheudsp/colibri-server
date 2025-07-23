@@ -18,13 +18,14 @@ async function main() {
   console.log('🌱 Iniciando o processo de seed...');
 
   console.log('🗑️ Limpando dados existentes...');
-
+  // A ordem de limpeza é importante para respeitar as chaves estrangeiras
   await prisma.log.deleteMany();
   await prisma.photo.deleteMany();
   await prisma.payment.deleteMany();
   await prisma.document.deleteMany();
   await prisma.contract.deleteMany();
   await prisma.property.deleteMany();
+  await prisma.condominium.deleteMany();
   await prisma.user.deleteMany();
   console.log('🗑️ Dados limpos com sucesso.');
 
@@ -65,57 +66,94 @@ async function main() {
   });
   console.log('👤 Usuários criados:', { admin, locador, locatario });
 
-  console.log('🏠 Criando imóvel com fotos...');
-  const property = await prisma.property.create({
+  console.log('🏢 Criando um Condomínio...');
+  const condominioResidencial = await prisma.condominium.create({
     data: {
-      title: 'Apartamento moderno no centro da cidade',
-      description:
-        'Lindo apartamento com 2 quartos, sendo 1 suíte. Cozinha planejada e varanda gourmet.',
-      cep: '01001-000',
-      street: 'Praça da Sé',
-      number: '123',
-      complement: 'Apto 42',
-      district: 'Sé',
+      name: 'Residencial das Flores',
+      cep: '04538-133',
+      street: 'Avenida Brigadeiro Faria Lima',
+      number: '4509',
+      district: 'Itaim Bibi',
       city: 'São Paulo',
       state: 'SP',
-      areaInM2: 75.5,
-      numRooms: 2,
-      numBathrooms: 2,
-      numParking: 1,
-      isAvailable: false,
       landlordId: locador.id,
+    },
+  });
+  console.log('🏢 Condomínio criado:', condominioResidencial);
+
+  console.log('🏠 Criando unidades (Properties) dentro do Condomínio...');
+  const apartamento101 = await prisma.property.create({
+    data: {
+      title: 'Apartamento 2 Quartos com Varanda',
+      description: 'Unidade 101, Bloco A. Sol da manhã.',
+      number: '101',
+      complement: 'Bloco A',
+      areaInM2: 65,
+      numRooms: 2,
+      numBathrooms: 1,
+      numParking: 1,
+      landlordId: locador.id,
+      condominiumId: condominioResidencial.id, // Associando ao condomínio
       photos: {
-        create: [
-          {
-            filePath: '/uploads/properties/apartamento_centro_01.jpg',
-            description: 'Vista da sala de estar',
-          },
-          {
-            filePath: '/uploads/properties/apartamento_centro_02.jpg',
-            description: 'Cozinha com armários',
-          },
-        ],
+        create: [{ filePath: '/uploads/apartamento_101.jpg' }],
       },
     },
   });
-  console.log('🏠 Imóvel criado:', property);
 
-  console.log('✍️ Criando contrato de aluguel...');
+  const apartamento202 = await prisma.property.create({
+    data: {
+      title: 'Apartamento 3 Quartos (Cobertura)',
+      description: 'Unidade 202, Bloco B. Cobertura com área gourmet.',
+      number: '202',
+      complement: 'Bloco B',
+      areaInM2: 120,
+      numRooms: 3,
+      numBathrooms: 2,
+      numParking: 2,
+      isAvailable: false, // Marcando como indisponível
+      landlordId: locador.id,
+      condominiumId: condominioResidencial.id, // Associando ao condomínio
+    },
+  });
+  console.log('🏠 Unidades do condomínio criadas.');
+
+  console.log('🏡 Criando uma propriedade avulsa (Casa)...');
+  const casaDeRua = await prisma.property.create({
+    data: {
+      title: 'Casa Espaçosa com Quintal',
+      description: 'Ótima casa em rua tranquila, ideal para famílias.',
+      // Endereço completo, pois não tem condomínio
+      cep: '05407-002',
+      street: 'Rua dos Pinheiros',
+      number: '1500',
+      district: 'Pinheiros',
+      city: 'São Paulo',
+      state: 'SP',
+      areaInM2: 150,
+      numRooms: 3,
+      numBathrooms: 2,
+      numParking: 2,
+      landlordId: locador.id,
+      condominiumId: null, // Não pertence a um condomínio
+    },
+  });
+  console.log('🏡 Casa avulsa criada:', casaDeRua);
+
+  console.log('✍️ Criando contrato de aluguel para o Apto 202...');
   const hoje = new Date();
   const contract = await prisma.contract.create({
     data: {
-      propertyId: property.id,
+      propertyId: apartamento202.id, // Usando a cobertura que já está alugada
       landlordId: locador.id,
       tenantId: locatario.id,
       status: 'ATIVO',
-      rentAmount: 2500.0,
-      condoFee: 500.0,
-      iptuFee: 150.0,
-      durationInMonths: 30,
-      guaranteeType: 'DEPOSITO_CAUCAO',
-      securityDeposit: 5000.0,
+      rentAmount: 4500.0,
+      condoFee: 800.0,
+      iptuFee: 300.0,
+      durationInMonths: 24,
+      guaranteeType: 'SEGURO_FIANCA',
       startDate: hoje,
-      endDate: new Date(new Date().setMonth(hoje.getMonth() + 30)),
+      endDate: new Date(new Date().setMonth(hoje.getMonth() + 24)),
     },
   });
   console.log('✍️ Contrato criado:', contract);
@@ -126,7 +164,7 @@ async function main() {
   for (let i = 0; i < 12; i++) {
     const dueDate = new Date(hoje);
     dueDate.setMonth(dueDate.getMonth() + i);
-    dueDate.setDate(5);
+    dueDate.setDate(10); // Vencimento dia 10
 
     payments.push({
       contractId: contract.id,
@@ -135,8 +173,8 @@ async function main() {
         (contract.condoFee ?? 0) +
         (contract.iptuFee ?? 0),
       dueDate: dueDate,
-      status: i < 2 ? PaymentStatus.PAGO : PaymentStatus.PENDENTE,
-      paidAt: i < 2 ? dueDate : undefined,
+      status: i < 3 ? PaymentStatus.PAGO : PaymentStatus.PENDENTE, // 3 primeiros pagos
+      paidAt: i < 3 ? dueDate : undefined,
     });
   }
   await prisma.payment.createMany({ data: payments });
