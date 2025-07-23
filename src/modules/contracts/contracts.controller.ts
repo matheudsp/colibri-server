@@ -119,6 +119,17 @@ export class ContractsController {
     return this.contractsService.update(id, updateContractDto, currentUser);
   }
 
+  @Patch(':id/activate')
+  @Roles(ROLES.LOCADOR, ROLES.ADMIN)
+  @ApiOperation({ summary: 'Activate a contract and generate payments' })
+  @ApiResponse({ status: 200, type: ContractResponseDto })
+  activate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() currentUser: JwtPayload,
+  ) {
+    return this.contractsService.activateContract(id, currentUser);
+  }
+
   @Delete(':id')
   @Roles(ROLES.ADMIN, ROLES.LOCADOR)
   @ApiOperation({ summary: 'Delete an contract' })

@@ -6,6 +6,8 @@ import {
   UploadedFile,
   UseInterceptors,
   Body,
+  Get,
+  Patch,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -25,6 +27,8 @@ import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { Roles } from 'src/common/decorator/roles.decorator';
 import { ROLES } from 'src/common/constants/roles.constant';
 import { CreateDocumentDto } from './dto/create-document.dto';
+import { DocumentResponseDto } from './dto/response-document.dto';
+import type { UpdateDocumentStatusDto } from './dto/update-document-status.dto';
 
 @ApiTags('Documents')
 @RequireAuth()
@@ -49,6 +53,33 @@ export class DocumentsController {
       currentUser,
       file,
       createDocumentDto.type,
+    );
+  }
+
+  @Get('contracts/:contractId/documents')
+  @Roles(ROLES.LOCATARIO, ROLES.LOCADOR, ROLES.ADMIN)
+  @ApiOperation({ summary: 'List all documents for a specific contract' })
+  @ApiResponse({ status: 200, type: [DocumentResponseDto] })
+  findByContract(
+    @Param('contractId', ParseUUIDPipe) contractId: string,
+    @CurrentUser() currentUser: JwtPayload,
+  ) {
+    return this.documentsService.findByContract(contractId, currentUser);
+  }
+
+  @Patch('documents/:documentId/status')
+  @Roles(ROLES.LOCADOR, ROLES.ADMIN)
+  @ApiOperation({ summary: 'Update the status of a document (Approve/Reject)' })
+  @ApiResponse({ status: 200, type: DocumentResponseDto })
+  updateStatus(
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+    @CurrentUser() currentUser: JwtPayload,
+    @Body() updateStatusDto: UpdateDocumentStatusDto,
+  ) {
+    return this.documentsService.updateStatus(
+      documentId,
+      updateStatusDto.status,
+      currentUser,
     );
   }
 }

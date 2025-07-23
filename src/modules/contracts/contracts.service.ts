@@ -53,9 +53,7 @@ export class ContractsService {
       ...contractData
     } = createContractDto;
 
-    const property = await this.propertiesService.findOne(
-      propertyId,
-    );
+    const property = await this.propertiesService.findOne(propertyId);
     if (property.landlordId !== currentUser.sub) {
       throw new UnauthorizedException(
         'Você não é o proprietário deste imóvel.',
@@ -88,22 +86,6 @@ export class ContractsService {
         status: ContractStatus.PENDENTE_DOCUMENTACAO,
       },
     });
-
-    // const payments: Prisma.PaymentCreateManyInput[] = [];
-    // for (let i = 0; i < contract.durationInMonths; i++) {
-    //   const dueDate = new Date(contract.startDate);
-    //   dueDate.setMonth(dueDate.getMonth() + i);
-    //   payments.push({
-    //     contractId: contract.id,
-    //     amountDue:
-    //       contract.rentAmount +
-    //       (contract.condoFee ?? 0) +
-    //       (contract.iptuFee ?? 0),
-    //     dueDate: dueDate,
-    //     status: PaymentStatus.PENDENTE,
-    //   });
-    // }
-    // await this.prisma.payment.createMany({ data: payments });
 
     await this.logHelper.createLog(
       currentUser?.sub,
@@ -170,6 +152,53 @@ export class ContractsService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  async activateContract(
+    contractId: string,
+    currentUser: { role: string; sub: string },
+  ) {
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+    });
+
+    if (!contract) {
+      throw new NotFoundException('Contrato não encontrado.');
+    }
+
+    if (
+      contract.landlordId !== currentUser.sub &&
+      currentUser.role !== ROLES.ADMIN
+    ) {
+      throw new ForbiddenException(
+        'Apenas o locador pode ativar este contrato.',
+      );
+    }
+
+    if (contract.status !== ContractStatus.EM_ANALISE) {
+      throw new BadRequestException(
+        `O contrato não pode ser ativado pois seu status é "${contract.status}".`,
+      );
+    }
+
+    const updatedContract = await this.prisma.contract.update({
+      where: { id: contractId },
+      data: { status: ContractStatus.ATIVO },
+    });
+
+    await this.generatePaymentsForContract(contractId);
+
+    await this.logHelper.createLog(
+      currentUser.sub,
+      'ACTIVATE',
+      'Contract',
+      contractId,
+    );
+
+    // Notificar o locatário que o contrato está ativo utilizando template de notificacao
+    // Enfileirar email
+
+    return updatedContract;
   }
 
   async findOne(id: string, currentUser: { sub: string; role: string }) {
@@ -239,5 +268,40 @@ export class ContractsService {
       contract.id,
     );
     return { message: 'Contrato removido com sucesso.' };
+  }
+
+  private async generatePaymentsForContract(contractId: string) {
+    const existingPayments = await this.prisma.payment.count({
+      where: { contractId },
+    });
+
+    if (existingPayments > 0) {
+      // Pagamentos já existem, não gerar novamente
+      return;
+    }
+
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+    });
+
+    if (!contract) return;
+
+    const payments: Prisma.PaymentCreateManyInput[] = [];
+    for (let i = 0; i < contract.durationInMonths; i++) {
+      const dueDate = new Date(contract.startDate);
+      dueDate.setMonth(dueDate.getMonth() + i);
+
+      payments.push({
+        contractId: contract.id,
+        amountDue:
+          contract.rentAmount +
+          (contract.condoFee ?? 0) +
+          (contract.iptuFee ?? 0),
+        dueDate: dueDate,
+        status: PaymentStatus.PENDENTE,
+      });
+    }
+
+    await this.prisma.payment.createMany({ data: payments });
   }
 }
