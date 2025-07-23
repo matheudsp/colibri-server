@@ -32,15 +32,17 @@ import { CacheKey, CacheTTL } from '@nestjs/cache-manager';
 import { CondominiumResponseDto } from './dto/response-condominium.dto';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { PropertyResponseDto } from '../properties/dto/response-property.dto';
+import { Public } from 'src/common/decorator/public.decorator';
+import type { SearchCondominiumDto } from './dto/search-condominium.dto';
 
 @ApiTags('Condominiums')
-@ApiBearerAuth()
-@RequireAuth()
 @Controller('condominiums')
 export class CondominiumsController {
   constructor(private readonly condominiumsService: CondominiumsService) {}
 
   @Post()
+  @ApiBearerAuth()
+  @RequireAuth()
   @Roles(ROLES.ADMIN, ROLES.LOCADOR)
   @ApiOperation({ summary: 'Create a new condominium' })
   @ApiResponse({
@@ -56,15 +58,12 @@ export class CondominiumsController {
     return this.condominiumsService.create(createPropertyDto, currentUser);
   }
 
-  @Get()
-  @CacheKey('condominiums_all')
-  @CacheTTL(30)
-  @ApiOperation({ summary: 'List all condominiums' })
-  @ApiResponse({
-    status: 200,
-    type: [CondominiumResponseDto],
-    description: 'List of condominiums',
-  })
+  @Get('public')
+  @Public()
+  @CacheKey('condominiums_public_all')
+  @CacheTTL(60)
+  @ApiOperation({ summary: 'List all condominiums with available properties' })
+  @ApiResponse({ status: 200, type: [CondominiumResponseDto] })
   @ApiQuery({
     name: 'page',
     required: false,
@@ -75,29 +74,63 @@ export class CondominiumsController {
     required: false,
     description: 'Number of items per page',
   })
-  findAll(
+  findAvailable(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    return this.condominiumsService.findAvailable({ page, limit });
+  }
+
+  @Get()
+  @RequireAuth()
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List condominiums for the logged-in user' })
+  @ApiResponse({ status: 200, type: [CondominiumResponseDto] })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    description: 'Page number for pagination',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Number of items per page',
+  })
+  findUserCondominiums(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
     @CurrentUser() currentUser: JwtPayload,
   ) {
-    return this.condominiumsService.findAll({ page, limit }, currentUser);
+    return this.condominiumsService.findUserCondominiums(
+      { page, limit },
+      currentUser,
+    );
   }
 
-  // @Get('search')
-  // @ApiOperation({ summary: 'Search condominiums with filters' })
-  // @ApiResponse({
-  //   status: 200,
-  //   type: [PropertyCondominiumDto],
-  //   description: 'Search results',
-  // })
-  // search(
-  //   @Query() searchParams: SearchCondominiumDto,
-  //   @CurrentUser() currentUser: JwtPayload,
-  // ) {
-  //   return this.condominiumsService.search(searchParams, currentUser);
-  // }
+  @Get('public/search')
+  @Public()
+  @ApiOperation({ summary: 'Publicly search for condominiums with filters' })
+  @ApiResponse({ status: 200, type: [CondominiumResponseDto] })
+  publicSearch(@Query() searchParams: SearchCondominiumDto) {
+    return this.condominiumsService.publicSearch(searchParams);
+  }
+
+  @Get('search')
+  @RequireAuth()
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Search within your own condominiums (for Admins and Landlords)',
+  })
+  @ApiResponse({ status: 200, type: [CondominiumResponseDto] })
+  search(
+    @Query() searchParams: SearchCondominiumDto,
+    @CurrentUser() currentUser: JwtPayload,
+  ) {
+    return this.condominiumsService.search(searchParams, currentUser);
+  }
 
   @Get(':id/properties')
+  @Public()
   @ApiOperation({
     summary: 'List all properties within a specific condominium',
   })
@@ -118,10 +151,14 @@ export class CondominiumsController {
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
   ) {
-    return this.condominiumsService.findProperties(id, { page, limit });
+    return this.condominiumsService.findPropertiesByCondominium(id, {
+      page,
+      limit,
+    });
   }
 
   @Get(':id')
+  @Public()
   @ApiOperation({ summary: 'Get a condominium by ID' })
   @ApiParam({ name: 'id', description: 'Condominium UUID' })
   @ApiResponse({

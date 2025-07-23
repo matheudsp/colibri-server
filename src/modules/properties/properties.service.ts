@@ -49,22 +49,63 @@ export class PropertiesService {
     return property;
   }
 
-  async findAll(
+  async findAvailable({ page, limit }: { page: number; limit: number }) {
+    const skip = (page - 1) * limit;
+    const where: Prisma.PropertyWhereInput = { isAvailable: true };
+
+    const [properties, total] = await this.prisma.$transaction([
+      this.prisma.property.findMany({
+        skip,
+        take: limit,
+        where,
+        include: {
+          landlord: { select: { name: true, email: true, phone: true } },
+          photos: { take: 1 },
+        },
+      }),
+      this.prisma.property.count({ where }),
+    ]);
+
+    return {
+      data: properties,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async findUserProperties(
     { page, limit }: { page: number; limit: number },
     currentUser: { sub: string; role: string },
   ) {
-    if (currentUser.role === ROLES.LOCATARIO) {
-      throw new ForbiddenException(
-        'Locatários não têm permissão para listar todos os imóveis.',
-      );
-    }
-
     const skip = (page - 1) * limit;
-    const where: Prisma.PropertyWhereInput = {};
+    let where: Prisma.PropertyWhereInput = {};
 
-    // Se o usuário não for ADMIN, filtre pelo ID do locador
-    if (currentUser.role !== ROLES.ADMIN) {
-      where.landlordId = currentUser.sub;
+    if (currentUser.role === ROLES.LOCADOR) {
+      where = { landlordId: currentUser.sub };
+    } else if (currentUser.role === ROLES.LOCATARIO) {
+      where = {
+        contracts: {
+          some: {
+            tenantId: currentUser.sub,
+            status: {
+              in: [
+                ContractStatus.ATIVO,
+                ContractStatus.PENDENTE_DOCUMENTACAO,
+                ContractStatus.EM_ANALISE,
+                ContractStatus.AGUARDANDO_ASSINATURAS,
+              ],
+            },
+          },
+        },
+      };
+    } else if (currentUser.role !== ROLES.ADMIN) {
+      throw new ForbiddenException(
+        'Você não tem permissão para visualizar estas propriedades.',
+      );
     }
 
     const [properties, total] = await this.prisma.$transaction([
@@ -91,35 +132,74 @@ export class PropertiesService {
     };
   }
 
-  async findRentedByUser(
-    { page, limit }: { page: number; limit: number },
-    currentUser: { sub: string },
-  ) {
+  async findOne(id: string) {
+    const property = await this.prisma.property.findUnique({
+      where: { id },
+      include: {
+        landlord: { select: { name: true, email: true, phone: true } },
+        photos: true,
+      },
+    });
+
+    if (!property) {
+      throw new NotFoundException(`Imóvel com ID "${id}" não encontrado.`);
+    }
+    return property;
+  }
+
+  async publicSearch(params: Partial<SearchPropertyDto>) {
+    const { title, state, city, page = 1, limit = 10 } = params;
+
     const skip = (page - 1) * limit;
 
-    const where: Prisma.ContractWhereInput = {
-      tenantId: currentUser.sub,
-      status: ContractStatus.ATIVO,
+    const where: Prisma.PropertyWhereInput = {
+      isAvailable: true,
+      AND: [],
     };
 
-    const [contracts, total] = await this.prisma.$transaction([
-      this.prisma.contract.findMany({
+    const searchConditions: Prisma.PropertyWhereInput[] = [];
+
+    if (title) {
+      searchConditions.push({
+        title: {
+          contains: title,
+          mode: 'insensitive',
+        },
+      });
+    }
+    if (state) {
+      searchConditions.push({
+        state: {
+          equals: state,
+          mode: 'insensitive',
+        },
+      });
+    }
+    if (city) {
+      searchConditions.push({
+        city: {
+          contains: city,
+          mode: 'insensitive',
+        },
+      });
+    }
+
+    if (searchConditions.length > 0) {
+      (where.AND as Prisma.PropertyWhereInput[]).push({ OR: searchConditions });
+    }
+
+    const [properties, total] = await Promise.all([
+      this.prisma.property.findMany({
+        where,
         skip,
         take: limit,
-        where,
         include: {
-          property: {
-            include: {
-              landlord: { select: { name: true, email: true, phone: true } },
-              photos: { take: 1 },
-            },
-          },
+          landlord: { select: { name: true, email: true } },
+          photos: { take: 1 },
         },
       }),
-      this.prisma.contract.count({ where }),
+      this.prisma.property.count({ where }),
     ]);
-
-    const properties = contracts.map((contract) => contract.property);
 
     return {
       data: properties,
@@ -130,21 +210,6 @@ export class PropertiesService {
         totalPages: Math.ceil(total / limit),
       },
     };
-  }
-
-  async findOne(id: string) {
-    const property = await this.prisma.property.findUnique({
-      where: { id },
-      include: {
-        landlord: { select: { name: true, email: true } },
-        photos: true,
-      },
-    });
-
-    if (!property) {
-      throw new NotFoundException(`Imóvel com ID "${id}" não encontrado.`);
-    }
-    return property;
   }
 
   async search(
@@ -200,7 +265,7 @@ export class PropertiesService {
         skip,
         take: limit,
         include: {
-          landlord: { select: { name: true, email: true } },
+          landlord: { select: { name: true, email: true, phone: true } },
           photos: true,
         },
       }),
@@ -226,7 +291,7 @@ export class PropertiesService {
     const property = await this.findOne(id);
 
     if (
-      property.landlordId !== currentUser.sub ||
+      property.landlordId !== currentUser.sub &&
       currentUser.role !== ROLES.ADMIN
     ) {
       throw new UnauthorizedException(
@@ -251,7 +316,7 @@ export class PropertiesService {
   async remove(id: string, currentUser: { sub: string; role: string }) {
     const property = await this.findOne(id);
     if (
-      property.landlordId !== currentUser.sub ||
+      property.landlordId !== currentUser.sub &&
       currentUser.role !== ROLES.ADMIN
     ) {
       throw new UnauthorizedException(

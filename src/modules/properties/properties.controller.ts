@@ -32,15 +32,16 @@ import { CacheKey, CacheTTL } from '@nestjs/cache-manager';
 import { PropertyResponseDto } from './dto/response-property.dto';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { SearchPropertyDto } from './dto/search-property.dto';
+import { Public } from 'src/common/decorator/public.decorator';
 
 @ApiTags('Properties')
-@ApiBearerAuth()
-@RequireAuth()
 @Controller('properties')
 export class PropertiesController {
   constructor(private readonly propertiesService: PropertiesService) {}
 
   @Post()
+  @ApiBearerAuth()
+  @RequireAuth()
   @ApiOperation({ summary: 'Create a new property' })
   @ApiResponse({
     status: 201,
@@ -56,10 +57,11 @@ export class PropertiesController {
     return this.propertiesService.create(createPropertyDto, currentUser);
   }
 
-  @Get()
-  @CacheKey('properties_all')
-  @CacheTTL(30)
-  @ApiOperation({ summary: 'List all properties' })
+  @Get('public')
+  @Public()
+  @CacheKey('properties_public_all')
+  @CacheTTL(60)
+  @ApiOperation({ summary: 'List all available properties for rent' })
   @ApiResponse({
     status: 200,
     type: [PropertyResponseDto],
@@ -75,22 +77,59 @@ export class PropertiesController {
     required: false,
     description: 'Number of items per page',
   })
-  findAll(
+  findAvailable(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    return this.propertiesService.findAvailable({ page, limit });
+  }
+
+  @Get()
+  @RequireAuth()
+  @ApiBearerAuth()
+  // @CacheKey('user_properties')
+  // @CacheTTL(30)
+  @ApiOperation({ summary: 'List properties for the logged-in user' })
+  @ApiResponse({ status: 200, type: [PropertyResponseDto] })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    description: 'Page number for pagination',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Number of items per page',
+  })
+  findUserProperties(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
     @CurrentUser() currentUser: JwtPayload,
   ) {
-    if (currentUser.role === ROLES.LOCATARIO) {
-      return this.propertiesService.findRentedByUser(
-        { page, limit },
-        currentUser,
-      );
-    }
-    return this.propertiesService.findAll({ page, limit }, currentUser);
+    return this.propertiesService.findUserProperties(
+      { page, limit },
+      currentUser,
+    );
+  }
+
+  @Get('public/search')
+  @Public()
+  @ApiOperation({ summary: 'Search available properties with filters' })
+  @ApiResponse({
+    status: 200,
+    type: [PropertyResponseDto],
+    description: 'Search results of available properties',
+  })
+  publicSearch(@Query() searchParams: SearchPropertyDto) {
+    return this.propertiesService.publicSearch(searchParams);
   }
 
   @Get('search')
-  @ApiOperation({ summary: 'Search agencies with filters' })
+  @RequireAuth()
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Search within your own properties (for Admins and Landlords)',
+  })
   @ApiResponse({
     status: 200,
     type: [PropertyResponseDto],
@@ -104,6 +143,7 @@ export class PropertiesController {
   }
 
   @Get(':id')
+  @Public()
   @ApiOperation({ summary: 'Get an property by ID' })
   @ApiParam({ name: 'id', description: 'Property UUID' })
   @ApiResponse({
@@ -120,6 +160,8 @@ export class PropertiesController {
   }
 
   @Patch(':id')
+  @RequireAuth()
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update an property' })
   @ApiParam({ name: 'id', description: 'Property UUID' })
   @ApiBody({ type: UpdatePropertyDto })

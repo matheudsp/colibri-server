@@ -10,6 +10,7 @@ import type { CreateCondominiumDto } from './dto/create-condominium.dto';
 import { ROLES } from 'src/common/constants/roles.constant';
 import type { Prisma } from '@prisma/client';
 import type { UpdateCondominiumDto } from './dto/update-condominium.dto';
+import type { SearchCondominiumDto } from './dto/search-condominium.dto';
 
 @Injectable()
 export class CondominiumsService {
@@ -47,16 +48,71 @@ export class CondominiumsService {
     return condominium;
   }
 
-  async findAll(
+  async findAvailable({
+    page = 1,
+    limit = 10,
+  }: {
+    page: number;
+    limit: number;
+  }) {
+    const skip = (page - 1) * limit;
+    const where: Prisma.CondominiumWhereInput = {
+      properties: {
+        some: {
+          isAvailable: true,
+        },
+      },
+    };
+
+    const [condominiums, total] = await this.prisma.$transaction([
+      this.prisma.condominium.findMany({
+        skip,
+        take: limit,
+        where,
+        include: {
+          _count: {
+            select: { properties: { where: { isAvailable: true } } },
+          },
+          landlord: { select: { name: true, email: true } },
+        },
+      }),
+      this.prisma.condominium.count({ where }),
+    ]);
+
+    return {
+      data: condominiums,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async findUserCondominiums(
     { page = 1, limit = 10 }: { page: number; limit: number },
     currentUser: { role: string; sub: string },
   ) {
     const skip = (page - 1) * limit;
-    const where: Prisma.CondominiumWhereInput = {};
+    let where: Prisma.CondominiumWhereInput = {};
 
-    // Se o usuário for LOCADOR, filtra pelos condomínios do locador
     if (currentUser.role === ROLES.LOCADOR) {
-      where.landlordId = currentUser.sub;
+      where = { landlordId: currentUser.sub };
+    } else if (currentUser.role === ROLES.LOCATARIO) {
+      where = {
+        properties: {
+          some: {
+            contracts: {
+              some: {
+                tenantId: currentUser.sub,
+              },
+            },
+          },
+        },
+      };
+    } else if (currentUser.role !== ROLES.ADMIN) {
+      throw new ForbiddenException('Acesso não permitido.');
     }
 
     const [condominiums, total] = await this.prisma.$transaction([
@@ -83,11 +139,10 @@ export class CondominiumsService {
     };
   }
 
-  async findProperties(
+  async findPropertiesByCondominium(
     condominiumId: string,
     { page = 1, limit = 10 }: { page: number; limit: number },
   ) {
-    // 1. Primeiro, verifica se o usuário tem permissão para ver o condomínio
     await this.findOne(condominiumId);
 
     const skip = (page - 1) * limit;
@@ -116,6 +171,98 @@ export class CondominiumsService {
         limit,
         totalPages: Math.ceil(total / limit),
       },
+    };
+  }
+  async publicSearch(params: Partial<SearchCondominiumDto>) {
+    const { name, state, city, page = 1, limit = 10 } = params;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.CondominiumWhereInput = {
+      properties: { some: { isAvailable: true } },
+      AND: [],
+    };
+
+    const searchConditions: Prisma.CondominiumWhereInput[] = [];
+
+    if (name) {
+      searchConditions.push({ name: { contains: name, mode: 'insensitive' } });
+    }
+    if (state) {
+      searchConditions.push({ state: { equals: state, mode: 'insensitive' } });
+    }
+    if (city) {
+      searchConditions.push({ city: { contains: city, mode: 'insensitive' } });
+    }
+
+    if (searchConditions.length > 0) {
+      (where.AND as Prisma.CondominiumWhereInput[]).push({
+        OR: searchConditions,
+      });
+    }
+
+    const [condominiums, total] = await this.prisma.$transaction([
+      this.prisma.condominium.findMany({
+        where,
+        skip,
+        take: limit,
+        include: {
+          landlord: { select: { name: true } },
+          _count: {
+            select: { properties: { where: { isAvailable: true } } },
+          },
+        },
+      }),
+      this.prisma.condominium.count({ where }),
+    ]);
+
+    return {
+      data: condominiums,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  async search(
+    params: Partial<SearchCondominiumDto>,
+    currentUser: { role: string; sub: string },
+  ) {
+    const { name, state, city, page = 1, limit = 10 } = params;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.CondominiumWhereInput = {};
+
+    if (currentUser.role === ROLES.LOCADOR) {
+      where.landlordId = currentUser.sub;
+    } else if (currentUser.role !== ROLES.ADMIN) {
+      // Locatários não têm uma rota de busca de condomínios por padrão,
+      // Por enquanto, apenas locadores e admins podem usar a busca privada.
+      throw new ForbiddenException('Acesso não permitido.');
+    }
+
+    const searchConditions: Prisma.CondominiumWhereInput[] = [];
+    if (name)
+      searchConditions.push({ name: { contains: name, mode: 'insensitive' } });
+    if (state)
+      searchConditions.push({ state: { equals: state, mode: 'insensitive' } });
+    if (city)
+      searchConditions.push({ city: { contains: city, mode: 'insensitive' } });
+
+    if (searchConditions.length > 0) {
+      where.AND = searchConditions;
+    }
+
+    const [condominiums, total] = await this.prisma.$transaction([
+      this.prisma.condominium.findMany({
+        where,
+        skip,
+        take: limit,
+        include: { landlord: { select: { name: true } } },
+      }),
+      this.prisma.condominium.count({ where }),
+    ]);
+
+    return {
+      data: condominiums,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
 
