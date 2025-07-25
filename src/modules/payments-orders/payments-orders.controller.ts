@@ -23,7 +23,7 @@ import { Roles } from 'src/common/decorator/roles.decorator';
 import { ROLES } from 'src/common/constants/roles.constant';
 import { PaymentResponseDto } from './dto/response-payment.dto';
 import { RegisterPaymentDto } from './dto/register-payment.dto';
-import { GeneratePaymentDto } from './dto/generate-payment.dto';
+import { GenerateBoletoDto } from './dto/generate-boleto.dto';
 
 @Controller('payments')
 @RequireAuth()
@@ -60,9 +60,9 @@ export class PaymentsOrdersController {
   // }
 
   @Post('generate')
-  @ApiOperation({ summary: 'Gerar boleto para um contrato e data' })
-  @ApiBody({ type: GeneratePaymentDto })
-  async generateBoleto(@Body() generatePaymentDto: GeneratePaymentDto) {
+  @ApiOperation({ summary: 'Gerar boleto para um contrato' })
+  @ApiBody({ type: GenerateBoletoDto })
+  async generateBoleto(@Body() generatePaymentDto: GenerateBoletoDto) {
     return this.paymentsService.generateMonthlyBoleto(generatePaymentDto);
   }
 

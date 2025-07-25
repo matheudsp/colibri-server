@@ -209,6 +209,61 @@ export class UserService {
     return newGatewayCustomer.id;
   }
 
+  /**
+   * Encontra um locatário existente pelo email ou cria um novo.
+   * A decisão é baseada na presença do campo 'password'.
+   * @param data - Dados do locatário (email, cpf, nome, senha, telefone).
+   * @param creatorRole - A role do usuário que está criando o locatário (ex: LOCADOR).
+   * @returns O usuário encontrado ou recém-criado.
+   */
+  async findOrCreateTenant(
+    data: {
+      email: string;
+      cpfCnpj?: string;
+      name?: string;
+      password?: string;
+      phone?: string;
+    },
+    creatorRole: UserRole,
+  ): Promise<User> {
+    if (data.password) {
+      if (!data.name || !data.cpfCnpj) {
+        throw new BadRequestException(
+          'Para criar um novo locatário, é necessário fornecer nome, CPF, telefone e senha.',
+        );
+      }
+
+      const createUserData: CreateUserDto = {
+        email: data.email,
+        name: data.name,
+        cpfCnpj: data.cpfCnpj,
+        password: data.password,
+        phone: data.phone,
+      };
+
+      return this.create(createUserData, ROLES.LOCATARIO, creatorRole);
+    } else {
+      if (!data.cpfCnpj) {
+        throw new BadRequestException(
+          'Para associar um locatário existente, o CPF/CNPJ é obrigatório.',
+        );
+      }
+      const user = await this.prisma.user.findFirst({
+        where: {
+          OR: [{ email: data.email }, { cpfCnpj: data.cpfCnpj }],
+        },
+      });
+
+      if (!user) {
+        throw new NotFoundException(
+          `Nenhum locatário encontrado com o email ou CPF/CNPJ fornecido. Para cadastrá-lo, forneça também nome, telefone e uma senha.`,
+        );
+      }
+
+      return user;
+    }
+  }
+
   private async validateUserExists(id: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) {

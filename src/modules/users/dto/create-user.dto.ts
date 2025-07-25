@@ -30,8 +30,8 @@ export class CreateUserDto {
 
   @ApiProperty({ example: '11999998888' })
   @IsString()
-  @IsNotEmpty()
-  phone: string;
+  @IsOptional()
+  phone?: string;
 
   @Expose()
   @ApiProperty({

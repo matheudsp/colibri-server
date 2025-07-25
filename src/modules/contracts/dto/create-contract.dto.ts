@@ -38,12 +38,12 @@ export class CreateContractDto {
 
   @ApiProperty({
     required: false,
-    description: 'CPF do locatário. Obrigatório se o usuário não existir.',
+    description: 'CPF/CNPJ do locatário. Obrigatório se o usuário não existir.',
   })
   @IsString()
   @ValidateIf((o) => o.tenantPassword)
   @IsNotEmpty()
-  tenantCpf!: string;
+  tenantCpfCnpj!: string;
 
   @ApiProperty({
     required: false,
@@ -59,6 +59,15 @@ export class CreateContractDto {
   @IsEnum(ContractStatus)
   @IsOptional()
   status!: ContractStatus;
+
+  @ApiProperty({
+    required: false,
+    description: 'Telefone do locatário',
+  })
+  @IsString()
+  @ValidateIf((o) => o.tenantPassword)
+  @IsOptional()
+  tenantPhone?: string;
 
   @ApiProperty() @IsNumber() @Min(0) rentAmount: number;
   @ApiProperty({ required: false })

@@ -10,6 +10,7 @@ import { bullConfig } from './bull.config';
 import { TerminusModule } from '@nestjs/terminus';
 import { supabaseConfig } from './supabase.config';
 import { SupabaseModule } from 'nestjs-supabase-js';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { SupabaseModule } from 'nestjs-supabase-js';
       },
     }),
     TerminusModule,
+    ScheduleModule.forRoot(),
   ],
   providers: [],
   exports: [

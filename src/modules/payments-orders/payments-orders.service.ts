@@ -12,7 +12,7 @@ import { PaymentStatus } from '@prisma/client';
 import { RegisterPaymentDto } from './dto/register-payment.dto';
 import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.service';
 import { UserService } from '../users/users.service';
-import type { GeneratePaymentDto } from './dto/generate-payment.dto';
+import type { GenerateBoletoDto } from './dto/generate-boleto.dto';
 import { startOfDay, endOfDay } from 'date-fns';
 import { DateUtils } from 'src/common/utils/date.utils';
 
@@ -50,7 +50,7 @@ export class PaymentsOrdersService {
     });
   }
 
-  async generateMonthlyBoleto({ contractId, dueDate }: GeneratePaymentDto) {
+  async generateMonthlyBoleto({ contractId, dueDate }: GenerateBoletoDto) {
     const targetDate = new Date(dueDate);
     if (isNaN(targetDate.getTime())) {
       throw new BadRequestException('Formato de data inválido.');
