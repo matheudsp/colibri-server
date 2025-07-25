@@ -83,11 +83,15 @@ export class BankAccountsService {
             asaasAccountData,
           );
 
-        await this.prisma.subAccount.update({
-          where: { id: user.id },
-          data: { asaasAccountId: asaasAccount.id },
+        await this.prisma.subAccount.create({
+          data: {
+            user: {
+              connect: { id: user.id },
+            },
+            asaasAccountId: asaasAccount.id,
+            apiKey: asaasAccount.apiKey,
+          },
         });
-
         walletId = asaasAccount.walletId;
 
         this.logger.log(

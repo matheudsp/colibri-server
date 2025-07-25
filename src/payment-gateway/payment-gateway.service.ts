@@ -203,4 +203,40 @@ export class PaymentGatewayService {
       throw new BadRequestException(error.response?.data || 'Erro no Asaas');
     }
   }
+
+  async deleteSubAccount(
+    apiKey: string,
+    asaasSubAccountId: string,
+  ): Promise<any> {
+    const removeReason = `Conta excluída da plataforma`;
+    const endpoint = `${this.asaasApiUrl}/myAccount/?${removeReason}`;
+    try {
+      this.logger.log(`Remover subconta: ${asaasSubAccountId}`);
+
+      const response = await firstValueFrom(
+        this.httpService.delete(endpoint, {
+          headers: {
+            'Content-Type': 'application/json',
+            access_token: apiKey,
+          },
+        }),
+      );
+
+      this.logger.log(
+        `Subconta removida com sucesso. Asaas Account ID: ${response.data.id}`,
+      );
+      return response.data;
+    } catch (error) {
+      this.logger.error(
+        'Falha ao remover subconta no Asaas',
+        error.response?.data,
+      );
+      if (error.response?.data) {
+        throw new BadRequestException(error.response.data);
+      }
+      throw new InternalServerErrorException(
+        'Ocorreu um erro ao se comunicar com o gateway de pagamento.',
+      );
+    }
+  }
 }
