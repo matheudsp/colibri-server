@@ -22,8 +22,6 @@ import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { Roles } from 'src/common/decorator/roles.decorator';
 import { ROLES } from 'src/common/constants/roles.constant';
 import { PaymentResponseDto } from './dto/response-payment.dto';
-import { RegisterPaymentDto } from './dto/register-payment.dto';
-import { GenerateBoletoDto } from './dto/generate-boleto.dto';
 
 @Controller('payments')
 @RequireAuth()
@@ -57,35 +55,5 @@ export class PaymentsOrdersController {
   //     currentUser,
   //     registerPaymentDto,
   //   );
-  // }
-
-  @Post('generate')
-  @ApiOperation({ summary: 'Gerar boleto para um contrato' })
-  @ApiBody({ type: GenerateBoletoDto })
-  async generateBoleto(@Body() generatePaymentDto: GenerateBoletoDto) {
-    return this.paymentsService.generateMonthlyBoleto(generatePaymentDto);
-  }
-
-  // @Post('webhooks/asaas')
-  // async handleAsaasWebhook(@Body() payload: any) {
-  //   if (payload.event === 'PAYMENT_CONFIRMED') {
-  //     const asaasId = payload.payment?.id;
-
-  //     const boleto = await this.prisma.boleto.findUnique({
-  //       where: { asaasBoletoId: asaasId },
-  //       include: { payment: true },
-  //     });
-
-  //     if (!boleto) return;
-
-  //     await this.prisma.payment.update({
-  //       where: { id: boleto.paymentId },
-  //       data: {
-  //         status: 'CONFIRMADO',
-  //         paidAt: new Date(payload.payment?.paymentDate),
-  //         amountPaid: Number(payload.payment?.value),
-  //       },
-  //     });
-  //   }
   // }
 }

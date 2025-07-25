@@ -1,22 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { PaymentsOrdersService } from './payments-orders.service';
-import {
-  addMonths,
-  startOfMonth,
-  isBefore,
-  isAfter,
-  endOfMonth,
-} from 'date-fns';
+import { addMonths, startOfMonth, endOfMonth } from 'date-fns';
+import { BoletosService } from './boletos.service';
 
 @Injectable()
-export class PaymentsSchedulerService {
-  private readonly logger = new Logger(PaymentsSchedulerService.name);
+export class BoletoSchedulerService {
+  private readonly logger = new Logger(BoletoSchedulerService.name);
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly paymentService: PaymentsOrdersService,
+    private readonly boletoService: BoletosService,
   ) {}
 
   // Executa todo dia às 6h da manhã
@@ -41,9 +35,7 @@ export class PaymentsSchedulerService {
     });
     for (const paymentOrder of pendingPaymentOrders) {
       try {
-        await this.paymentService.generateBoletoForPaymentOrder(
-          paymentOrder.id,
-        );
+        await this.boletoService.generateForPaymentOrder(paymentOrder.id);
         this.logger.log(
           `✅ Boleto gerado para a ordem de pagamento ${paymentOrder.id}`,
         );

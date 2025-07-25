@@ -22,6 +22,8 @@ import { CondominiumsModule } from './modules/condominiums/condominiums.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { BankAccountsModule } from './modules/bank-accounts/bank-accounts.module';
 import { AsaasCustomerModule } from './modules/asaas-customer/asaas-customer.module';
+import { SubaccountModule } from './modules/subaccount/subaccount.module';
+import { BoletosModule } from './modules/boletos/boletos.module';
 
 @Module({
   imports: [
@@ -42,6 +44,8 @@ import { AsaasCustomerModule } from './modules/asaas-customer/asaas-customer.mod
     DocumentsModule,
     BankAccountsModule,
     AsaasCustomerModule,
+    SubaccountModule,
+    BoletosModule,
   ],
   providers: [
     {

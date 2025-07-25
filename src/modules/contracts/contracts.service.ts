@@ -101,7 +101,7 @@ export class ContractsService {
       const jobPayload: NotificationJob = {
         user: { email: tenant.email, name: tenant.name },
         notification: {
-          title: 'Seu contrato de aluguel foi iniciado!',
+          title: 'Seu contrato de aluguel foi criado!',
           message: `O proprietário do imóvel "${property.title}" iniciou um processo de locação com você. O próximo passo é enviar seus documentos para análise.`,
         },
         action: {
@@ -110,7 +110,7 @@ export class ContractsService {
         },
       };
 
-      await this.emailQueue.add(EmailJobType.NOTIFICATION, jobPayload);
+      this.emailQueue.add(EmailJobType.NOTIFICATION, jobPayload);
     }
 
     return contract;
@@ -163,6 +163,15 @@ export class ContractsService {
   ) {
     const contract = await this.prisma.contract.findUnique({
       where: { id: contractId },
+      include: {
+        landlord: {
+          include: { bankAccount: true, subAccount: true },
+        },
+        tenant: {
+          select: { name: true, email: true },
+        },
+        property: { select: { title: true } },
+      },
     });
 
     if (!contract) {
@@ -184,6 +193,15 @@ export class ContractsService {
       );
     }
 
+    // // Cria subconta se necessário
+    // await this.subaccountService.getOrCreateSubaccount(contract.landlord);
+
+    // // Cria ou recupera customer do tenant vinculado à subconta do locador
+    // await this.asaasCustomerService.getOrCreate(
+    //   contract.tenant.id,
+    //   contract.landlord.subAccount.id,
+    // );
+
     const updatedContract = await this.prisma.contract.update({
       where: { id: contractId },
       data: { status: ContractStatus.ATIVO },
@@ -198,9 +216,22 @@ export class ContractsService {
       contractId,
     );
 
-    // Notificar o locatário que o contrato está ativo utilizando template de notificacao
-    // Enfileirar email
+    const jobPayload: NotificationJob = {
+      user: {
+        email: contract.tenant.email,
+        name: contract.tenant.name,
+      },
+      notification: {
+        title: 'Contrato de aluguel foi iniciado!',
+        message: `O contrato de locação do imóvel "${contract.property.title}" foi iniciado com sucesso. Agora você pode acessar os detalhes do contrato.`,
+      },
+      action: {
+        text: 'Ver contrato',
+        path: `/contracts/${contract.id}`,
+      },
+    };
 
+    this.emailQueue.add(EmailJobType.NOTIFICATION, jobPayload);
     return updatedContract;
   }
 
@@ -229,7 +260,7 @@ export class ContractsService {
     updateContractDto: UpdateContractDto,
     currentUser: { sub: string; role: string },
   ) {
-    const contract = await this.findOne(id, currentUser); // findOne já faz a verificação de permissão
+    const contract = await this.findOne(id, currentUser);
     if (
       currentUser.role !== ROLES.ADMIN &&
       currentUser.sub !== contract.landlordId
