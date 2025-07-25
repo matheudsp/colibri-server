@@ -16,6 +16,7 @@ import { MailerModule } from '../mailer/mailer.module';
     }),
     BullModule.registerQueue(
       { name: 'email' },
+      { name: 'boleto' },
     ),
     MailerModule,
   ],
