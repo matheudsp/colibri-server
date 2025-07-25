@@ -93,15 +93,16 @@ model User {
   state    String?
   province String?
 
-  condominiums        Condominium[] @relation("LandlordCondominiums")
-  propertiesOwned     Property[]    @relation("LandlordProperties")
-  contractsAsLandlord Contract[]    @relation("LandlordContracts")
-  contractsAsTenant   Contract[]    @relation("TenantContracts")
+  condominiums        Condominium[]   @relation("LandlordCondominiums")
+  propertiesOwned     Property[]      @relation("LandlordProperties")
+  contractsAsLandlord Contract[]      @relation("LandlordContracts")
+  contractsAsTenant   Contract[]      @relation("TenantContracts")
   documents           Document[]
   logs                Log[]
   webhooks            Webhook[]
   bankAccount         BankAccount?
   subAccount          SubAccount?
+  asaasCustomers      AsaasCustomer[] @relation("TenantAsaasCustomers")
 }
 
 model SubAccount {
@@ -109,10 +110,25 @@ model SubAccount {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id])
 
-  asaasAccountId String   @unique
+  asaasAccountId String          @unique
   apiKey         String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  AsaasCustomer  AsaasCustomer[]
+}
+
+model AsaasCustomer {
+  id              String @id @default(uuid())
+  tenantId        String
+  subaccountId    String
+  asaasCustomerId String @unique
+
+  tenant     User       @relation("TenantAsaasCustomers", fields: [tenantId], references: [id])
+  subAccount SubAccount @relation(fields: [subaccountId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, subaccountId])
 }
 
 model BankAccount {

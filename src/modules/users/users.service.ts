@@ -16,16 +16,14 @@ import { Queue } from 'bull';
 import { InjectQueue } from '@nestjs/bull';
 import { ROLES } from 'src/common/constants/roles.constant';
 import { EmailJobType, type NewAccountJob } from 'src/queue/jobs/email.job';
-import type { CreateLandlordDto } from './dto/create-landlord.dto';
-import type { CreateAsaasCustomerDto } from 'src/common/interfaces/payment-gateway.interface';
-import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.service';
+import { CreateLandlordDto } from './dto/create-landlord.dto';
 import { PasswordUtil } from 'src/common/utils/hash.utils';
 @Injectable()
 export class UserService {
   constructor(
     private prisma: PrismaService,
     private logHelper: LogHelperService,
-    private paymentGatewayService: PaymentGatewayService,
+
     @InjectQueue('email') private readonly emailQueue: Queue,
   ) {}
 
@@ -168,45 +166,6 @@ export class UserService {
       data: { status: true },
       select: this.userSafeFields(),
     });
-  }
-
-  /**
-   * Garante que um usuário tenha um ID de cliente correspondente no gateway de pagamento.
-   * Se não existir, cria o cliente no gateway e atualiza o registro do usuário.
-   * @param userId - O ID do usuário no seu banco de dados.
-   * @returns O ID do cliente no gateway de pagamento (asaasCustomerId).
-   */
-  async getOrCreateGatewayCustomer(userId: string): Promise<string> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      throw new NotFoundException(
-        'Usuário não encontrado para criar cliente no gateway.',
-      );
-    }
-
-    if (user.asaasCustomerId) {
-      return user.asaasCustomerId;
-    }
-
-    const customerData: CreateAsaasCustomerDto = {
-      name: user.name,
-      cpfCnpj: user.cpfCnpj,
-      email: user.email,
-      phone: user.phone!,
-    };
-
-    const newGatewayCustomer =
-      await this.paymentGatewayService.createCustomer(customerData);
-
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { asaasCustomerId: newGatewayCustomer.id },
-    });
-
-    return newGatewayCustomer.id;
   }
 
   /**

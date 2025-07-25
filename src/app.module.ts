@@ -21,6 +21,7 @@ import { QueueModule } from './queue/queue.module';
 import { CondominiumsModule } from './modules/condominiums/condominiums.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { BankAccountsModule } from './modules/bank-accounts/bank-accounts.module';
+import { AsaasCustomerModule } from './modules/asaas-customer/asaas-customer.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { BankAccountsModule } from './modules/bank-accounts/bank-accounts.module
     CondominiumsModule,
     DocumentsModule,
     BankAccountsModule,
+    AsaasCustomerModule,
   ],
   providers: [
     {

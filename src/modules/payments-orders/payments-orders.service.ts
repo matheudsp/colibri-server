@@ -18,6 +18,7 @@ import { startOfDay, endOfDay } from 'date-fns';
 import { DateUtils } from 'src/common/utils/date.utils';
 import { addMonths } from 'date-fns';
 import { ConfigService } from '@nestjs/config';
+import { AsaasCustomerService } from '../asaas-customer/asaas-customer.service';
 
 @Injectable()
 export class PaymentsOrdersService {
@@ -26,7 +27,7 @@ export class PaymentsOrdersService {
     private prisma: PrismaService,
     private logHelper: LogHelperService,
     private paymentGateway: PaymentGatewayService,
-    private userService: UserService,
+    private asaasCustomerService: AsaasCustomerService,
     private configService: ConfigService,
   ) {
     this.platformWalletId =
@@ -119,18 +120,18 @@ export class PaymentsOrdersService {
       );
     }
 
-    const landlordWalletId =
-      paymentOrder.contract.landlord.bankAccount?.asaasWalletId;
-    const landlordSubaccountApiKey =
-      paymentOrder.contract.landlord.subAccount?.apiKey;
-    if (!landlordWalletId || !landlordSubaccountApiKey) {
+    const landlordSubaccount = paymentOrder.contract.landlord.subAccount;
+    const landlordBankAccount = paymentOrder.contract.landlord.bankAccount;
+
+    if (!landlordSubaccount?.apiKey || !landlordBankAccount?.asaasWalletId) {
       throw new BadRequestException(
         'O locador não possui a conta configurada para recebimento. Consulte o locador e tente novamente.',
       );
     }
 
-    const customerId = await this.userService.getOrCreateGatewayCustomer(
+    const customerId = await this.asaasCustomerService.getOrCreate(
       paymentOrder.contract.tenant.id,
+      landlordSubaccount.id,
     );
     const value =
       paymentOrder.contract.rentAmount.toNumber() +
@@ -139,7 +140,7 @@ export class PaymentsOrdersService {
 
     const dueDate = paymentOrder.dueDate.toISOString().split('T')[0];
     const charge = await this.paymentGateway.createChargeWithSplitOnSubAccount(
-      landlordSubaccountApiKey,
+      landlordSubaccount.apiKey,
       {
         customer: customerId,
         billingType: 'BOLETO',
@@ -147,7 +148,7 @@ export class PaymentsOrdersService {
         value,
         description: `Aluguel ${paymentOrder.contract.property.title} - venc. ${DateUtils.formatDate(dueDate)}`,
         split: [
-          { walletId: landlordWalletId, percentualValue: 97 },
+          { walletId: landlordBankAccount.asaasWalletId, percentualValue: 97 },
           { walletId: this.platformWalletId, percentualValue: 3 },
         ],
       },
@@ -210,16 +211,18 @@ export class PaymentsOrdersService {
 
     if (existing) return existing;
 
-    const landlordWalletId = contract.landlord.bankAccount?.asaasWalletId;
-    const landlordSubaccountApiKey = contract.landlord.subAccount?.apiKey;
-    if (!landlordWalletId || !landlordSubaccountApiKey) {
+    const landlordSubaccount = contract.landlord.subAccount;
+    const landlordBankAccount = contract.landlord.bankAccount;
+
+    if (!landlordSubaccount?.apiKey || !landlordBankAccount?.asaasWalletId) {
       throw new BadRequestException(
         'O locador não possui a conta configurada para recebimento. Consulte o locador e tente novamente.',
       );
     }
 
-    const customerId = await this.userService.getOrCreateGatewayCustomer(
-      contract.tenantId,
+    const customerId = await this.asaasCustomerService.getOrCreate(
+      contract.tenant.id,
+      landlordSubaccount.id,
     );
     const value =
       contract.rentAmount.toNumber() +
@@ -227,7 +230,7 @@ export class PaymentsOrdersService {
       (contract.iptuFee?.toNumber() ?? 0);
 
     const charge = await this.paymentGateway.createChargeWithSplitOnSubAccount(
-      landlordSubaccountApiKey as string,
+      landlordSubaccount.apiKey as string,
       {
         customer: customerId,
         billingType: 'BOLETO',
@@ -235,7 +238,7 @@ export class PaymentsOrdersService {
         value,
         description: `Aluguel ${contract.property.title} - venc. ${DateUtils.formatDate(dueDate)}`,
         split: [
-          { walletId: landlordWalletId, percentualValue: 97 },
+          { walletId: landlordBankAccount.asaasWalletId, percentualValue: 97 },
           { walletId: this.platformWalletId, percentualValue: 3 },
         ],
       },

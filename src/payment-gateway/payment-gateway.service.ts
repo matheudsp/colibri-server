@@ -28,6 +28,41 @@ export class PaymentGatewayService {
     this.asaasApiUrl = this.configService.getOrThrow<string>('ASAAS_API_URL');
   }
 
+  async getCustomerDetails(
+    apiKey: string = this.asaasApiKey,
+    asaasCustomerId: string,
+  ): Promise<any> {
+    const endpoint = `${this.asaasApiUrl}/customers/${asaasCustomerId}`;
+    try {
+      this.logger.log(`Recuperar cliente: ${asaasCustomerId}`);
+
+      const response = await firstValueFrom(
+        this.httpService.get(endpoint, {
+          headers: {
+            'Content-Type': 'application/json',
+            access_token: apiKey,
+          },
+        }),
+      );
+
+      this.logger.log(
+        `Cliente recuperada com sucesso. Asaas Account ID: ${response.data.id}`,
+      );
+      return response.data;
+    } catch (error) {
+      this.logger.error(
+        'Falha ao recuperar cliente no Asaas',
+        error.response?.data,
+      );
+      if (error.response?.data) {
+        throw new BadRequestException(error.response.data);
+      }
+      throw new InternalServerErrorException(
+        'Ocorreu um erro ao se comunicar com o gateway de pagamento.',
+      );
+    }
+  }
+
   async getSubAccountDetails(asaasSubAccountId: string): Promise<any> {
     const endpoint = `${this.asaasApiUrl}/accounts/${asaasSubAccountId}`;
     try {
@@ -121,7 +156,10 @@ export class PaymentGatewayService {
     }
   }
 
-  async createCustomer(customerData: CreateAsaasCustomerDto): Promise<any> {
+  async createCustomer(
+    apiKey: string = this.asaasApiKey,
+    customerData: CreateAsaasCustomerDto,
+  ): Promise<any> {
     const endpoint = `${this.asaasApiUrl}/customers`;
 
     try {
@@ -129,7 +167,7 @@ export class PaymentGatewayService {
         this.httpService.post(endpoint, customerData, {
           headers: {
             'Content-Type': 'application/json',
-            access_token: this.asaasApiKey,
+            access_token: apiKey,
           },
         }),
       );
