@@ -20,6 +20,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { QueueModule } from './queue/queue.module';
 import { CondominiumsModule } from './modules/condominiums/condominiums.module';
 import { DocumentsModule } from './modules/documents/documents.module';
+import { BankAccountsModule } from './modules/bank-accounts/bank-accounts.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { DocumentsModule } from './modules/documents/documents.module';
     PaymentsModule,
     CondominiumsModule,
     DocumentsModule,
+    BankAccountsModule,
   ],
   providers: [
     {

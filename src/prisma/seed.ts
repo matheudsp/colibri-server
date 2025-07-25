@@ -38,7 +38,7 @@ async function main() {
       name: 'Administrador da Plataforma',
       email: 'admin@imobilia.io',
       password: adminPassword,
-      cpf: generateRandomCpf(),
+      cpfCnpj: generateRandomCpf(),
       role: UserRole.ADMIN,
     },
   });
@@ -48,7 +48,7 @@ async function main() {
       name: 'Ricardo Proprietário',
       email: 'ricardo.prop@imobilia.io',
       password: userPassword,
-      cpf: generateRandomCpf(),
+      cpfCnpj: generateRandomCpf(),
       phone: '11987654321',
       role: UserRole.LOCADOR,
     },
@@ -59,7 +59,7 @@ async function main() {
       name: 'Mariana Inquilina',
       email: 'mariana.inquilina@imobilia.io',
       password: userPassword,
-      cpf: generateRandomCpf(),
+      cpfCnpj: generateRandomCpf(),
       phone: '21912345678',
       role: UserRole.LOCATARIO,
     },
@@ -165,13 +165,14 @@ async function main() {
     const dueDate = new Date(hoje);
     dueDate.setMonth(dueDate.getMonth() + i);
     dueDate.setDate(10); // Vencimento dia 10
+    const amountDue =
+      contract.rentAmount.toNumber() +
+      (contract.condoFee?.toNumber() ?? 0) +
+      (contract.iptuFee?.toNumber() ?? 0);
 
     payments.push({
       contractId: contract.id,
-      amountDue:
-        contract.rentAmount +
-        (contract.condoFee ?? 0) +
-        (contract.iptuFee ?? 0),
+      amountDue: amountDue,
       dueDate: dueDate,
       status: i < 3 ? PaymentStatus.PAGO : PaymentStatus.PENDENTE, // 3 primeiros pagos
       paidAt: i < 3 ? dueDate : undefined,

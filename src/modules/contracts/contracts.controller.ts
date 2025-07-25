@@ -52,7 +52,7 @@ export class ContractsController {
     @Body() createContractDto: CreateContractDto,
     @CurrentUser() currentUser: JwtPayload,
   ) {
-    return this.contractsService.create(createContractDto, currentUser);
+    // return this.contractsService.create(createContractDto, currentUser);
   }
 
   @Get()

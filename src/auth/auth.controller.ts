@@ -7,18 +7,20 @@ import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { Public } from 'src/common/decorator/public.decorator';
 import { JwtAuthGuard } from './guards/auth.guard';
 import { RolesGuard } from './guards/roles.guard';
-import { ApiBearerAuth } from '@nestjs/swagger';
-import type { CreateUserDto } from 'src/modules/users/dto/create-user.dto';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { CreateUserDto } from 'src/modules/users/dto/create-user.dto';
+import { CreateLandlordDto } from 'src/modules/users/dto/create-landlord.dto';
 // import { ForgotPasswordDto } from './dto/forgot-password.dto';
 // import { ResetPasswordDto } from './dto/reset-password.dto';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
-@ApiBearerAuth()
 @Controller('auth')
+@ApiTags('Auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Get('me')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
   async getMe(@CurrentUser() currentUser: JwtPayload) {
     return this.authService.getMe(currentUser.sub);
   }
@@ -31,8 +33,18 @@ export class AuthController {
 
   @Post('register')
   @Public()
-  async register(@Body() registerDto: CreateUserDto) {
-    return this.authService.register(registerDto);
+  @ApiBody({ type: CreateUserDto })
+  @ApiOperation({ summary: 'Register a new standard user (Tenant)' })
+  async registerUser(@Body() registerDto: CreateUserDto) {
+    return this.authService.registerUser(registerDto);
+  }
+
+  @Post('register/landlord')
+  @Public()
+  @ApiBody({ type: CreateLandlordDto })
+  @ApiOperation({ summary: 'Register a new Landlord' })
+  async registerLandlord(@Body() registerDto: CreateLandlordDto) {
+    return this.authService.registerLandlord(registerDto);
   }
 
   // @Post('forgot-password')

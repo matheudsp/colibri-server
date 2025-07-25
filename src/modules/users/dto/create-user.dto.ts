@@ -1,6 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import {
+  IsDateString,
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 
 export class CreateUserDto {
   @Expose()
@@ -11,6 +18,20 @@ export class CreateUserDto {
   @IsString({ message: 'O nome deve ser uma string' })
   @IsNotEmpty({ message: 'O nome não pode estar vazio' })
   name!: string;
+
+  @ApiProperty({
+    description: 'Data de nascimento. ',
+    example: '1990-01-15',
+    required: false,
+  })
+  @IsDateString()
+  @IsOptional()
+  birthDate?: string;
+
+  @ApiProperty({ example: '11999998888' })
+  @IsString()
+  @IsNotEmpty()
+  phone: string;
 
   @Expose()
   @ApiProperty({
@@ -29,11 +50,11 @@ export class CreateUserDto {
   @Expose()
   @ApiProperty({
     example: '12345678900',
-    description: 'CPF do usuário (apenas números)',
+    description: 'CPF ou CNPJ do usuário (apenas números)',
   })
-  @IsString({ message: 'O CPF deve ser uma string' })
-  @IsNotEmpty({ message: 'O CPF não pode estar vazio' })
-  cpf!: string;
+  @IsString({ message: 'O CPF/CNPJ deve ser uma string' })
+  @IsNotEmpty({ message: 'O CPF/CNPJ não pode estar vazio' })
+  cpfCnpj!: string;
 
   @Expose()
   @ApiProperty({

@@ -16,6 +16,7 @@ import { UserResponseDto } from '../modules/users/dto/response-user.dto';
 import { UserService } from 'src/modules/users/users.service';
 import { ROLES } from 'src/common/constants/roles.constant';
 import type { CreateUserDto } from 'src/modules/users/dto/create-user.dto';
+import type { CreateLandlordDto } from 'src/modules/users/dto/create-landlord.dto';
 // import { EmailJobType } from '../queue/jobs/email.job';
 // import { InjectQueue } from '@nestjs/bull';
 // import { Queue } from 'bull';
@@ -74,10 +75,31 @@ export class AuthService {
     return this.generateToken(user);
   }
 
-  async register(registerDto: CreateUserDto): Promise<RegisterResponse> {
-    const user = await this.userService.findOrCreate(
+  async registerLandlord(
+    registerDto: CreateLandlordDto,
+  ): Promise<RegisterResponse> {
+    const user = await this.userService.create(
       registerDto,
       ROLES.LOCADOR,
+    );
+
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      isActive: user.status,
+    };
+
+    return {
+      token: this.jwtService.sign(payload),
+      user: payload,
+    };
+  }
+
+  async registerUser(registerDto: CreateUserDto): Promise<RegisterResponse> {
+    const user = await this.userService.create(
+      registerDto,
+      ROLES.LOCATARIO,
     );
 
     const payload: JwtPayload = {

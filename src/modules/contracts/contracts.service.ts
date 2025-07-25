@@ -34,84 +34,85 @@ export class ContractsService {
     @InjectQueue('email') private emailQueue: Queue,
   ) {}
 
-  async create(
-    createContractDto: CreateContractDto,
-    currentUser: { sub: string; role: string },
-  ) {
-    if (currentUser.role !== ROLES.LOCADOR) {
-      throw new UnauthorizedException(
-        'Apenas locadores podem criar contratos.',
-      );
-    }
+  // async create(
+  //   createContractDto: CreateContractDto,
+  //   currentUser: { sub: string; role: string },
+  // ) {
+  //   if (currentUser.role !== ROLES.LOCADOR) {
+  //     throw new UnauthorizedException(
+  //       'Apenas locadores podem criar contratos.',
+  //     );
+  //   }
 
-    const {
-      propertyId,
-      tenantEmail,
-      tenantName,
-      tenantCpf,
-      tenantPassword,
-      ...contractData
-    } = createContractDto;
+  //   const {
+  //     propertyId,
+  //     tenantEmail,
+  //     tenantName,
+  //     tenantCpf,
+  //     tenantPassword,
+  //     ...contractData
+  //   } = createContractDto;
 
-    const property = await this.propertiesService.findOne(propertyId);
-    if (property.landlordId !== currentUser.sub) {
-      throw new UnauthorizedException(
-        'Você não é o proprietário deste imóvel.',
-      );
-    }
+  //   const property = await this.propertiesService.findOne(propertyId);
+  //   if (property.landlordId !== currentUser.sub) {
+  //     throw new UnauthorizedException(
+  //       'Você não é o proprietário deste imóvel.',
+  //     );
+  //   }
 
-    const tenant = await this.userService.findOrCreate(
-      {
-        email: tenantEmail,
-        name: tenantName,
-        cpf: tenantCpf,
-        password: tenantPassword,
-      },
-      ROLES.LOCATARIO,
-    );
+  //   const tenant = await this.userService.findOrCreate(
+  //     {
+  //       email: tenantEmail,
+  //       name: tenantName,
+  //       cpfCnpj: tenantCpf,
+  //       password: tenantPassword,
+        
+  //     },
+  //     ROLES.LOCATARIO,
+  //   );
 
-    // Calcula a data final baseada na data de início e duração
-    const startDate = new Date(contractData.startDate);
-    const endDate = new Date(startDate);
-    endDate.setMonth(startDate.getMonth() + contractData.durationInMonths);
+  //   // Calcula a data final baseada na data de início e duração
+  //   const startDate = new Date(contractData.startDate);
+  //   const endDate = new Date(startDate);
+  //   endDate.setMonth(startDate.getMonth() + contractData.durationInMonths);
 
-    const contract = await this.prisma.contract.create({
-      data: {
-        ...contractData,
-        propertyId,
-        landlordId: currentUser.sub,
-        tenantId: tenant.id,
-        startDate,
-        endDate,
-        status: ContractStatus.PENDENTE_DOCUMENTACAO,
-      },
-    });
+  //   const contract = await this.prisma.contract.create({
+  //     data: {
+  //       ...contractData,
+  //       propertyId,
+  //       landlordId: currentUser.sub,
+  //       tenantId: tenant.id,
+  //       startDate,
+  //       endDate,
+  //       status: ContractStatus.PENDENTE_DOCUMENTACAO,
+  //     },
+  //   });
 
-    await this.logHelper.createLog(
-      currentUser?.sub,
-      'CREATE',
-      'Contract',
-      contract.id,
-    );
+  //   await this.logHelper.createLog(
+  //     currentUser?.sub,
+  //     'CREATE',
+  //     'Contract',
+  //     contract.id,
+  //   );
 
-    if (property && tenant) {
-      const jobPayload: NotificationJob = {
-        user: { email: tenant.email, name: tenant.name },
-        notification: {
-          title: 'Seu contrato de aluguel foi iniciado!',
-          message: `O proprietário do imóvel "${property.title}" iniciou um processo de locação com você. O próximo passo é enviar seus documentos para análise.`,
-        },
-        action: {
-          text: 'Acessar e Enviar Documentos',
-          path: `/contracts/${contract.id}/documents`,
-        },
-      };
+  //   if (property && tenant) {
+  //     const jobPayload: NotificationJob = {
+  //       user: { email: tenant.email, name: tenant.name },
+  //       notification: {
+  //         title: 'Seu contrato de aluguel foi iniciado!',
+  //         message: `O proprietário do imóvel "${property.title}" iniciou um processo de locação com você. O próximo passo é enviar seus documentos para análise.`,
+  //       },
+  //       action: {
+  //         text: 'Acessar e Enviar Documentos',
+  //         path: `/contracts/${contract.id}/documents`,
+  //       },
+  //     };
 
-      await this.emailQueue.add(EmailJobType.NOTIFICATION, jobPayload);
-    }
+  //     await this.emailQueue.add(EmailJobType.NOTIFICATION, jobPayload);
+  //   }
 
-    return contract;
-  }
+  //   return contract;
+  // }
 
   async findAll(
     { page, limit }: { page: number; limit: number },
@@ -186,7 +187,7 @@ export class ContractsService {
       data: { status: ContractStatus.ATIVO },
     });
 
-    await this.generatePaymentsForContract(contractId);
+    // await this.generatePaymentsForContract(contractId);
 
     await this.logHelper.createLog(
       currentUser.sub,
@@ -270,38 +271,5 @@ export class ContractsService {
     return { message: 'Contrato removido com sucesso.' };
   }
 
-  private async generatePaymentsForContract(contractId: string) {
-    const existingPayments = await this.prisma.payment.count({
-      where: { contractId },
-    });
-
-    if (existingPayments > 0) {
-      // Pagamentos já existem, não gerar novamente
-      return;
-    }
-
-    const contract = await this.prisma.contract.findUnique({
-      where: { id: contractId },
-    });
-
-    if (!contract) return;
-
-    const payments: Prisma.PaymentCreateManyInput[] = [];
-    for (let i = 0; i < contract.durationInMonths; i++) {
-      const dueDate = new Date(contract.startDate);
-      dueDate.setMonth(dueDate.getMonth() + i);
-
-      payments.push({
-        contractId: contract.id,
-        amountDue:
-          contract.rentAmount +
-          (contract.condoFee ?? 0) +
-          (contract.iptuFee ?? 0),
-        dueDate: dueDate,
-        status: PaymentStatus.PENDENTE,
-      });
-    }
-
-    await this.prisma.payment.createMany({ data: payments });
-  }
+  
 }

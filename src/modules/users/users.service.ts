@@ -16,11 +16,16 @@ import { Queue } from 'bull';
 import { InjectQueue } from '@nestjs/bull';
 import { ROLES } from 'src/common/constants/roles.constant';
 import { EmailJobType, type NewAccountJob } from 'src/queue/jobs/email.job';
+import type { CreateLandlordDto } from './dto/create-landlord.dto';
+import type { CreateAsaasCustomerDto } from 'src/common/interfaces/payment-gateway.interface';
+import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.service';
+import { PasswordUtil } from 'src/common/utils/hash.utils';
 @Injectable()
 export class UserService {
   constructor(
     private prisma: PrismaService,
     private logHelper: LogHelperService,
+    private paymentGatewayService: PaymentGatewayService,
     @InjectQueue('email') private readonly emailQueue: Queue,
   ) {}
 
@@ -83,51 +88,40 @@ export class UserService {
       select: this.userSafeFields(),
     });
   }
-  async findOrCreate(data: CreateUserDto, role: UserRole): Promise<User> {
-    const { email, cpf, name, password } = data;
-
-    const whereClause: Prisma.UserWhereInput = cpf
-      ? { OR: [{ email }, { cpf }] }
+  async create(
+    data: CreateUserDto | CreateLandlordDto,
+    role: UserRole,
+    creatorRole?: UserRole,
+  ) {
+    const { email, cpfCnpj, password } = data;
+    const whereClause: Prisma.UserWhereInput = cpfCnpj
+      ? { OR: [{ email }, { cpfCnpj }] }
       : { email };
+
     const existingUser = await this.prisma.user.findFirst({
       where: whereClause,
     });
 
     if (existingUser) {
-      // Se encontrou um usuário com os dados informados, retorna ele
-      if (existingUser.email === email || existingUser.cpf === cpf) {
-        return existingUser;
-      }
-      // Se os dados (email/cpf) já existem em contas diferentes, é um conflito
-      throw new ConflictException('E-mail ou CPF já associado a outra conta.');
-    }
-
-    if (!name || !password || !email) {
-      throw new BadRequestException(
-        'Para criar um novo usuário, é necessário fornecer nome, email e senha.',
+      throw new ConflictException(
+        'E-mail ou CPF/CNPJ já associado a outra conta.',
       );
     }
+    if (!data.name || !data.password || !email || !cpfCnpj) {
+      throw new BadRequestException(
+        'Para criar um novo usuário, é necessário fornecer nome, email e CPF/CNPJ.',
+      );
+    }
+    let newUser: User;
+    if (role === ROLES.LOCADOR) {
+      newUser = await this.createLandlord(data as CreateLandlordDto);
+    } else {
+      newUser = await this.createTenant(data as CreateUserDto);
+    }
+    const shouldSendPassword =
+      creatorRole === ROLES.LOCADOR && newUser.role === ROLES.LOCATARIO;
 
-    const hashedPassword = await argon2.hash(password);
-
-    const newUser = await this.prisma.user.create({
-      data: {
-        name,
-        email,
-        cpf,
-        password: hashedPassword,
-        role,
-        status: true,
-      },
-    });
-
-    const jobPayload: NewAccountJob = {
-      user: { name: newUser.name, email: newUser.email },
-      // Envia a senha em texto plano APENAS se foi o locador que a criou
-      // Se for um auto-registro (via AuthService), o password não deve ser enviado
-      temporaryPassword: role === ROLES.LOCATARIO ? data.password : undefined,
-    };
-    await this.emailQueue.add(EmailJobType.NEW_ACCOUNT, jobPayload);
+    this.sendWelcomeEmail(newUser, shouldSendPassword ? password : undefined);
 
     return newUser;
   }
@@ -176,11 +170,105 @@ export class UserService {
     });
   }
 
+  /**
+   * Garante que um usuário tenha um ID de cliente correspondente no gateway de pagamento.
+   * Se não existir, cria o cliente no gateway e atualiza o registro do usuário.
+   * @param userId - O ID do usuário no seu banco de dados.
+   * @returns O ID do cliente no gateway de pagamento (asaasCustomerId).
+   */
+  async getOrCreateGatewayCustomer(userId: string): Promise<string> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException(
+        'Usuário não encontrado para criar cliente no gateway.',
+      );
+    }
+
+    if (user.asaasCustomerId) {
+      return user.asaasCustomerId;
+    }
+
+    const customerData: CreateAsaasCustomerDto = {
+      name: user.name,
+      cpfCnpj: user.cpfCnpj,
+      email: user.email,
+      phone: user.phone!,
+    };
+
+    const newGatewayCustomer =
+      await this.paymentGatewayService.createCustomer(customerData);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { asaasCustomerId: newGatewayCustomer.id },
+    });
+
+    return newGatewayCustomer.id;
+  }
+
   private async validateUserExists(id: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) {
       throw new NotFoundException('Usuário não encontrado');
     }
     return user;
+  }
+
+  private async createLandlord(data: CreateLandlordDto) {
+    const isCPF = data.cpfCnpj.length === 11;
+
+    if (isCPF && !data.birthDate) {
+      throw new BadRequestException(
+        'Data de nascimento é obrigatória para pessoas físicas.',
+      );
+    }
+    const hashedPassword = await PasswordUtil.hash(data.password);
+
+    return this.prisma.user.create({
+      data: {
+        ...data,
+        name: data.name,
+        email: data.email,
+        password: hashedPassword,
+        phone: data.phone,
+        cpfCnpj: data.cpfCnpj,
+        birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
+        role: ROLES.LOCADOR,
+      },
+    });
+  }
+
+  private async createTenant(data: CreateUserDto) {
+    const hashedPassword = await PasswordUtil.hash(data.password);
+
+    return this.prisma.user.create({
+      data: {
+        ...data,
+        name: data.name,
+        email: data.email,
+        password: hashedPassword,
+        phone: data.phone,
+        cpfCnpj: data.cpfCnpj,
+        birthDate: data.birthDate ? new Date(data.birthDate) : null,
+        role: ROLES.LOCATARIO,
+      },
+    });
+  }
+
+  private async sendWelcomeEmail(
+    user: {
+      name: string;
+      email: string;
+    },
+    originalPassword?: string,
+  ): Promise<void> {
+    const jobPayload: NewAccountJob = {
+      user: { name: user.name, email: user.email },
+      temporaryPassword: originalPassword,
+    };
+    await this.emailQueue.add(EmailJobType.NEW_ACCOUNT, jobPayload);
   }
 }
