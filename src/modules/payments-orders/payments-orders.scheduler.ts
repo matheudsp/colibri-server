@@ -2,7 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PaymentsOrdersService } from './payments-orders.service';
-import { addMonths, startOfMonth, isBefore, isAfter } from 'date-fns';
+import {
+  addMonths,
+  startOfMonth,
+  isBefore,
+  isAfter,
+  endOfMonth,
+} from 'date-fns';
 
 @Injectable()
 export class PaymentsSchedulerService {
@@ -15,31 +21,35 @@ export class PaymentsSchedulerService {
 
   // Executa todo dia às 6h da manhã
   @Cron(CronExpression.EVERY_DAY_AT_6AM)
-  async generateUpcomingPayments() {
-    this.logger.log('Iniciando geração de boletos futuros');
+  async generateUpcomingPaymentsBoletos() {
+    this.logger.log(
+      'Iniciando geração de boletos para ordens de pagamento do próximo mês',
+    );
 
     const now = new Date();
-    const dueDate = startOfMonth(addMonths(now, 1)); // Primeiro dia do próximo mês
-
-    const activeContracts = await this.prisma.contract.findMany({
+    const startDate = startOfMonth(addMonths(now, 1)); // Primeiro dia do próximo mês
+    const endDate = endOfMonth(addMonths(now, 1)); // Último dia do próximo mês
+    const pendingPaymentOrders = await this.prisma.paymentOrder.findMany({
       where: {
-        status: 'ATIVO',
-        startDate: { lte: dueDate },
-        endDate: { gte: dueDate },
+        status: 'PENDENTE',
+        boleto: null,
+        dueDate: {
+          gte: startDate,
+          lte: endDate,
+        },
       },
-      select: { id: true },
     });
-
-    for (const contract of activeContracts) {
+    for (const paymentOrder of pendingPaymentOrders) {
       try {
-        await this.paymentService.generateMonthlyBoleto({
-          contractId: contract.id,
-          dueDate: dueDate.toISOString().split('T')[0],
-        });
-        this.logger.log(`✅ Boleto gerado para contrato ${contract.id}`);
+        await this.paymentService.generateBoletoForPaymentOrder(
+          paymentOrder.id,
+        );
+        this.logger.log(
+          `✅ Boleto gerado para a ordem de pagamento ${paymentOrder.id}`,
+        );
       } catch (err) {
         this.logger.warn(
-          `⚠️ Erro ao gerar boleto para contrato ${contract.id}: ${err.message}`,
+          `⚠️ Erro ao gerar boleto para a ordem ${paymentOrder.id}: ${err.message}`,
         );
       }
     }

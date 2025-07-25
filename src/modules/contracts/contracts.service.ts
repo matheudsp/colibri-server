@@ -23,12 +23,14 @@ import { LogHelperService } from '../logs/log-helper.service';
 import { EmailJobType, type NotificationJob } from 'src/queue/jobs/email.job';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
+import { PaymentsOrdersService } from '../payments-orders/payments-orders.service';
 
 @Injectable()
 export class ContractsService {
   constructor(
     private prisma: PrismaService,
     private propertiesService: PropertiesService,
+    private paymentsOrdersService: PaymentsOrdersService,
     private userService: UserService,
     private logHelper: LogHelperService,
     @InjectQueue('email') private emailQueue: Queue,
@@ -187,7 +189,7 @@ export class ContractsService {
       data: { status: ContractStatus.ATIVO },
     });
 
-    // await this.generatePaymentsForContract(contractId);
+    await this.paymentsOrdersService.createPaymentsForContract(contractId);
 
     await this.logHelper.createLog(
       currentUser.sub,

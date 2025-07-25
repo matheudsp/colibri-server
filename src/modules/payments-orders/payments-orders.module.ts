@@ -16,5 +16,6 @@ import { PaymentsSchedulerService } from './payments-orders.scheduler';
     PaymentsSchedulerService,
   ],
   controllers: [PaymentsOrdersController],
+  exports:[PaymentsOrdersService]
 })
 export class PaymentsOrdersModule {}

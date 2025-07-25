@@ -7,9 +7,17 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { UserModule } from '../users/users.module';
 import { LogHelperService } from '../logs/log-helper.service';
 import { QueueModule } from 'src/queue/queue.module';
+import { PaymentGatewayModule } from 'src/payment-gateway/payment-gateway.module';
+import { PaymentsOrdersModule } from '../payments-orders/payments-orders.module';
 
 @Module({
-  imports: [PropertiesModule, UserModule, QueueModule],
+  imports: [
+    PropertiesModule,
+    UserModule,
+    QueueModule,
+    PaymentGatewayModule,
+    PaymentsOrdersModule,
+  ],
   controllers: [ContractsController],
   providers: [ContractsService, PrismaService, LogHelperService],
 })
