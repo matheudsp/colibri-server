@@ -66,7 +66,7 @@ export class ContractsService {
   //       name: tenantName,
   //       cpfCnpj: tenantCpf,
   //       password: tenantPassword,
-        
+
   //     },
   //     ROLES.LOCATARIO,
   //   );
@@ -205,7 +205,7 @@ export class ContractsService {
   async findOne(id: string, currentUser: { sub: string; role: string }) {
     const contract = await this.prisma.contract.findUnique({
       where: { id },
-      include: { payments: true, property: true },
+      include: { paymentsOrders: true, property: true },
     });
     if (!contract) {
       throw new NotFoundException(`Contrato com ID "${id}" não encontrado.`);
@@ -260,7 +260,7 @@ export class ContractsService {
       );
     }
     // A aplicar soft delete ou remoção em cascata
-    await this.prisma.payment.deleteMany({ where: { contractId: id } });
+    await this.prisma.paymentOrder.deleteMany({ where: { contractId: id } });
     await this.prisma.contract.delete({ where: { id } });
     await this.logHelper.createLog(
       currentUser?.sub,
@@ -270,6 +270,4 @@ export class ContractsService {
     );
     return { message: 'Contrato removido com sucesso.' };
   }
-
-  
 }

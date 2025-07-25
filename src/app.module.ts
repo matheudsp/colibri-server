@@ -16,7 +16,7 @@ import { LoggerModule } from './core/logger/logger.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { PropertiesModule } from './modules/properties/properties.module';
 import { ContractsModule } from './modules/contracts/contracts.module';
-import { PaymentsModule } from './modules/payments/payments.module';
+import { PaymentsOrdersModule } from './modules/paymentsOrders/payments-orders.module';
 import { QueueModule } from './queue/queue.module';
 import { CondominiumsModule } from './modules/condominiums/condominiums.module';
 import { DocumentsModule } from './modules/documents/documents.module';
@@ -36,7 +36,7 @@ import { BankAccountsModule } from './modules/bank-accounts/bank-accounts.module
     LogModule,
     PropertiesModule,
     ContractsModule,
-    PaymentsModule,
+    PaymentsOrdersModule,
     CondominiumsModule,
     DocumentsModule,
     BankAccountsModule,

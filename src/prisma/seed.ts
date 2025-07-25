@@ -1,9 +1,8 @@
 import * as argon2 from 'argon2';
-import { PrismaClient, Prisma, PaymentStatus, UserRole } from '@prisma/client';
+import { PrismaClient, UserRole } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// Função auxiliar para gerar CPFs únicos e fakes
 const generateRandomCpf = () => {
   const rnd = () => Math.floor(Math.random() * 9);
   const n = Array(9).fill(0).map(rnd);
@@ -18,10 +17,8 @@ async function main() {
   console.log('🌱 Iniciando o processo de seed...');
 
   console.log('🗑️ Limpando dados existentes...');
-  // A ordem de limpeza é importante para respeitar as chaves estrangeiras
   await prisma.log.deleteMany();
   await prisma.photo.deleteMany();
-  await prisma.payment.deleteMany();
   await prisma.document.deleteMany();
   await prisma.contract.deleteMany();
   await prisma.property.deleteMany();
@@ -93,7 +90,7 @@ async function main() {
       numBathrooms: 1,
       numParking: 1,
       landlordId: locador.id,
-      condominiumId: condominioResidencial.id, // Associando ao condomínio
+      condominiumId: condominioResidencial.id,
       photos: {
         create: [{ filePath: '/uploads/apartamento_101.jpg' }],
       },
@@ -110,9 +107,9 @@ async function main() {
       numRooms: 3,
       numBathrooms: 2,
       numParking: 2,
-      isAvailable: false, // Marcando como indisponível
+      isAvailable: false,
       landlordId: locador.id,
-      condominiumId: condominioResidencial.id, // Associando ao condomínio
+      condominiumId: condominioResidencial.id,
     },
   });
   console.log('🏠 Unidades do condomínio criadas.');
@@ -122,7 +119,6 @@ async function main() {
     data: {
       title: 'Casa Espaçosa com Quintal',
       description: 'Ótima casa em rua tranquila, ideal para famílias.',
-      // Endereço completo, pois não tem condomínio
       cep: '05407-002',
       street: 'Rua dos Pinheiros',
       number: '1500',
@@ -134,7 +130,7 @@ async function main() {
       numBathrooms: 2,
       numParking: 2,
       landlordId: locador.id,
-      condominiumId: null, // Não pertence a um condomínio
+      condominiumId: null,
     },
   });
   console.log('🏡 Casa avulsa criada:', casaDeRua);
@@ -143,7 +139,7 @@ async function main() {
   const hoje = new Date();
   const contract = await prisma.contract.create({
     data: {
-      propertyId: apartamento202.id, // Usando a cobertura que já está alugada
+      propertyId: apartamento202.id,
       landlordId: locador.id,
       tenantId: locatario.id,
       status: 'ATIVO',
@@ -157,29 +153,6 @@ async function main() {
     },
   });
   console.log('✍️ Contrato criado:', contract);
-
-  console.log('💵 Gerando pagamentos...');
-  const payments: Prisma.PaymentCreateManyInput[] = [];
-
-  for (let i = 0; i < 12; i++) {
-    const dueDate = new Date(hoje);
-    dueDate.setMonth(dueDate.getMonth() + i);
-    dueDate.setDate(10); // Vencimento dia 10
-    const amountDue =
-      contract.rentAmount.toNumber() +
-      (contract.condoFee?.toNumber() ?? 0) +
-      (contract.iptuFee?.toNumber() ?? 0);
-
-    payments.push({
-      contractId: contract.id,
-      amountDue: amountDue,
-      dueDate: dueDate,
-      status: i < 3 ? PaymentStatus.PAGO : PaymentStatus.PENDENTE, // 3 primeiros pagos
-      paidAt: i < 3 ? dueDate : undefined,
-    });
-  }
-  await prisma.payment.createMany({ data: payments });
-  console.log(`💵 12 pagamentos gerados para o contrato ${contract.id}.`);
 
   console.log('✅ Seed finalizado com sucesso!');
 }

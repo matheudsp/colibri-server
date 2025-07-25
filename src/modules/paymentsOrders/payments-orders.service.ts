@@ -17,7 +17,7 @@ import { startOfDay, endOfDay } from 'date-fns';
 import { DateUtils } from 'src/common/utils/date.utils';
 
 @Injectable()
-export class PaymentsService {
+export class PaymentsOrdersService {
   constructor(
     private prisma: PrismaService,
     private logHelper: LogHelperService,
@@ -44,7 +44,7 @@ export class PaymentsService {
       );
     }
 
-    return this.prisma.payment.findMany({
+    return this.prisma.paymentOrder.findMany({
       where: { contractId },
       orderBy: { dueDate: 'asc' },
     });
@@ -62,7 +62,7 @@ export class PaymentsService {
       include: {
         tenant: true,
         landlord: { include: { bankAccount: true } },
-        payments: true,
+        paymentsOrders: true,
         property: true,
       },
     });
@@ -71,7 +71,7 @@ export class PaymentsService {
       throw new BadRequestException('Contrato não encontrado ou inativo.');
     }
 
-    const existing = await this.prisma.payment.findFirst({
+    const existing = await this.prisma.paymentOrder.findFirst({
       where: {
         contractId,
         dueDate: {
@@ -117,7 +117,7 @@ export class PaymentsService {
       ],
     });
 
-    const payment = await this.prisma.payment.create({
+    const payment = await this.prisma.paymentOrder.create({
       data: {
         contractId,
         dueDate: new Date(dueDate),

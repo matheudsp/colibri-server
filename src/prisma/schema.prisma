@@ -205,11 +205,11 @@ model Contract {
   tenantId String
   tenant   User   @relation("TenantContracts", fields: [tenantId], references: [id])
 
-  payments  Payment[]
-  documents Document[]
+  paymentsOrders PaymentOrder[]
+  documents      Document[]
 }
 
-model Payment {
+model PaymentOrder {
   id           String         @id @default(uuid())
   contractId   String
   amountDue    Decimal
@@ -229,19 +229,19 @@ model PaymentSplit {
   amount    Decimal
   type      String // FIXED ou PERCENTUAL
 
-  payment Payment @relation(fields: [paymentId], references: [id])
+  payment PaymentOrder @relation(fields: [paymentId], references: [id])
 }
 
 model Boleto {
-  id            String   @id @default(uuid())
-  paymentId     String   @unique
-  asaasChargeId String   @unique
-  bankSlipUrl   String
-  invoiceUrl    String
-  nossoNumero   String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  payment       Payment  @relation(fields: [paymentId], references: [id])
+  id             String       @id @default(uuid())
+  paymentOrderId String       @unique
+  asaasChargeId  String       @unique
+  bankSlipUrl    String
+  invoiceUrl     String
+  nossoNumero    String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  paymentOrder   PaymentOrder @relation(fields: [paymentOrderId], references: [id])
 }
 
 model Photo {

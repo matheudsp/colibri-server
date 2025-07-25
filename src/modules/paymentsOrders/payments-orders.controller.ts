@@ -13,7 +13,7 @@ import {
   ApiBearerAuth,
   ApiBody,
 } from '@nestjs/swagger';
-import { PaymentsService } from './payments.service';
+import { PaymentsOrdersService } from './payments-orders.service';
 import {
   CurrentUser,
   RequireAuth,
@@ -29,8 +29,8 @@ import { GeneratePaymentDto } from './dto/generate-payment.dto';
 @RequireAuth()
 @ApiBearerAuth()
 @ApiTags('Payments')
-export class PaymentsController {
-  constructor(private readonly paymentsService: PaymentsService) {}
+export class PaymentsOrdersController {
+  constructor(private readonly paymentsService: PaymentsOrdersService) {}
 
   @Get('contracts/:contractId')
   @Roles(ROLES.LOCADOR, ROLES.LOCATARIO, ROLES.ADMIN)
