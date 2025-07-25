@@ -82,10 +82,9 @@ model User {
   status          Boolean  @default(true)
   asaasCustomerId String?  @unique
 
-  asaasSubAccountId String?      @unique // ID da subconta no Asaas
-  birthDate         DateTime?    @db.Date
-  companyType       CompanyType?
-  incomeValue       Decimal?
+  birthDate   DateTime?    @db.Date
+  companyType CompanyType?
+  incomeValue Decimal?
 
   cep      String?
   street   String?
@@ -102,6 +101,18 @@ model User {
   logs                Log[]
   webhooks            Webhook[]
   bankAccount         BankAccount?
+  subAccount          SubAccount?
+}
+
+model SubAccount {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  asaasAccountId String   @unique
+  apiKey         String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 model BankAccount {

@@ -33,6 +33,9 @@ export class BankAccountsService {
   ) {
     const user = await this.prisma.user.findUnique({
       where: { id: currentUser.sub },
+      include: {
+        subAccount: true,
+      },
     });
 
     if (!user) {
@@ -55,7 +58,7 @@ export class BankAccountsService {
 
     let walletId: string;
 
-    if (!user.asaasSubAccountId) {
+    if (!user.subAccount?.asaasAccountId) {
       this.logger.log(`Usuário ${user.id} não possui subconta. Criando...`);
       this.validateUserForSubAccountCreation(user);
 
@@ -68,7 +71,7 @@ export class BankAccountsService {
         addressNumber: user.number!,
         province: user.province!,
         postalCode: user.cep!,
-        incomeValue: user.incomeValue?.toNumber()! || 5000,
+        incomeValue: user.incomeValue?.toNumber() || 5000,
         ...(user.companyType
           ? { companyType: user.companyType }
           : { birthDate: user.birthDate!.toISOString().split('T')[0] }),
@@ -80,9 +83,9 @@ export class BankAccountsService {
             asaasAccountData,
           );
 
-        await this.prisma.user.update({
+        await this.prisma.subAccount.update({
           where: { id: user.id },
-          data: { asaasSubAccountId: asaasAccount.id },
+          data: { asaasAccountId: asaasAccount.id },
         });
 
         walletId = asaasAccount.walletId;
@@ -101,12 +104,12 @@ export class BankAccountsService {
       }
     } else {
       this.logger.log(
-        `Usuário ${user.id} já possui subconta [${user.asaasSubAccountId}]. Buscando dados da carteira...`,
+        `Usuário ${user.id} já possui subconta [${user.subAccount.asaasAccountId}]. Buscando dados da carteira...`,
       );
       try {
         const accountDetails: CreateAsaasSubAccountResponse =
           await this.paymentGatewayService.getSubAccountDetails(
-            user.asaasSubAccountId,
+            user.subAccount.asaasAccountId,
           );
 
         if (!accountDetails || !accountDetails.walletId) {
@@ -118,7 +121,7 @@ export class BankAccountsService {
         walletId = accountDetails.walletId;
       } catch (error) {
         this.logger.error(
-          `Falha ao buscar detalhes da subconta Asaas ${user.asaasSubAccountId}`,
+          `Falha ao buscar detalhes da subconta Asaas ${user.subAccount.asaasAccountId}`,
           error,
         );
         throw new InternalServerErrorException(

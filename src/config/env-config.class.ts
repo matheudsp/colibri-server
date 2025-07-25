@@ -88,6 +88,14 @@ export class EnvConfig {
 
   @IsString()
   SUPABASE_KEY!: string;
+  @IsString()
+  ASAAS_API_URL!: string;
+
+  @IsString()
+  ASAAS_API_KEY!: string;
+
+  @IsString()
+  ASSAS_WALLET_ID!: string;
 
   @IsString()
   SUPABASE_STORAGE_BUCKET!: string;

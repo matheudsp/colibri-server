@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -12,19 +13,25 @@ import { PaymentStatus, type Prisma } from '@prisma/client';
 import { RegisterPaymentDto } from './dto/register-payment.dto';
 import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.service';
 import { UserService } from '../users/users.service';
-import type { GenerateBoletoDto } from './dto/generate-boleto.dto';
+import { GenerateBoletoDto } from './dto/generate-boleto.dto';
 import { startOfDay, endOfDay } from 'date-fns';
 import { DateUtils } from 'src/common/utils/date.utils';
 import { addMonths } from 'date-fns';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class PaymentsOrdersService {
+  private readonly platformWalletId: string;
   constructor(
     private prisma: PrismaService,
     private logHelper: LogHelperService,
     private paymentGateway: PaymentGatewayService,
     private userService: UserService,
-  ) {}
+    private configService: ConfigService,
+  ) {
+    this.platformWalletId =
+      this.configService.getOrThrow<string>('ASSAS_WALLET_ID');
+  }
 
   async findPaymentsByContract(contractId: string, currentUser: JwtPayload) {
     const contract = await this.prisma.contract.findUnique({
@@ -93,7 +100,7 @@ export class PaymentsOrdersService {
         contract: {
           include: {
             tenant: true,
-            landlord: { include: { bankAccount: true } },
+            landlord: { include: { bankAccount: true, subAccount: true } },
             property: true,
           },
         },
@@ -102,23 +109,26 @@ export class PaymentsOrdersService {
 
     if (!paymentOrder)
       throw new NotFoundException('Ordem de pagamento não encontrada.');
-    if (paymentOrder.boleto) return paymentOrder;
+    if (paymentOrder.boleto)
+      throw new ConflictException(
+        'Boleto existente, confira as últimas faturas.',
+      );
     if (paymentOrder.contract.status !== 'ATIVO') {
       throw new BadRequestException(
         'O contrato desta ordem de pagamento não está ativo.',
       );
     }
 
-    // ... (lógica para chamar o gateway de pagamento e obter os dados do boleto)
     const landlordWalletId =
       paymentOrder.contract.landlord.bankAccount?.asaasWalletId;
-    // const platformWalletId = process.env.ASAAS_WALLET_ID_PLATAFORMA;
-
-    if (!landlordWalletId) {
+    const landlordSubaccountApiKey =
+      paymentOrder.contract.landlord.subAccount?.apiKey;
+    if (!landlordWalletId || !landlordSubaccountApiKey) {
       throw new BadRequestException(
         'O locador não possui a conta configurada para recebimento. Consulte o locador e tente novamente.',
       );
     }
+
     const customerId = await this.userService.getOrCreateGatewayCustomer(
       paymentOrder.contract.tenant.id,
     );
@@ -128,17 +138,20 @@ export class PaymentsOrdersService {
       (paymentOrder.contract.iptuFee?.toNumber() ?? 0);
 
     const dueDate = paymentOrder.dueDate.toISOString().split('T')[0];
-    const charge = await this.paymentGateway.createChargeWithSplitOnSubAccount({
-      customer: customerId,
-      billingType: 'BOLETO',
-      dueDate: dueDate,
-      value,
-      description: `Aluguel ${paymentOrder.contract.property.title} - venc. ${DateUtils.formatDate(dueDate)}`,
-      split: [
-        { walletId: landlordWalletId, percentualValue: 97 },
-        // { walletId: platformWalletId, percentualValue: 3 },
-      ],
-    });
+    const charge = await this.paymentGateway.createChargeWithSplitOnSubAccount(
+      landlordSubaccountApiKey,
+      {
+        customer: customerId,
+        billingType: 'BOLETO',
+        dueDate: dueDate,
+        value,
+        description: `Aluguel ${paymentOrder.contract.property.title} - venc. ${DateUtils.formatDate(dueDate)}`,
+        split: [
+          { walletId: landlordWalletId, percentualValue: 97 },
+          { walletId: this.platformWalletId, percentualValue: 3 },
+        ],
+      },
+    );
 
     return this.prisma.paymentOrder.update({
       where: { id: paymentOrderId },
@@ -167,7 +180,7 @@ export class PaymentsOrdersService {
       where: { id: contractId },
       include: {
         tenant: true,
-        landlord: { include: { bankAccount: true } },
+        landlord: { include: { subAccount: true, bankAccount: true } },
         paymentsOrders: true,
         property: true,
       },
@@ -198,13 +211,13 @@ export class PaymentsOrdersService {
     if (existing) return existing;
 
     const landlordWalletId = contract.landlord.bankAccount?.asaasWalletId;
-    // const platformWalletId = process.env.ASAAS_WALLET_ID_PLATAFORMA;
-
-    if (!landlordWalletId) {
+    const landlordSubaccountApiKey = contract.landlord.subAccount?.apiKey;
+    if (!landlordWalletId || !landlordSubaccountApiKey) {
       throw new BadRequestException(
         'O locador não possui a conta configurada para recebimento. Consulte o locador e tente novamente.',
       );
     }
+
     const customerId = await this.userService.getOrCreateGatewayCustomer(
       contract.tenantId,
     );
@@ -213,17 +226,20 @@ export class PaymentsOrdersService {
       (contract.condoFee?.toNumber() ?? 0) +
       (contract.iptuFee?.toNumber() ?? 0);
 
-    const charge = await this.paymentGateway.createChargeWithSplitOnSubAccount({
-      customer: customerId,
-      billingType: 'BOLETO',
-      dueDate: dueDate,
-      value,
-      description: `Aluguel ${contract.property.title} - venc. ${DateUtils.formatDate(dueDate)}`,
-      split: [
-        { walletId: landlordWalletId, percentualValue: 97 },
-        // { walletId: platformWalletId, percentualValue: 3 },
-      ],
-    });
+    const charge = await this.paymentGateway.createChargeWithSplitOnSubAccount(
+      landlordSubaccountApiKey as string,
+      {
+        customer: customerId,
+        billingType: 'BOLETO',
+        dueDate: dueDate,
+        value,
+        description: `Aluguel ${contract.property.title} - venc. ${DateUtils.formatDate(dueDate)}`,
+        split: [
+          { walletId: landlordWalletId, percentualValue: 97 },
+          { walletId: this.platformWalletId, percentualValue: 3 },
+        ],
+      },
+    );
 
     const payment = await this.prisma.paymentOrder.create({
       data: {

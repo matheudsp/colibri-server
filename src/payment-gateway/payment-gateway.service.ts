@@ -6,7 +6,6 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { CompanyType } from '@prisma/client';
 import { firstValueFrom } from 'rxjs';
 import type {
   CreateAsaasChargeDto,
@@ -145,6 +144,7 @@ export class PaymentGatewayService {
   }
 
   async createChargeWithSplitOnSubAccount(
+    apiKey: string,
     chargeData: CreateAsaasChargeDto,
   ): Promise<any> {
     const endpoint = `${this.asaasApiUrl}/payments`;
@@ -154,7 +154,7 @@ export class PaymentGatewayService {
         this.httpService.post(endpoint, chargeData, {
           headers: {
             'Content-Type': 'application/json',
-            access_token: this.asaasApiKey,
+            access_token: apiKey,
           },
         }),
       );

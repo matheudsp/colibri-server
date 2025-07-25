@@ -16,23 +16,38 @@ export interface CreateAsaasSubAccountDto {
 }
 
 export interface CreateAsaasSubAccountResponse {
+  object: string;
   id: string;
+  name: string;
+  email: string;
   loginEmail: string;
   cpfCnpj: string;
+  phone: string | null;
+  mobilePhone: string;
+  address: string;
+  addressNumber: string;
+  province: string;
+  postalCode: string;
+  city: string;
+  state: string;
+  country: string;
   birthDate?: string;
   personType: string;
-  companyType: string;
+  companyType: string | null;
   walletId: string;
+  apiKey: string;
   accountNumber: {
     agency: string;
     account: string;
     accountDigit: string;
   };
+  incomeValue: number;
   commercialInfoExpiration: {
     isExpired: boolean;
     scheduledDate: string;
-  };
+  } | null;
 }
+
 export interface CreateAsaasCustomerDto {
   name: string;
   cpfCnpj: string;
