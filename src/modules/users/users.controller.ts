@@ -29,7 +29,7 @@ import {
 import { JwtPayload } from '../../common/interfaces/jwt.payload.interface';
 import { SearchUserDto } from './dto/search-user.dto';
 
-@ApiTags('Users Management')
+@ApiTags('Users')
 @ApiBearerAuth()
 @RequireAuth()
 @Controller('users')

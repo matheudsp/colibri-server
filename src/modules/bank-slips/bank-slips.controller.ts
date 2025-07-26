@@ -4,10 +4,10 @@ import { RequireAuth } from 'src/common/decorator/current-user.decorator';
 import { GenerateBoletoDto } from './dto/generate-boleto.dto';
 import { BankSlipsService } from './bank-slips.service';
 
-@Controller('boletos')
+@Controller('bank-slips')
 @RequireAuth()
 @ApiBearerAuth()
-@ApiTags('Boletos')
+@ApiTags('Bank-slips')
 export class BankSlipsController {
   constructor(private readonly bankSlipsService: BankSlipsService) {}
 
