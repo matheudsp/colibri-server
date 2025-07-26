@@ -245,7 +245,7 @@ model PaymentOrder {
   paidAt       DateTime?      @default(now()) @db.Date
   status       PaymentStatus  @default(PENDENTE)
   contract     Contract       @relation(fields: [contractId], references: [id])
-  boleto       Boleto?
+  bankSlip     BankSlip?
   PaymentSplit PaymentSplit[]
 }
 
@@ -259,7 +259,7 @@ model PaymentSplit {
   payment PaymentOrder @relation(fields: [paymentId], references: [id])
 }
 
-model Boleto {
+model BankSlip {
   id             String       @id @default(uuid())
   paymentOrderId String       @unique
   asaasChargeId  String       @unique

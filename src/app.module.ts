@@ -23,7 +23,7 @@ import { DocumentsModule } from './modules/documents/documents.module';
 import { BankAccountsModule } from './modules/bank-accounts/bank-accounts.module';
 import { AsaasCustomerModule } from './modules/asaas-customer/asaas-customer.module';
 import { SubaccountModule } from './modules/subaccount/subaccount.module';
-import { BoletosModule } from './modules/boletos/boletos.module';
+import { BankSlipsModule } from './modules/bank-slips/bank-slips.module';
 
 @Module({
   imports: [
@@ -45,7 +45,7 @@ import { BoletosModule } from './modules/boletos/boletos.module';
     BankAccountsModule,
     AsaasCustomerModule,
     SubaccountModule,
-    BoletosModule,
+    BankSlipsModule,
   ],
   providers: [
     {

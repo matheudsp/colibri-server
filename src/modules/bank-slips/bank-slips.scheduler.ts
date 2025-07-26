@@ -6,12 +6,12 @@ import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 
 @Injectable()
-export class BoletoSchedulerService {
-  private readonly logger = new Logger(BoletoSchedulerService.name);
+export class BankSlipsSchedulerService {
+  private readonly logger = new Logger(BankSlipsSchedulerService.name);
 
   constructor(
     private readonly prisma: PrismaService,
-    @InjectQueue('boleto') private readonly boletoQueue: Queue,
+    @InjectQueue('bank-slip') private readonly boletoQueue: Queue,
   ) {}
 
   // Executa todo dia às 6h da manhã
@@ -28,7 +28,7 @@ export class BoletoSchedulerService {
     const pendingPaymentOrders = await this.prisma.paymentOrder.findMany({
       where: {
         status: 'PENDENTE',
-        boleto: null,
+        bankSlip: null,
         dueDate: {
           gte: startDate,
           lte: endDate,

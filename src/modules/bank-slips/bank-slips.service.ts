@@ -11,7 +11,7 @@ import {
 import { DateUtils } from 'src/common/utils/date.utils';
 
 @Injectable()
-export class BoletosService {
+export class BankSlipsService {
   private readonly platformWalletId: string;
 
   constructor(
@@ -27,7 +27,7 @@ export class BoletosService {
     const paymentOrder = await this.prisma.paymentOrder.findUnique({
       where: { id: paymentOrderId },
       include: {
-        boleto: true,
+        bankSlip: true,
         contract: {
           include: {
             tenant: true,
@@ -40,7 +40,7 @@ export class BoletosService {
 
     if (!paymentOrder)
       throw new NotFoundException('Ordem de pagamento não encontrada.');
-    if (paymentOrder.boleto)
+    if (paymentOrder.bankSlip)
       throw new ConflictException('Já existe um boleto para essa fatura.');
     if (paymentOrder.contract.status !== 'ATIVO')
       throw new BadRequestException('Contrato inativo.');
@@ -81,7 +81,7 @@ export class BoletosService {
     return this.prisma.paymentOrder.update({
       where: { id: paymentOrder.id },
       data: {
-        boleto: {
+        bankSlip: {
           create: {
             asaasChargeId: charge.id,
             bankSlipUrl: charge.bankSlipUrl,
@@ -90,7 +90,7 @@ export class BoletosService {
           },
         },
       },
-      include: { boleto: true },
+      include: { bankSlip: true },
     });
   }
 

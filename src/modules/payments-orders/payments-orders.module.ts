@@ -6,17 +6,12 @@ import { LogHelperService } from '../logs/log-helper.service';
 import { PaymentGatewayModule } from 'src/payment-gateway/payment-gateway.module';
 
 import { AsaasCustomerModule } from '../asaas-customer/asaas-customer.module';
-import { BoletosModule } from '../boletos/boletos.module';
-
+import { BankSlipsModule } from '../bank-slips/bank-slips.module';
 
 @Module({
-  imports: [PaymentGatewayModule, AsaasCustomerModule, BoletosModule],
-  providers: [
-    PaymentsOrdersService,
-    PrismaService,
-    LogHelperService,
-  ],
+  imports: [PaymentGatewayModule, AsaasCustomerModule, BankSlipsModule],
+  providers: [PaymentsOrdersService, PrismaService, LogHelperService],
   controllers: [PaymentsOrdersController],
-  exports:[PaymentsOrdersService]
+  exports: [PaymentsOrdersService],
 })
 export class PaymentsOrdersModule {}
