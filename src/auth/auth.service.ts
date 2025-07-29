@@ -78,10 +78,7 @@ export class AuthService {
   async registerLandlord(
     registerDto: CreateLandlordDto,
   ): Promise<RegisterResponse> {
-    const user = await this.userService.create(
-      registerDto,
-      ROLES.LOCADOR,
-    );
+    const user = await this.userService.create(registerDto, ROLES.LOCADOR);
 
     const payload: JwtPayload = {
       sub: user.id,
@@ -97,10 +94,7 @@ export class AuthService {
   }
 
   async registerUser(registerDto: CreateUserDto): Promise<RegisterResponse> {
-    const user = await this.userService.create(
-      registerDto,
-      ROLES.LOCATARIO,
-    );
+    const user = await this.userService.create(registerDto, ROLES.LOCATARIO);
 
     const payload: JwtPayload = {
       sub: user.id,

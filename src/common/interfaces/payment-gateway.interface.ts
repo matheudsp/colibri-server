@@ -21,31 +21,33 @@ export interface CreateAsaasSubAccountResponse {
   name: string;
   email: string;
   loginEmail: string;
-  cpfCnpj: string;
   phone: string | null;
   mobilePhone: string;
   address: string;
   addressNumber: string;
+  complement: string | null;
   province: string;
   postalCode: string;
-  city: string;
+  cpfCnpj: string;
+  birthDate?: string;
+  personType: 'FISICA' | 'JURIDICA';
+  companyType: CompanyType | null;
+  city: number;
   state: string;
   country: string;
-  birthDate?: string;
-  personType: string;
-  companyType: string | null;
+  tradingName: string | null;
+  site: string | null;
   walletId: string;
-  apiKey: string;
   accountNumber: {
     agency: string;
     account: string;
     accountDigit: string;
   };
-  incomeValue: number;
   commercialInfoExpiration: {
     isExpired: boolean;
     scheduledDate: string;
   } | null;
+  apiKey: string;
 }
 
 export interface CreateAsaasCustomerDto {

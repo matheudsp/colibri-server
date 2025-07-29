@@ -73,6 +73,11 @@ export class UserController {
     return this.userService.findOne(id);
   }
 
+  @Get('test-email/:id')
+  testEmail(@Param('id', ParseUUIDPipe) id: string) {
+    return this.userService.testEmail(id);
+  }
+
   @Patch(':id')
   @ApiOperation({ summary: 'Update user profile' })
   @ApiParam({ name: 'id', description: 'User UUID' })

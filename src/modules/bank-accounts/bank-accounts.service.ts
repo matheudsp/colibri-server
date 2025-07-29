@@ -43,24 +43,23 @@ export class BankAccountsService {
         'Apenas locadores podem criar contas bancárias.',
       );
     }
-    if (
-      await this.prisma.bankAccount.findUnique({
-        where: { userId: currentUser.sub },
-      })
-    ) {
+    const existingBankAccount = await this.prisma.bankAccount.findUnique({
+      where: { userId: currentUser.sub },
+    });
+
+    if (existingBankAccount) {
       throw new ConflictException(
         'Este usuário já possui uma conta bancária cadastrada.',
       );
     }
 
-    const walletId = await this.subaccountService.getOrCreateSubaccount(user);
+    await this.subaccountService.getOrCreateSubaccount(user);
 
     try {
       const bankAccount = await this.prisma.bankAccount.create({
         data: {
           userId: currentUser.sub,
           ...createBankAccountDto,
-          asaasWalletId: walletId,
         },
       });
 
@@ -68,15 +67,14 @@ export class BankAccountsService {
         `Conta bancária local criada para o usuário ${currentUser.sub}.`,
       );
       return bankAccount;
-    } catch (dbError) {
+    } catch (dbError: any) {
       this.logger.error(
         'Falha ao salvar a conta bancária no banco de dados',
-        dbError,
+        dbError.stack,
       );
       throw new InternalServerErrorException(
         'Erro ao salvar os dados da conta bancária.',
       );
     }
   }
-
 }

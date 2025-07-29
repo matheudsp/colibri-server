@@ -32,11 +32,12 @@ services:
   # --- Banco de Dados Redis (Para filas Bull) ---
   redis:
     image: redis:7-alpine
+    restart: always
     ports:
       - '6379:6379'
     volumes:
       - redis_data:/data
-
+    command: redis-server --requirepass ${REDIS_PASSWORD}
   # --- Redis Exporter (Métricas do Redis) ---
   redis_exporter:
     image: oliver006/redis_exporter

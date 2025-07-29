@@ -7,7 +7,7 @@ export const mailerConfig = (configService: ConfigService): MailerOptions => ({
   transport: {
     host: configService.get<string>('MAIL_HOST'),
     port: configService.get<number>('MAIL_PORT'),
-    secure: false,
+    secure: true,
     auth: {
       user: configService.get<string>('MAIL_USER'),
       pass: configService.get<string>('MAIL_PASSWORD'),
@@ -17,7 +17,7 @@ export const mailerConfig = (configService: ConfigService): MailerOptions => ({
     from: `"${configService.get<string>('MAIL_FROM_NAME')}" <${configService.get<string>('MAIL_FROM_ADDRESS')}>`,
   },
   template: {
-    dir: path.join(__dirname, '../../templates/emails'),
+    dir: path.join(__dirname, '../mailer/templates'),
     adapter: new HandlebarsAdapter(),
     options: {
       strict: true,

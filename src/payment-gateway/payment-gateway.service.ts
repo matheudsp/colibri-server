@@ -105,37 +105,41 @@ export class PaymentGatewayService {
   ): Promise<CreateAsaasSubAccountResponse> {
     const endpoint = `${this.asaasApiUrl}/accounts`;
 
-    const defaultWebhook = {
-      name: `Webhook Test`,
-      url: `${this.configService.get('APP_URL')}/webhooks/asaas`,
-      email: this.configService.get('MAIL_FROM_ADDRESS'),
-      sendType: 'SEQUENTIALLY',
-      enabled: true,
-      apiVersion: 3,
-      interrupted: false,
-      events: [
-        'PAYMENT_CREATED',
-        'PAYMENT_UPDATED',
-        'PAYMENT_CONFIRMED',
-        'PAYMENT_RECEIVED',
-        'PAYMENT_DELETED',
+    const payload = {
+      ...accountData,
+      webhooks: [
+        {
+          name: `Webhook Padrão`,
+          url: `${this.configService.get('APP_URL')}/webhooks/asaas`,
+          email: 'atendimentoaocliente.valedosol@gmail.com',
+          sendType: 'SEQUENTIALLY',
+          enabled: true,
+          apiVersion: 3,
+          interrupted: false,
+          events: [
+            'PAYMENT_CREATED',
+            'PAYMENT_UPDATED',
+            'PAYMENT_CONFIRMED',
+            'PAYMENT_RECEIVED',
+            'PAYMENT_DELETED',
+          ],
+        },
       ],
     };
 
     try {
       this.logger.log(`Criando subconta para: ${accountData.email}`);
-
+      this.logger.debug(
+        'Enviando o seguinte payload para o Asaas:',
+        JSON.stringify(payload, null, 2),
+      );
       const response = await firstValueFrom(
-        this.httpService.post(
-          endpoint,
-          { ...accountData, webhooks: [defaultWebhook] },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              access_token: this.asaasApiKey,
-            },
+        this.httpService.post(endpoint, payload, {
+          headers: {
+            'Content-Type': 'application/json',
+            access_token: this.asaasApiKey,
           },
-        ),
+        }),
       );
 
       this.logger.log(

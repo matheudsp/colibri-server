@@ -5,7 +5,10 @@ import {
   Logger,
 } from '@nestjs/common';
 import { User, type SubAccount } from '@prisma/client';
-import { CreateAsaasSubAccountDto } from 'src/common/interfaces/payment-gateway.interface';
+import {
+  CreateAsaasSubAccountDto,
+  CreateAsaasSubAccountResponse,
+} from 'src/common/interfaces/payment-gateway.interface';
 import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -20,59 +23,76 @@ export class SubaccountService {
 
   async getOrCreateSubaccount(
     user: User & { subAccount: SubAccount | null },
-  ): Promise<string> {
-    if (!user.subAccount?.asaasAccountId) {
-      this.logger.log(`Usuário ${user.id} não possui subconta. Criando...`);
-      this.validateUserForSubAccountCreation(user);
-
-      const subaccountDto: CreateAsaasSubAccountDto = {
-        name: user.name,
-        email: user.email,
-        cpfCnpj: user.cpfCnpj!,
-        mobilePhone: user.phone!,
-        address: user.street!,
-        addressNumber: user.number!,
-        province: user.province!,
-        postalCode: user.cep!,
-        incomeValue: user.incomeValue?.toNumber() || 5000,
-        ...(user.companyType
-          ? { companyType: user.companyType }
-          : { birthDate: user.birthDate!.toISOString().split('T')[0] }),
-      };
-
-      const asaasAccount =
-        await this.paymentGatewayService.createWhitelabelSubAccount(
-          subaccountDto,
-        );
-
-      await this.prisma.subAccount.update({
-        where: { id: user.id },
-        data: { asaasAccountId: asaasAccount.id },
-      });
-
+  ): Promise<SubAccount> {
+    if (
+      user.subAccount &&
+      user.subAccount.asaasAccountId &&
+      user.subAccount.apiKey &&
+      user.subAccount.asaasWalletId
+    ) {
       this.logger.log(
-        `Subconta criada [${asaasAccount.id}] para usuário ${user.id}`,
+        `Subconta completa [${user.subAccount.asaasAccountId}] já existe localmente para o usuário ${user.id}. Retornando dados existentes.`,
       );
-
-      return asaasAccount.walletId;
+      return user.subAccount;
     }
 
     this.logger.log(
-      `Usuário ${user.id} já possui subconta [${user.subAccount.asaasAccountId}].`,
+      `Iniciando processo de criação/atualização de subconta para o usuário ${user.id}.`,
     );
+    this.validateUserForSubAccountCreation(user);
 
-    const accountDetails =
-      await this.paymentGatewayService.getSubAccountDetails(
-        user.subAccount.asaasAccountId,
+    const subaccountDto: CreateAsaasSubAccountDto = {
+      name: user.name.trim(),
+      email: user.email.trim(),
+      cpfCnpj: user.cpfCnpj.replace(/\D/g, ''),
+      mobilePhone: user.phone!.trim(),
+      address: user.street!.trim(),
+      addressNumber: user.number!.trim(),
+      province: user.province!.trim(),
+      postalCode: user.cep!.replace(/\D/g, '').substring(0, 8),
+      incomeValue: user.incomeValue?.toNumber() || 5000,
+      ...(user.companyType
+        ? { companyType: user.companyType }
+        : { birthDate: user.birthDate!.toISOString().split('T')[0] }),
+    };
+    // console.log(subaccountDto);
+    const asaasAccount =
+      await this.paymentGatewayService.createWhitelabelSubAccount(
+        subaccountDto,
       );
 
-    if (!accountDetails?.walletId) {
+    try {
+      const savedSubAccount = await this.prisma.subAccount.upsert({
+        where: { userId: user.id },
+
+        update: {
+          asaasAccountId: asaasAccount.id,
+          apiKey: asaasAccount.apiKey,
+          asaasWalletId: asaasAccount.walletId,
+        },
+
+        create: {
+          userId: user.id,
+          asaasAccountId: asaasAccount.id,
+          apiKey: asaasAccount.apiKey,
+          asaasWalletId: asaasAccount.walletId,
+        },
+      });
+
+      this.logger.log(
+        `Subconta [${asaasAccount.id}] salva/atualizada no banco de dados para o usuário ${user.id}.`,
+      );
+
+      return savedSubAccount;
+    } catch (error) {
+      this.logger.error(
+        `Falha ao salvar/atualizar a subconta no banco de dados para o usuário ${user.id}`,
+        error,
+      );
       throw new InternalServerErrorException(
-        'Não foi possível obter o walletId da subconta existente.',
+        'A subconta foi criada no gateway, mas falhou ao ser salva localmente.',
       );
     }
-
-    return accountDetails.walletId;
   }
 
   private validateUserForSubAccountCreation(user: User): void {
@@ -90,14 +110,14 @@ export class SubaccountService {
     for (const field of requiredFields) {
       if (!user[field]) {
         throw new BadRequestException(
-          `Campo '${field}' é obrigatório para criação da subconta.`,
+          `O campo do usuário '${field}' é obrigatório para a criação da subconta.`,
         );
       }
     }
 
     if (!user.companyType && !user.birthDate) {
       throw new BadRequestException(
-        "Informe 'tipo de companhia' (PJ) ou 'data de nascimento' (PF).",
+        "É necessário fornecer o 'tipo de empresa' (companyType) para PJ ou a 'data de nascimento' (birthDate) para PF.",
       );
     }
   }

@@ -55,6 +55,17 @@ export class PaymentsOrdersService {
       );
     }
 
+    const existingPayments = await this.prisma.paymentOrder.count({
+      where: { contractId },
+    });
+
+    if (existingPayments > 0) {
+      console.log(
+        `Pagamentos para o contrato ${contractId} já existem. Nenhuma ação foi tomada.`,
+      );
+      return;
+    }
+
     const paymentsToCreate: Prisma.PaymentOrderCreateManyInput[] = [];
     const totalAmount =
       contract.rentAmount.toNumber() +
@@ -62,7 +73,7 @@ export class PaymentsOrdersService {
       (contract.iptuFee?.toNumber() ?? 0);
 
     for (let i = 0; i < contract.durationInMonths; i++) {
-      const dueDate = addMonths(contract.startDate, i);
+      const dueDate = addMonths(contract.startDate, i + 1);
       paymentsToCreate.push({
         contractId: contract.id,
         dueDate: dueDate,

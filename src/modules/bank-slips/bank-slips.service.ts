@@ -23,7 +23,7 @@ export class BankSlipsService {
     this.platformWalletId = this.configService.getOrThrow('ASSAS_WALLET_ID');
   }
 
-  async generateForPaymentOrder(paymentOrderId: string) {
+  async generateBankSlipForPaymentOrder(paymentOrderId: string) {
     const paymentOrder = await this.prisma.paymentOrder.findUnique({
       where: { id: paymentOrderId },
       include: {
@@ -48,7 +48,7 @@ export class BankSlipsService {
     const { contract } = paymentOrder;
     const landlord = contract.landlord;
 
-    if (!landlord.subAccount?.apiKey || !landlord.bankAccount?.asaasWalletId)
+    if (!landlord.subAccount?.apiKey || !landlord.subAccount?.asaasWalletId)
       throw new BadRequestException('Conta do locador incompleta.');
 
     const customerId = await this.asaasCustomerService.getOrCreate(
@@ -72,7 +72,7 @@ export class BankSlipsService {
         value,
         description: `Aluguel ${contract.property.title} - venc. ${DateUtils.formatDate(dueDate)}`,
         split: [
-          { walletId: landlord.bankAccount.asaasWalletId, percentualValue: 97 },
+          // { walletId: landlord.subAccount.asaasWalletId, percentualValue: 97 },
           { walletId: this.platformWalletId, percentualValue: 3 },
         ],
       },

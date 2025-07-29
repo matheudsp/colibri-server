@@ -1,5 +1,7 @@
 import * as argon2 from 'argon2';
-import { PrismaClient, UserRole } from '@prisma/client';
+import { PrismaClient, UserRole, type Prisma } from '@prisma/client';
+import 'dotenv/config';
+import { addMonths } from 'date-fns';
 
 const prisma = new PrismaClient();
 
@@ -18,22 +20,36 @@ async function main() {
 
   console.log('🗑️ Limpando dados existentes...');
   await prisma.log.deleteMany();
+  await prisma.asaasCustomer.deleteMany();
+  await prisma.subAccount.deleteMany();
   await prisma.photo.deleteMany();
+  await prisma.bankAccount.deleteMany();
   await prisma.document.deleteMany();
+  await prisma.webhook.deleteMany();
+  await prisma.paymentOrder.deleteMany();
+  await prisma.paymentSplit.deleteMany();
   await prisma.contract.deleteMany();
+  await prisma.bankSlip.deleteMany();
   await prisma.property.deleteMany();
   await prisma.condominium.deleteMany();
   await prisma.user.deleteMany();
   console.log('🗑️ Dados limpos com sucesso.');
 
-  const adminPassword = await argon2.hash('admin_123');
-  const userPassword = await argon2.hash('usuario_123');
+  const adminPassword = await argon2.hash(
+    process.env.SEED_ADMIN_PASSWORD || 'admin_123',
+  );
+  const landlordPassword = await argon2.hash(
+    process.env.SEED_LANDLORD_PASSWORD || 'usuario_123',
+  );
+  const tenantPassword = await argon2.hash(
+    process.env.SEED_TENANT_PASSWORD || 'usuario_123',
+  );
 
   console.log('👤 Criando usuários...');
   const admin = await prisma.user.create({
     data: {
-      name: 'Administrador da Plataforma',
-      email: 'admin@imobilia.io',
+      name: process.env.SEED_ADMIN_NAME || 'Administrador da Plataforma',
+      email: process.env.SEED_ADMIN_EMAIL || 'admin@imobilia.io',
       password: adminPassword,
       cpfCnpj: generateRandomCpf(),
       role: UserRole.ADMIN,
@@ -42,9 +58,9 @@ async function main() {
 
   const locador = await prisma.user.create({
     data: {
-      name: 'Ricardo Proprietário',
-      email: 'ricardo.prop@imobilia.io',
-      password: userPassword,
+      name: process.env.SEED_LANDLORD_NAME || 'Ricardo Proprietário',
+      email: process.env.SEED_LANDLORD_EMAIL || 'ricardo.prop@imobilia.io',
+      password: landlordPassword,
       cpfCnpj: generateRandomCpf(),
       phone: '11987654321',
       role: UserRole.LOCADOR,
@@ -53,9 +69,9 @@ async function main() {
 
   const locatario = await prisma.user.create({
     data: {
-      name: 'Mariana Inquilina',
-      email: 'mariana.inquilina@imobilia.io',
-      password: userPassword,
+      name: process.env.SEED_TENANT_NAME || 'Mariana Inquilina',
+      email: process.env.SEED_TENANT_EMAIL || 'mariana.inquilina@imobilia.io',
+      password: tenantPassword,
       cpfCnpj: generateRandomCpf(),
       phone: '21912345678',
       role: UserRole.LOCATARIO,
@@ -79,7 +95,7 @@ async function main() {
   console.log('🏢 Condomínio criado:', condominioResidencial);
 
   console.log('🏠 Criando unidades (Properties) dentro do Condomínio...');
-  const apartamento101 = await prisma.property.create({
+  await prisma.property.create({
     data: {
       title: 'Apartamento 2 Quartos com Varanda',
       description: 'Unidade 101, Bloco A. Sol da manhã.',
@@ -153,7 +169,34 @@ async function main() {
     },
   });
   console.log('✍️ Contrato criado:', contract);
+  console.log(
+    '🧾 Gerando ordens de pagamento (mensalidades) para o contrato...',
+  );
 
+  const paymentsToCreate: Prisma.PaymentOrderCreateManyInput[] = [];
+  const totalAmount =
+    contract.rentAmount.toNumber() +
+    (contract.condoFee?.toNumber() || 0) +
+    (contract.iptuFee?.toNumber() || 0);
+
+  for (let i = 0; i < contract.durationInMonths; i++) {
+    const dueDate = addMonths(contract.startDate, i + 1);
+    paymentsToCreate.push({
+      contractId: contract.id,
+      dueDate: dueDate,
+      amountDue: totalAmount,
+      status: 'PENDENTE',
+    });
+  }
+
+  if (paymentsToCreate.length > 0) {
+    await prisma.paymentOrder.createMany({
+      data: paymentsToCreate,
+    });
+    console.log(
+      `🧾 ${paymentsToCreate.length} ordens de pagamento criadas com sucesso.`,
+    );
+  }
   console.log('✅ Seed finalizado com sucesso!');
 }
 

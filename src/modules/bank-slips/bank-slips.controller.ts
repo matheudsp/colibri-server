@@ -1,7 +1,7 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RequireAuth } from 'src/common/decorator/current-user.decorator';
-import { GenerateBoletoDto } from './dto/generate-boleto.dto';
+import { GenerateBankSlipDto } from './dto/generate-bank-slip.dto';
 import { BankSlipsService } from './bank-slips.service';
 
 @Controller('bank-slips')
@@ -13,8 +13,10 @@ export class BankSlipsController {
 
   @Post('generate')
   @ApiOperation({ summary: 'Gerar boleto para um contrato' })
-  @ApiBody({ type: GenerateBoletoDto })
-  async generateBoleto(@Body() paymentOrderId: string) {
-    return this.bankSlipsService.generateForPaymentOrder(paymentOrderId);
+  @ApiBody({ type: GenerateBankSlipDto })
+  async generateBankSlip(@Body() generateDto: GenerateBankSlipDto) {
+    return this.bankSlipsService.generateBankSlipForPaymentOrder(
+      generateDto.paymentOrderId,
+    );
   }
 }

@@ -110,6 +110,7 @@ model SubAccount {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id])
 
+  asaasWalletId  String?         @unique
   asaasAccountId String          @unique
   apiKey         String
   createdAt      DateTime        @default(now())
@@ -135,12 +136,12 @@ model BankAccount {
   id     String @id @default(uuid())
   userId String @unique
 
-  bank          String
-  agency        String
-  account       String
-  accountType   BankAccountType
-  asaasWalletId String?         @unique
-  pixKey        String?
+  bank        String
+  agency      String
+  account     String
+  accountType BankAccountType
+
+  pixKey String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -242,7 +243,7 @@ model PaymentOrder {
   amountDue    Decimal
   amountPaid   Decimal?
   dueDate      DateTime       @default(now()) @db.Date
-  paidAt       DateTime?      @default(now()) @db.Date
+  paidAt       DateTime?      @db.Date
   status       PaymentStatus  @default(PENDENTE)
   contract     Contract       @relation(fields: [contractId], references: [id])
   bankSlip     BankSlip?

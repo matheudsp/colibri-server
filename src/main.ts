@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { setupSwagger } from './docs/swagger.config';
 import { PrismaService } from './prisma/prisma.service';
 import { Logger, ValidationPipe } from '@nestjs/common';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -12,6 +13,7 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api/v1');
   setupSwagger(app);
+  app.useGlobalInterceptors(new TransformInterceptor());
   prismaService.enableShutdownHooks(app);
   app.enableCors({
     origin: [

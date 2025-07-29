@@ -18,13 +18,15 @@ import { ROLES } from 'src/common/constants/roles.constant';
 import { EmailJobType, type NewAccountJob } from 'src/queue/jobs/email.job';
 import { CreateLandlordDto } from './dto/create-landlord.dto';
 import { PasswordUtil } from 'src/common/utils/hash.utils';
+import { QueueName } from 'src/queue/jobs/jobs';
+
 @Injectable()
 export class UserService {
   constructor(
     private prisma: PrismaService,
     private logHelper: LogHelperService,
 
-    @InjectQueue('email') private readonly emailQueue: Queue,
+    @InjectQueue(QueueName.EMAIL) private readonly emailQueue: Queue,
   ) {}
 
   private userSafeFields() {
@@ -134,6 +136,23 @@ export class UserService {
       throw new NotFoundException('Usuário não encontrado');
     }
 
+    return user;
+  }
+
+  async testEmail(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: this.userSafeFields(),
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado');
+    }
+    const jobPayload: NewAccountJob = {
+      user: { email: user.email, name: user.name },
+      temporaryPassword: 'senha-provisoria-123',
+    };
+    await this.emailQueue.add(EmailJobType.NEW_ACCOUNT, jobPayload);
     return user;
   }
 

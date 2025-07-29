@@ -67,7 +67,7 @@ export class DocumentsController {
     return this.documentsService.findByContract(contractId, currentUser);
   }
 
-  @Patch('documents/:documentId/status')
+  @Patch(':documentId')
   @Roles(ROLES.LOCADOR, ROLES.ADMIN)
   @ApiOperation({ summary: 'Update the status of a document (Approve/Reject)' })
   @ApiResponse({ status: 200, type: DocumentResponseDto })

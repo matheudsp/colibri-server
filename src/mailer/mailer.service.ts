@@ -11,12 +11,14 @@ import type {
 export class MailerService {
   private readonly logger = new Logger(MailerService.name);
   private readonly appUrl: string;
+  private readonly appName: string;
 
   constructor(
     private readonly mailer: NestMailerService,
     private readonly configService: ConfigService,
   ) {
     this.appUrl = this.configService.getOrThrow<string>('APP_URL');
+    this.appName = this.configService.getOrThrow<string>('APP_NAME');
   }
 
   private async sendEmail(
@@ -33,6 +35,7 @@ export class MailerService {
         context: {
           ...context,
           appUrl: this.appUrl,
+          appName: this.appName,
           currentYear: new Date().getFullYear(),
         },
       });

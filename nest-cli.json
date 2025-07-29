@@ -3,6 +3,20 @@
   "collection": "@nestjs/schematics",
   "sourceRoot": "src",
   "compilerOptions": {
-    "deleteOutDir": true
+    "assets": [
+      {
+        "include": "modules/pdfs/templates/**/*.hbs",
+        "outDir": "dist/src"
+      },
+      {
+        "include": "modules/pdfs/assets/**/*",
+        "outDir": "dist/src"
+      },
+      {
+        "include": "mailer/templates/**/*.hbs",
+        "outDir": "dist/src"
+      }
+    ],
+    "watchAssets": true
   }
 }
