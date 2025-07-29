@@ -1,6 +1,7 @@
 import {
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -14,6 +15,7 @@ import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class PaymentsOrdersService {
+  private readonly logger = new Logger(PaymentsOrdersService.name);
   constructor(
     private prisma: PrismaService,
     private logHelper: LogHelperService,
@@ -79,6 +81,7 @@ export class PaymentsOrdersService {
         dueDate: dueDate,
         amountDue: totalAmount,
         status: 'PENDENTE',
+        paidAt: null,
       });
     }
 
@@ -87,5 +90,90 @@ export class PaymentsOrdersService {
         data: paymentsToCreate,
       });
     }
+  }
+
+  async confirmPaymentByChargeId(
+    asaasChargeId: string,
+    amountPaid: number,
+    paidAt: Date,
+  ) {
+    const bankSlip = await this.prisma.bankSlip.findUnique({
+      where: { asaasChargeId },
+    });
+
+    if (!bankSlip) {
+      return;
+    }
+
+    const paymentOrder = await this.prisma.paymentOrder.findUnique({
+      where: { id: bankSlip.paymentOrderId },
+    });
+
+    if (!paymentOrder) {
+      return;
+    }
+
+    if (paymentOrder.status === PaymentStatus.PAGO) {
+      return;
+    }
+
+    await this.prisma.paymentOrder.update({
+      where: { id: paymentOrder.id },
+      data: {
+        status: PaymentStatus.PAGO,
+        amountPaid,
+        paidAt,
+      },
+    });
+
+    // OPCIONAL:  enfileirar um job para notificar o locador e o locatário!
+    // await this.notificationQueue.add(...)
+  }
+
+  private async updatePaymentStatusByChargeId(
+    asaasChargeId: string,
+    status: PaymentStatus,
+  ) {
+    const bankSlip = await this.prisma.bankSlip.findUnique({
+      where: { asaasChargeId },
+      select: { paymentOrderId: true },
+    });
+
+    if (!bankSlip) {
+      this.logger.warn(
+        `[Webhook] Boleto com asaasChargeId ${asaasChargeId} não encontrado. Evento de status ignorado.`,
+      );
+      return;
+    }
+
+    const updatedPayment = await this.prisma.paymentOrder.update({
+      where: { id: bankSlip.paymentOrderId },
+      data: { status },
+    });
+
+    this.logger.log(
+      `[Webhook] Status do pagamento ${updatedPayment.id} atualizado para ${status}.`,
+    );
+  }
+
+  async handleOverduePayment(asaasChargeId: string) {
+    await this.updatePaymentStatusByChargeId(
+      asaasChargeId,
+      PaymentStatus.ATRASADO,
+    );
+  }
+
+  async handleDeletedPayment(asaasChargeId: string) {
+    await this.updatePaymentStatusByChargeId(
+      asaasChargeId,
+      PaymentStatus.CANCELADO,
+    );
+  }
+
+  async handleRestoredPayment(asaasChargeId: string) {
+    await this.updatePaymentStatusByChargeId(
+      asaasChargeId,
+      PaymentStatus.PENDENTE,
+    );
   }
 }

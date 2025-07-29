@@ -109,19 +109,20 @@ export class PaymentGatewayService {
       ...accountData,
       webhooks: [
         {
-          name: `Webhook Padrão`,
-          url: `${this.configService.get('APP_URL')}/webhooks/asaas`,
+          name: `Webhook Padrão Colibri`,
+          url: `${this.configService.get('APP_URL')}/api/v1/webhooks/asaas`,
           email: 'atendimentoaocliente.valedosol@gmail.com',
           sendType: 'SEQUENTIALLY',
           enabled: true,
           apiVersion: 3,
           interrupted: false,
           events: [
-            'PAYMENT_CREATED',
-            'PAYMENT_UPDATED',
-            'PAYMENT_CONFIRMED',
-            'PAYMENT_RECEIVED',
-            'PAYMENT_DELETED',
+            'PAYMENT_CONFIRMED', // Pagamento confirmado (ainda não creditado)
+            'PAYMENT_RECEIVED', // Pagamento recebido (creditado na conta)
+            // 'PAYMENT_CREATED',
+            // 'PAYMENT_UPDATED',
+            // 'PAYMENT_DELETED',
+            // 'PAYMENT_REFUNDED',
           ],
         },
       ],

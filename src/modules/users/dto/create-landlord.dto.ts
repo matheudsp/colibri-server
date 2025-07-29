@@ -9,6 +9,7 @@ import {
   IsEnum,
   IsDateString,
   IsNumber,
+  ValidateIf,
 } from 'class-validator';
 
 export class CreateLandlordDto {
@@ -86,16 +87,19 @@ export class CreateLandlordDto {
     required: false,
     example: CompanyType.MEI,
   })
+  @ValidateIf((obj) => obj.cpfCnpj?.length > 11)
   @IsEnum(CompanyType)
-  @IsOptional()
+  @IsNotEmpty()
   companyType?: CompanyType;
 
+  // Requerido se CPF (pessoa física)
   @ApiProperty({
     description: 'Data de nascimento. Obrigatório se for Pessoa Física.',
     example: '1990-01-15',
     required: false,
   })
+  @ValidateIf((obj) => obj.cpfCnpj?.length === 11)
   @IsDateString()
   @IsNotEmpty()
-  birthDate!: string;
+  birthDate?: string;
 }

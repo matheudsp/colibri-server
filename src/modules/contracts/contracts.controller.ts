@@ -9,6 +9,7 @@ import {
   UseGuards,
   ParseUUIDPipe,
   Query,
+  Put,
 } from '@nestjs/common';
 import { ContractsService } from './contracts.service';
 import { CreateContractDto } from './dto/create-contract.dto';
@@ -101,7 +102,7 @@ export class ContractsController {
     return this.contractsService.findOne(id, currentUser);
   }
 
-  @Patch(':id')
+  @Put(':id')
   @Roles(ROLES.ADMIN, ROLES.LOCADOR)
   @ApiOperation({ summary: 'Update an contract' })
   @ApiParam({ name: 'id', description: 'Contract UUID' })

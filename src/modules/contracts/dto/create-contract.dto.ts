@@ -80,7 +80,10 @@ export class CreateContractDto {
   @IsOptional()
   @Min(0)
   iptuFee!: number;
-  @ApiProperty() @IsDateString() startDate: Date;
+  @ApiProperty()
+  @IsDateString()
+  startDate: string;
+
   @ApiProperty() @IsNumber() @Min(1) durationInMonths: number;
 
   @ApiProperty({ enum: GuaranteeType, required: false })

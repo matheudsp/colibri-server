@@ -75,8 +75,11 @@ export class ContractsService {
 
     // Calcula a data final baseada na data de início e duração
     const startDate = new Date(contractData.startDate);
+    if (isNaN(startDate.getTime())) {
+      throw new BadRequestException('Data de início do contrato inválida.');
+    }
     const endDate = new Date(startDate);
-    endDate.setMonth(startDate.getMonth() + contractData.durationInMonths);
+    endDate.setMonth(endDate.getMonth() + contractData.durationInMonths);
 
     const contract = await this.prisma.contract.create({
       data: {
@@ -187,11 +190,11 @@ export class ContractsService {
       );
     }
 
-    if (contract.status !== ContractStatus.EM_ANALISE) {
-      throw new BadRequestException(
-        `O contrato não pode ser ativado pois seu status é "${contract.status}".`,
-      );
-    }
+    // if (contract.status !== ContractStatus.EM_ANALISE) {
+    //   throw new BadRequestException(
+    //     `O contrato não pode ser ativado pois seu status é "${contract.status}".`,
+    //   );
+    // }
 
     // // Cria subconta se necessário
     // await this.subaccountService.getOrCreateSubaccount(contract.landlord);

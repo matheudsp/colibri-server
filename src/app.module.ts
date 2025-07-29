@@ -25,6 +25,7 @@ import { AsaasCustomerModule } from './modules/asaas-customer/asaas-customer.mod
 import { SubaccountModule } from './modules/subaccount/subaccount.module';
 import { BankSlipsModule } from './modules/bank-slips/bank-slips.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
+import { WebhooksModule } from './modules/webhooks/webhooks.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { SchedulerModule } from './scheduler/scheduler.module';
     SubaccountModule,
     BankSlipsModule,
     SchedulerModule,
+    WebhooksModule,
   ],
   providers: [
     {
