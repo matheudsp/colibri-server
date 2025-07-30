@@ -13,8 +13,8 @@ import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.servi
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
-export class SubaccountService {
-  private readonly logger = new Logger(SubaccountService.name);
+export class SubaccountsService {
+  private readonly logger = new Logger(SubaccountsService.name);
 
   constructor(
     private prisma: PrismaService,

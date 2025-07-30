@@ -21,8 +21,8 @@ import { QueueModule } from './queue/queue.module';
 import { CondominiumsModule } from './modules/condominiums/condominiums.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { BankAccountsModule } from './modules/bank-accounts/bank-accounts.module';
-import { AsaasCustomerModule } from './modules/asaas-customer/asaas-customer.module';
-import { SubaccountModule } from './modules/subaccount/subaccount.module';
+import { AsaasCustomersModule } from './modules/asaas-customers/asaas-customers.module';
+import { SubaccountsModule } from './modules/subaccounts/subaccounts.module';
 import { BankSlipsModule } from './modules/bank-slips/bank-slips.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
@@ -45,8 +45,8 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     CondominiumsModule,
     DocumentsModule,
     BankAccountsModule,
-    AsaasCustomerModule,
-    SubaccountModule,
+    AsaasCustomersModule,
+    SubaccountsModule,
     BankSlipsModule,
     SchedulerModule,
     WebhooksModule,

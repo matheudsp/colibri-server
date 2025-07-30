@@ -1,5 +1,5 @@
 import { ConfigService } from '@nestjs/config';
-import { AsaasCustomerService } from '../asaas-customer/asaas-customer.service';
+import { AsaasCustomersService } from '../asaas-customers/asaas-customers.service';
 import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
@@ -17,7 +17,7 @@ export class BankSlipsService {
   constructor(
     private prisma: PrismaService,
     private paymentGateway: PaymentGatewayService,
-    private asaasCustomerService: AsaasCustomerService,
+    private asaasCustomerService: AsaasCustomersService,
     private configService: ConfigService,
   ) {
     this.platformWalletId = this.configService.getOrThrow('ASSAS_WALLET_ID');

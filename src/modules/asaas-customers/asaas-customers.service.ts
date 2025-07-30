@@ -4,7 +4,7 @@ import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.servi
 import { CreateAsaasCustomerDto } from './dto/create-asaas-customer.dto';
 
 @Injectable()
-export class AsaasCustomerService {
+export class AsaasCustomersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly paymentGatewayService: PaymentGatewayService,

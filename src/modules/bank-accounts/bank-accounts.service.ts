@@ -13,7 +13,7 @@ import { ROLES } from 'src/common/constants/roles.constant';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.service';
 import { User } from '@prisma/client';
-import { SubaccountService } from '../subaccount/subaccount.service';
+import { SubaccountsService } from '../subaccounts/subaccounts.service';
 
 @Injectable()
 export class BankAccountsService {
@@ -21,7 +21,7 @@ export class BankAccountsService {
 
   constructor(
     private prisma: PrismaService,
-    private subaccountService: SubaccountService,
+    private subaccountService: SubaccountsService,
     private paymentGateway: PaymentGatewayService,
   ) {}
 
