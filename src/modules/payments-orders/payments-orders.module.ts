@@ -7,9 +7,15 @@ import { PaymentGatewayModule } from 'src/payment-gateway/payment-gateway.module
 
 import { AsaasCustomerModule } from '../asaas-customer/asaas-customer.module';
 import { BankSlipsModule } from '../bank-slips/bank-slips.module';
+import { QueueModule } from 'src/queue/queue.module';
 
 @Module({
-  imports: [PaymentGatewayModule, AsaasCustomerModule, BankSlipsModule],
+  imports: [
+    PaymentGatewayModule,
+    AsaasCustomerModule,
+    BankSlipsModule,
+    QueueModule,
+  ],
   providers: [PaymentsOrdersService, PrismaService, LogHelperService],
   controllers: [PaymentsOrdersController],
   exports: [PaymentsOrdersService],

@@ -22,6 +22,7 @@ export class BankAccountsService {
   constructor(
     private prisma: PrismaService,
     private subaccountService: SubaccountService,
+    private paymentGateway: PaymentGatewayService,
   ) {}
 
   async create(
@@ -76,5 +77,28 @@ export class BankAccountsService {
         'Erro ao salvar os dados da conta bancária.',
       );
     }
+  }
+
+  async getBalance(currentUser: JwtPayload) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: currentUser.sub },
+      include: {
+        subAccount: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+    if (user.role !== ROLES.LOCADOR) {
+      throw new ForbiddenException('Apenas locadores podem consultar o saldo.');
+    }
+    if (!user.subAccount?.apiKey) {
+      throw new NotFoundException(
+        'Nenhuma subconta do gateway de pagamento encontrada para este usuário.',
+      );
+    }
+
+    return this.paymentGateway.getBalance(user.subAccount.apiKey);
   }
 }

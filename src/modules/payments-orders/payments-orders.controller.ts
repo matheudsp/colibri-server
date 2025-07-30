@@ -5,6 +5,8 @@ import {
   ParseUUIDPipe,
   Post,
   Body,
+  Put,
+  Patch,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -22,6 +24,7 @@ import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { Roles } from 'src/common/decorator/roles.decorator';
 import { ROLES } from 'src/common/constants/roles.constant';
 import { PaymentResponseDto } from './dto/response-payment.dto';
+import type { RegisterPaymentDto } from './dto/register-payment.dto';
 
 @Controller('payments')
 @RequireAuth()
@@ -41,19 +44,19 @@ export class PaymentsOrdersController {
     return this.paymentsService.findPaymentsByContract(contractId, currentUser);
   }
 
-  // @Post('payments/:paymentId/pay')
-  // @Roles(ROLES.LOCADOR, ROLES.ADMIN)
-  // @ApiOperation({ summary: 'Register a payment as paid' })
-  // @ApiResponse({ status: 200, type: PaymentResponseDto })
-  // registerPayment(
-  //   @Param('paymentId', ParseUUIDPipe) paymentId: string,
-  //   @CurrentUser() currentUser: JwtPayload,
-  //   @Body() registerPaymentDto: RegisterPaymentDto,
-  // ) {
-  //   return this.paymentsService.registerPayment(
-  //     paymentId,
-  //     currentUser,
-  //     registerPaymentDto,
-  //   );
-  // }
+  @Patch(':paymentId')
+  @Roles(ROLES.LOCADOR, ROLES.ADMIN)
+  @ApiOperation({ summary: 'Registra um pagamento manualmente (dar baixa)' })
+  @ApiResponse({ status: 200, type: PaymentResponseDto })
+  registerPayment(
+    @Param('paymentId', ParseUUIDPipe) paymentId: string,
+    @CurrentUser() currentUser: JwtPayload,
+    @Body() registerPaymentDto: RegisterPaymentDto,
+  ) {
+    return this.paymentsService.registerPayment(
+      paymentId,
+      currentUser,
+      registerPaymentDto,
+    );
+  }
 }

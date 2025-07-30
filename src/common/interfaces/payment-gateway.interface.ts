@@ -13,6 +13,17 @@ export interface CreateAsaasSubAccountDto {
   complement?: string;
   province: string;
   postalCode: string;
+  webhooks?: {
+    name: string;
+    url: string;
+    email: string;
+    sendType: string;
+    interrupted: boolean;
+    enabled: boolean;
+    apiVersion: number;
+    authToken: string;
+    events: string[];
+  }[];
 }
 
 export interface CreateAsaasSubAccountResponse {

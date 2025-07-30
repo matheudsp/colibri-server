@@ -161,6 +161,24 @@ export class PaymentGatewayService {
     }
   }
 
+  async getBalance(apiKey: string): Promise<any> {
+    const endpoint = `${this.asaasApiUrl}/finance/balance`;
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get(endpoint, {
+          headers: {
+            'Content-Type': 'application/json',
+            access_token: apiKey,
+          },
+        }),
+      );
+      return response.data;
+    } catch (error) {
+      this.logger.error('Erro ao consultar saldo', error.response?.data);
+      throw new BadRequestException(error.response?.data || 'Erro no Asaas');
+    }
+  }
+
   async createCustomer(
     apiKey: string = this.asaasApiKey,
     customerData: CreateAsaasCustomerDto,

@@ -1,4 +1,11 @@
-import { Body, Controller, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+} from '@nestjs/common';
 import { BankAccountsService } from './bank-accounts.service';
 import { CreateBankAccountDto } from './dto/create-bank-account.dto';
 import {
@@ -20,7 +27,7 @@ export class BankAccountsController {
   @Post()
   @Roles(ROLES.LOCADOR)
   @ApiOperation({ summary: 'Create a bank-account' })
-  @ApiBody({type: CreateBankAccountDto})
+  @ApiBody({ type: CreateBankAccountDto })
   create(
     @Body() createBankAccountDto: CreateBankAccountDto,
     @CurrentUser() currentUser: JwtPayload,
@@ -28,4 +35,10 @@ export class BankAccountsController {
     return this.bankAccountsService.create(createBankAccountDto, currentUser);
   }
 
+  @Get('balance')
+  @Roles(ROLES.LOCADOR)
+  @ApiOperation({ summary: "Get the user's payment gateway account balance" })
+  getBalance(@CurrentUser() currentUser: JwtPayload) {
+    return this.bankAccountsService.getBalance(currentUser);
+  }
 }

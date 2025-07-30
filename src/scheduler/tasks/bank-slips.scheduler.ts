@@ -43,7 +43,7 @@ export class BankSlipsScheduler {
     }
 
     this.logger.log(
-      `Encontradas ${pendingPaymentOrders.length} ordens. Enfileirando...`,
+      `Encontradas ${pendingPaymentOrders.length} ordens de pagamento. Enfileirando...`,
     );
 
     for (const order of pendingPaymentOrders) {

@@ -24,6 +24,7 @@ import { EmailJobType, type NotificationJob } from 'src/queue/jobs/email.job';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { PaymentsOrdersService } from '../payments-orders/payments-orders.service';
+import { QueueName } from 'src/queue/jobs/jobs';
 
 @Injectable()
 export class ContractsService {
@@ -33,7 +34,7 @@ export class ContractsService {
     private paymentsOrdersService: PaymentsOrdersService,
     private userService: UserService,
     private logHelper: LogHelperService,
-    @InjectQueue('email') private emailQueue: Queue,
+    @InjectQueue(QueueName.EMAIL) private emailQueue: Queue,
   ) {}
 
   async create(
@@ -234,7 +235,7 @@ export class ContractsService {
       },
     };
 
-    this.emailQueue.add(EmailJobType.NOTIFICATION, jobPayload);
+    await this.emailQueue.add(EmailJobType.NOTIFICATION, jobPayload);
     return updatedContract;
   }
 
