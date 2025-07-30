@@ -69,6 +69,7 @@ export class SubaccountService {
           asaasAccountId: asaasAccount.id,
           apiKey: asaasAccount.apiKey,
           asaasWalletId: asaasAccount.walletId,
+          asaasWebhookToken: asaasAccount.authTokenSent,
         },
 
         create: {
@@ -76,12 +77,13 @@ export class SubaccountService {
           asaasAccountId: asaasAccount.id,
           apiKey: asaasAccount.apiKey,
           asaasWalletId: asaasAccount.walletId,
+          asaasWebhookToken: asaasAccount.authTokenSent,
         },
       });
 
-      this.logger.log(
-        `Subconta [${asaasAccount.id}] salva/atualizada no banco de dados para o usuário ${user.id}.`,
-      );
+      // this.logger.log(
+      //   `Subconta [${asaasAccount.id}] salva/atualizada no banco de dados para o usuário ${user.id}.`,
+      // );
 
       return savedSubAccount;
     } catch (error) {

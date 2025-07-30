@@ -110,12 +110,13 @@ model SubAccount {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id])
 
-  asaasWalletId  String?         @unique
-  asaasAccountId String          @unique
-  apiKey         String
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  AsaasCustomer  AsaasCustomer[]
+  asaasWalletId     String?         @unique
+  asaasAccountId    String          @unique
+  apiKey            String
+  asaasWebhookToken String?         @unique
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  AsaasCustomer     AsaasCustomer[]
 }
 
 model AsaasCustomer {

@@ -13,7 +13,7 @@ import type {
   CreateAsaasSubAccountDto,
   CreateAsaasSubAccountResponse,
 } from 'src/common/interfaces/payment-gateway.interface';
-
+import * as crypto from 'crypto';
 @Injectable()
 export class PaymentGatewayService {
   private readonly logger = new Logger(PaymentGatewayService.name);
@@ -104,7 +104,7 @@ export class PaymentGatewayService {
     accountData: CreateAsaasSubAccountDto,
   ): Promise<CreateAsaasSubAccountResponse> {
     const endpoint = `${this.asaasApiUrl}/accounts`;
-
+    const authToken = crypto.randomUUID();
     const payload = {
       ...accountData,
       webhooks: [
@@ -116,8 +116,10 @@ export class PaymentGatewayService {
           enabled: true,
           apiVersion: 3,
           interrupted: false,
+          authToken: authToken,
           events: [
             'PAYMENT_CONFIRMED', // Pagamento confirmado (ainda não creditado)
+            'PAYMENT_OVERDUE',
             'PAYMENT_RECEIVED', // Pagamento recebido (creditado na conta)
             // 'PAYMENT_CREATED',
             // 'PAYMENT_UPDATED',
@@ -129,11 +131,11 @@ export class PaymentGatewayService {
     };
 
     try {
-      this.logger.log(`Criando subconta para: ${accountData.email}`);
-      this.logger.debug(
-        'Enviando o seguinte payload para o Asaas:',
-        JSON.stringify(payload, null, 2),
-      );
+      // this.logger.log(`Criando subconta para: ${accountData.email}`);
+      // this.logger.debug(
+      //   'Enviando o seguinte payload para o Asaas:',
+      //   JSON.stringify(payload, null, 2),
+      // );
       const response = await firstValueFrom(
         this.httpService.post(endpoint, payload, {
           headers: {
@@ -143,10 +145,10 @@ export class PaymentGatewayService {
         }),
       );
 
-      this.logger.log(
-        `Subconta criada com sucesso. Asaas Account ID: ${response.data.id}`,
-      );
-      return response.data;
+      // this.logger.log(
+      //   `Subconta criada com sucesso. Asaas Account ID: ${response.data.id}`,
+      // );
+      return { ...response.data, authTokenSent: authToken };
     } catch (error) {
       this.logger.error(
         'Falha ao criar subconta no Asaas',

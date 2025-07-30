@@ -59,6 +59,7 @@ export interface CreateAsaasSubAccountResponse {
     scheduledDate: string;
   } | null;
   apiKey: string;
+  authTokenSent: string;
 }
 
 export interface CreateAsaasCustomerDto {

@@ -8,7 +8,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { LogHelperService } from '../logs/log-helper.service';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { ROLES } from 'src/common/constants/roles.constant';
-import { PaymentStatus, type Prisma } from '@prisma/client';
+import { PaymentStatus, type PaymentOrder, type Prisma } from '@prisma/client';
 import { addMonths } from 'date-fns';
 import { ConfigService } from '@nestjs/config';
 import { RegisterPaymentDto } from './dto/register-payment.dto';
@@ -107,7 +107,6 @@ export class PaymentsOrdersService {
     const bankSlip = await this.prisma.bankSlip.findUnique({
       where: { asaasChargeId },
     });
-
     if (!bankSlip) {
       this.logger.warn(
         `Boleto com asaasChargeId ${asaasChargeId} não encontrado. Webhook ignorado.`,
@@ -117,6 +116,19 @@ export class PaymentsOrdersService {
 
     const paymentOrder = await this.prisma.paymentOrder.findUnique({
       where: { id: bankSlip.paymentOrderId },
+    });
+
+    if (!paymentOrder || paymentOrder.status === PaymentStatus.PAGO) {
+      return;
+    }
+
+    const updatedPaymentOrder = await this.prisma.paymentOrder.update({
+      where: { id: paymentOrder.id },
+      data: {
+        status: PaymentStatus.PAGO,
+        amountPaid,
+        paidAt,
+      },
       include: {
         contract: {
           include: {
@@ -127,24 +139,7 @@ export class PaymentsOrdersService {
         },
       },
     });
-
-    if (!paymentOrder) {
-      return;
-    }
-
-    if (paymentOrder.status === PaymentStatus.PAGO) {
-      return;
-    }
-
-    await this.prisma.paymentOrder.update({
-      where: { id: paymentOrder.id },
-      data: {
-        status: PaymentStatus.PAGO,
-        amountPaid,
-        paidAt,
-      },
-    });
-    await this.notifyUsersOfPayment(paymentOrder);
+    await this.notifyUsersOfPayment(updatedPaymentOrder);
   }
 
   async registerPayment(
