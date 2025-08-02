@@ -139,22 +139,22 @@ export class UserService {
     return user;
   }
 
-  async testEmail(id: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
-      select: this.userSafeFields(),
-    });
+  // async testEmail(id: string) {
+  //   const user = await this.prisma.user.findUnique({
+  //     where: { id },
+  //     select: this.userSafeFields(),
+  //   });
 
-    if (!user) {
-      throw new NotFoundException('Usuário não encontrado');
-    }
-    const jobPayload: NewAccountJob = {
-      user: { email: user.email, name: user.name },
-      temporaryPassword: 'senha-provisoria-123',
-    };
-    await this.emailQueue.add(EmailJobType.NEW_ACCOUNT, jobPayload);
-    return user;
-  }
+  //   if (!user) {
+  //     throw new NotFoundException('Usuário não encontrado');
+  //   }
+  //   const jobPayload: NewAccountJob = {
+  //     user: { email: user.email, name: user.name },
+  //     temporaryPassword: 'senha-provisoria-123',
+  //   };
+  //   await this.emailQueue.add(EmailJobType.NEW_ACCOUNT, jobPayload);
+  //   return user;
+  // }
 
   async update(id: string, updateUserDto: UpdateUserDto) {
     await this.validateUserExists(id);

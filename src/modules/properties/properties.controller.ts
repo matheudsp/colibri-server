@@ -127,6 +127,7 @@ export class PropertiesController {
   @Get('search')
   @RequireAuth()
   @ApiBearerAuth()
+  @Roles(ROLES.ADMIN, ROLES.LOCADOR)
   @ApiOperation({
     summary: 'Search within your own properties (for Admins and Landlords)',
   })

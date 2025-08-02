@@ -28,6 +28,8 @@ import {
 } from '../../common/decorator/current-user.decorator';
 import { JwtPayload } from '../../common/interfaces/jwt.payload.interface';
 import { SearchUserDto } from './dto/search-user.dto';
+import { Roles } from 'src/common/decorator/roles.decorator';
+import { ROLES } from 'src/common/constants/roles.constant';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -38,6 +40,7 @@ export class UserController {
 
   @Get()
   @CacheKey('users_list')
+  @Roles(ROLES.ADMIN)
   @CacheTTL(30) // 30 seconds
   @ApiOperation({ summary: 'List all users (Admin)' })
   @ApiResponse({
@@ -51,6 +54,7 @@ export class UserController {
   }
 
   @Get('search')
+  @Roles(ROLES.ADMIN)
   @ApiOperation({ summary: 'Search users with filters (Admin)' })
   @ApiResponse({
     status: 200,
@@ -73,10 +77,10 @@ export class UserController {
     return this.userService.findOne(id);
   }
 
-  @Get('test-email/:id')
-  testEmail(@Param('id', ParseUUIDPipe) id: string) {
-    return this.userService.testEmail(id);
-  }
+  // @Get('test-email/:id')
+  // testEmail(@Param('id', ParseUUIDPipe) id: string) {
+  //   return this.userService.testEmail(id);
+  // }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update user profile' })
@@ -95,19 +99,14 @@ export class UserController {
   }
 
   @Delete(':id')
+  @Roles(ROLES.ADMIN)
   @ApiOperation({ summary: 'Delete user (Admin)' })
   @ApiParam({ name: 'id', description: 'User UUID' })
   @ApiResponse({
     status: 204,
     description: 'User successfully deleted',
   })
-  remove(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() currentUser: JwtPayload,
-  ) {
-    if (currentUser.sub === id) {
-      throw new ForbiddenException('You cannot delete yourself');
-    }
+  remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.userService.remove(id);
   }
 }

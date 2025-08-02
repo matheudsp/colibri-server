@@ -57,8 +57,8 @@ export class ContractsController {
   }
 
   @Get()
-  @CacheKey('contracts_all')
-  @CacheTTL(30)
+  // @CacheKey('contracts_all')
+  // @CacheTTL(30)
   @ApiOperation({ summary: 'List all contracts' })
   @ApiResponse({
     status: 200,

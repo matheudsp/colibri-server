@@ -21,10 +21,10 @@ export class WebhooksController {
   @Post('asaas')
   @UseGuards(AsaasWebhookGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Recebe eventos de webhook do Asaas.' })
+  @ApiOperation({ summary: 'Receive events from webhook of Asaas.' })
   @ApiHeader({
     name: 'asaas-access-token',
-    description: 'Token de segurança do webhook.',
+    description: 'Secure token of webhook.',
   })
   async handleAsaasWebhook(@Body() payload: any) {
     await this.webhooksService.processAsaasEvent(payload);

@@ -38,7 +38,7 @@ export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 
   @Post('contracts/:contractId/upload')
-  @Roles(ROLES.LOCATARIO, ROLES.LOCADOR)
+  @Roles(ROLES.LOCATARIO, ROLES.LOCADOR, ROLES.ADMIN)
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload a document for a contract' })
