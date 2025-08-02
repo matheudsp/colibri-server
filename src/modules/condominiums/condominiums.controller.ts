@@ -84,6 +84,7 @@ export class CondominiumsController {
   @Get()
   @RequireAuth()
   @ApiBearerAuth()
+  @CacheTTL(60)
   @ApiOperation({ summary: 'List condominiums for the logged-in user' })
   @ApiResponse({ status: 200, type: [CondominiumResponseDto] })
   @ApiQuery({

@@ -1,5 +1,6 @@
 import {
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -11,12 +12,15 @@ import { ROLES } from 'src/common/constants/roles.constant';
 import type { Prisma } from '@prisma/client';
 import type { UpdateCondominiumDto } from './dto/update-condominium.dto';
 import type { SearchCondominiumDto } from './dto/search-condominium.dto';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 
 @Injectable()
 export class CondominiumsService {
   constructor(
     private prisma: PrismaService,
     private logHelper: LogHelperService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
   async create(
     createCondominiumDto: CreateCondominiumDto,
@@ -94,6 +98,13 @@ export class CondominiumsService {
     { page = 1, limit = 10 }: { page: number; limit: number },
     currentUser: { role: string; sub: string },
   ) {
+    const cacheKey = `user_condominiums:${currentUser.sub}_page:${page}_limit:${limit}`;
+    const cachedData = await this.cacheManager.get(cacheKey);
+
+    if (cachedData) {
+      return cachedData;
+    }
+
     const skip = (page - 1) * limit;
     let where: Prisma.CondominiumWhereInput = {};
 
@@ -128,7 +139,7 @@ export class CondominiumsService {
       this.prisma.condominium.count({ where }),
     ]);
 
-    return {
+    const result = {
       data: condominiums,
       meta: {
         total,
@@ -137,6 +148,10 @@ export class CondominiumsService {
         totalPages: Math.ceil(total / limit),
       },
     };
+
+    await this.cacheManager.set(cacheKey, result);
+
+    return result;
   }
 
   async findPropertiesByCondominium(

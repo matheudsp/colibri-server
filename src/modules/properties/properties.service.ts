@@ -1,5 +1,6 @@
 import {
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -11,12 +12,16 @@ import { ROLES } from 'src/common/constants/roles.constant';
 import { LogHelperService } from '../logs/log-helper.service';
 import type { SearchPropertyDto } from './dto/search-property.dto';
 import { ContractStatus, type Prisma } from '@prisma/client';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 
 @Injectable()
 export class PropertiesService {
   constructor(
     private prisma: PrismaService,
     private logHelper: LogHelperService,
+
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   async create(
@@ -81,6 +86,12 @@ export class PropertiesService {
     { page, limit }: { page: number; limit: number },
     currentUser: { sub: string; role: string },
   ) {
+    const cacheKey = `user_properties:${currentUser.sub}_page:${page}_limit:${limit}`;
+    const cachedData = await this.cacheManager.get(cacheKey);
+    if (cachedData) {
+      return cachedData;
+    }
+
     const skip = (page - 1) * limit;
     let where: Prisma.PropertyWhereInput = {};
 
@@ -121,7 +132,7 @@ export class PropertiesService {
       this.prisma.property.count({ where }),
     ]);
 
-    return {
+    const result = {
       data: properties,
       meta: {
         total,
@@ -130,6 +141,10 @@ export class PropertiesService {
         totalPages: Math.ceil(total / limit),
       },
     };
+
+    await this.cacheManager.set(cacheKey, result);
+
+    return result;
   }
 
   async findOne(id: string) {

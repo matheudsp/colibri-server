@@ -87,8 +87,7 @@ export class PropertiesController {
   @Get()
   @RequireAuth()
   @ApiBearerAuth()
-  // @CacheKey('user_properties')
-  // @CacheTTL(30)
+  @CacheTTL(60)
   @ApiOperation({ summary: 'List properties for the logged-in user' })
   @ApiResponse({ status: 200, type: [PropertyResponseDto] })
   @ApiQuery({
