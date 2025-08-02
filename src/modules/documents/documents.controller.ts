@@ -80,6 +80,7 @@ export class DocumentsController {
       documentId,
       updateStatusDto.status,
       currentUser,
+      updateStatusDto.rejectionReason,
     );
   }
 }

@@ -10,6 +10,10 @@ import { LogHelperService } from '../logs/log-helper.service';
 import { ContractStatus, DocumentStatus, DocumentType } from '@prisma/client';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { ROLES } from 'src/common/constants/roles.constant';
+import { InjectQueue } from '@nestjs/bull';
+import { QueueName } from 'src/queue/jobs/jobs';
+import { Queue } from 'bull';
+import { EmailJobType, type NotificationJob } from 'src/queue/jobs/email.job';
 
 @Injectable()
 export class DocumentsService {
@@ -17,6 +21,7 @@ export class DocumentsService {
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
     private readonly logHelper: LogHelperService,
+    @InjectQueue(QueueName.EMAIL) private readonly emailQueue: Queue,
   ) {}
 
   async uploadDocument(
@@ -61,6 +66,8 @@ export class DocumentsService {
       document.id,
     );
 
+    await this.checkAndAdvanceToReview(contractId);
+
     return document;
   }
 
@@ -100,15 +107,21 @@ export class DocumentsService {
     documentId: string,
     status: DocumentStatus,
     currentUser: JwtPayload,
+    rejectionReason?: string,
   ) {
     const document = await this.prisma.document.findUnique({
       where: { id: documentId },
-      include: { contract: true },
+      include: {
+        contract: {
+          include: { property: { select: { title: true } } },
+        },
+        user: { select: { name: true, email: true } },
+      },
     });
 
-    if (!document || !document.contract) {
+    if (!document || !document.contract || !document.user) {
       throw new NotFoundException(
-        'Documento ou contrato associado não encontrado.',
+        'Documento, contrato ou usuário associado não encontrado.',
       );
     }
 
@@ -133,41 +146,157 @@ export class DocumentsService {
       document.id,
     );
 
-    if (
-      status === DocumentStatus.APROVADO &&
-      document.contract.status === ContractStatus.PENDENTE_DOCUMENTACAO
-    ) {
-      await this.checkAndAdvanceContractStatus(document.contract.id);
+    if (status === DocumentStatus.REPROVADO) {
+      const job: NotificationJob = {
+        user: {
+          name: document.user.name,
+          email: document.user.email,
+        },
+        notification: {
+          title: 'Seu Documento foi Reprovado',
+          message: `Olá, ${document.user.name}. O documento que você enviou para o contrato do imóvel "${document.contract.property.title}" foi reprovado.\nMotivo: "${rejectionReason || 'Não especificado'}".\nPor favor, acesse a plataforma para enviar um novo documento.`,
+        },
+        action: {
+          text: 'Enviar Documento Novamente',
+          path: `/contracts/${document.contract.id}/documents`,
+        },
+      };
+      await this.emailQueue.add(EmailJobType.NOTIFICATION, job);
+    }
+
+    if (status === DocumentStatus.APROVADO) {
+      await this.checkAndAdvanceToSignatures(document.contract.id);
     }
 
     return updatedDocument;
   }
 
-  private async checkAndAdvanceContractStatus(contractId: string) {
+  /**
+   * Chamado após o UPLOAD. Verifica se todos os tipos de documentos foram ENVIADOS.
+   * Se sim, atualiza o status do contrato e notifica o LOCADOR para iniciar a análise.
+   */
+  private async checkAndAdvanceToReview(contractId: string) {
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+      include: {
+        documents: true,
+        landlord: { select: { name: true, email: true } },
+        tenant: { select: { name: true } },
+        property: { select: { title: true } },
+      },
+    });
+
+    if (!contract || contract.status !== ContractStatus.PENDENTE_DOCUMENTACAO) {
+      return; // O processo já avançou ou o contrato não existe
+    }
+
     const requiredDocTypes = [
       DocumentType.IDENTIDADE_FRENTE,
       DocumentType.CPF,
       DocumentType.COMPROVANTE_RENDA,
     ];
 
-    const documents = await this.prisma.document.findMany({
-      where: { contractId },
-    });
-
-    const hasAllRequiredDocs = requiredDocTypes.every((requiredType) =>
-      documents.some(
-        (doc) =>
-          doc.type === requiredType && doc.status === DocumentStatus.APROVADO,
-      ),
+    const submittedDocTypes = new Set(
+      contract.documents.map((doc) => doc.type),
+    );
+    const hasAllDocsBeenSubmitted = requiredDocTypes.every((type) =>
+      submittedDocTypes.has(type),
     );
 
-    if (hasAllRequiredDocs) {
+    if (hasAllDocsBeenSubmitted) {
       await this.prisma.contract.update({
         where: { id: contractId },
         data: { status: ContractStatus.EM_ANALISE },
       });
-      // ATENÇÃO: USAR template de notificação!
-      // enfileirar AQUI um e-mail para o locador avisando que a documentação está pronta para análise final.
+
+      const job: NotificationJob = {
+        user: {
+          name: contract.landlord.name,
+          email: contract.landlord.email,
+        },
+        notification: {
+          title: 'Documentos Prontos para Análise',
+          message: `Olá, ${contract.landlord.name}. O locatário ${contract.tenant.name} enviou todos os documentos necessários para o imóvel "${contract.property.title}". Por favor, acesse a plataforma para verificá-los.`,
+        },
+        action: {
+          text: 'Verificar Documentos',
+          path: `/contracts/${contract.id}/documents`,
+        },
+      };
+
+      await this.emailQueue.add(EmailJobType.NOTIFICATION, job);
+    }
+  }
+
+  /**
+   * Chamado após a APROVAÇÃO de um documento. Verifica se todos foram APROVADOS.
+   * Se sim, atualiza o status do contrato e notifica AMBAS AS PARTES.
+   */
+  private async checkAndAdvanceToSignatures(contractId: string) {
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+      include: {
+        documents: { where: { status: DocumentStatus.APROVADO } },
+        landlord: { select: { name: true, email: true } },
+        tenant: { select: { name: true, email: true } },
+        property: { select: { title: true } },
+      },
+    });
+
+    if (!contract || contract.status !== ContractStatus.EM_ANALISE) {
+      return;
+    }
+
+    const requiredDocTypes = [
+      DocumentType.IDENTIDADE_FRENTE,
+      DocumentType.CPF,
+      DocumentType.COMPROVANTE_RENDA,
+    ];
+
+    const approvedDocTypes = new Set(contract.documents.map((doc) => doc.type));
+    const hasAllDocsBeenApproved = requiredDocTypes.every((type) =>
+      approvedDocTypes.has(type),
+    );
+
+    if (hasAllDocsBeenApproved) {
+      await this.prisma.contract.update({
+        where: { id: contractId },
+        data: { status: ContractStatus.AGUARDANDO_ASSINATURAS },
+      });
+
+      // Notificação para o Locador
+      const landlordJob: NotificationJob = {
+        user: {
+          name: contract.landlord.name,
+          email: contract.landlord.email,
+        },
+        notification: {
+          title: 'Documentação Aprovada! Próximo Passo: Assinaturas',
+          message: `Olá, ${contract.landlord.name}. Você aprovou todos os documentos do locatário ${contract.tenant.name} para o imóvel "${contract.property.title}". O contrato agora está pronto para as assinaturas.`,
+        },
+        action: {
+          text: 'Ver Contrato',
+          path: `/contracts/${contract.id}`,
+        },
+      };
+      await this.emailQueue.add(EmailJobType.NOTIFICATION, landlordJob);
+
+      // Notificação para o Locatário
+      const tenantJob: NotificationJob = {
+        user: {
+          name: contract.tenant.name,
+          email: contract.tenant.email,
+        },
+        notification: {
+          title: 'Boas notícias! Sua documentação foi aprovada',
+          message: `Parabéns, ${contract.tenant.name}! Sua documentação para o imóvel "${contract.property.title}" foi totalmente aprovada pelo locador. O próximo passo é a assinatura do contrato.`,
+        },
+        action: {
+          text: 'Ver Contrato',
+          path: `/contracts/${contract.id}`,
+        },
+      };
+      await this.emailQueue.add(EmailJobType.NOTIFICATION, tenantJob);
     }
   }
 }

@@ -1,6 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { DocumentStatus } from '@prisma/client';
-import { IsEnum, IsNotEmpty } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  ValidateIf,
+} from 'class-validator';
 
 export class UpdateDocumentStatusDto {
   @ApiProperty({
@@ -11,4 +17,17 @@ export class UpdateDocumentStatusDto {
   @IsEnum(DocumentStatus)
   @IsNotEmpty()
   status: DocumentStatus;
+
+  @ApiProperty({
+    description: 'Motivo da reprovação. Obrigatório se o status for REPROVADO.',
+    example: 'A foto do documento está ilegível.',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  @ValidateIf((o) => o.status === DocumentStatus.REPROVADO)
+  @IsNotEmpty({
+    message: 'O motivo da reprovação é obrigatório ao reprovar um documento.',
+  })
+  rejectionReason?: string;
 }
