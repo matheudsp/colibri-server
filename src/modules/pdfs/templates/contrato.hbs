@@ -1,0 +1,171 @@
+<html>
+  <head>
+    <meta charset='UTF-8' />
+    <title>Contrato de Locação de Imóvel Residencial</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.5;
+        margin: 0;
+        padding: 40px;
+        color: #333;
+        font-size: 11pt;
+      }
+      h1, h2, h3 {
+        color: #000;
+        margin: 0;
+        padding: 0;
+      }
+      h1 {
+        text-align: center;
+        font-size: 14pt;
+        margin-bottom: 30px;
+        text-transform: uppercase;
+      }
+      h2 {
+        font-size: 12pt;
+        margin-top: 25px;
+      }
+      h3 {
+        font-size: 11pt;
+        font-weight: bold;
+        margin-top: 15px;
+      }
+      p {
+        orphans: 3;
+        widows: 3;
+        page-break-inside: avoid;
+        break-inside: avoid;
+        text-align: justify;
+        margin: 0.5em 0;
+      }
+      .section {
+        margin-bottom: 20px;
+      }
+      .party-block {
+        margin-bottom: 15px;
+      }
+      .signature-block {
+        page-break-inside: avoid;
+        break-inside: avoid;
+        margin-top: 80px;
+      }
+      .signature-line {
+        border-bottom: 1px solid #333;
+        width: 80%;
+        margin: 60px auto 5px auto;
+        text-align: center;
+      }
+      .signature-info {
+        text-align: center;
+        font-size: 10pt;
+      }
+      .clausula {
+        margin-bottom: 10px;
+      }
+    </style>
+  </head>
+  <body>
+
+    <h1>Contrato de Locação de Imóvel Residencial</h1>
+
+    <div class='section'>
+      <h2>DAS PARTES</h2>
+      <div class='party-block'>
+        <h3>LOCADOR(A):</h3>
+        <p>
+          <strong>Nome:</strong> {{landlord.name}}<br />
+          <strong>CPF/CNPJ:</strong> {{formatCPF landlord.cpfCnpj}}<br />
+          <strong>Endereço:</strong> {{landlord.street}}, {{landlord.number}} - {{landlord.province}}, {{landlord.city}} - {{landlord.state}}<br />
+          <strong>E-mail:</strong> {{landlord.email}}
+        </p>
+      </div>
+      <div class='party-block'>
+        <h3>LOCATÁRIO(A):</h3>
+        <p>
+          <strong>Nome:</strong> {{tenant.name}}<br />
+          <strong>CPF/CNPJ:</strong> {{formatCPF tenant.cpfCnpj}}<br />
+          <strong>Endereço:</strong> (Informar endereço do locatário se disponível)<br/>
+          <strong>E-mail:</strong> {{tenant.email}}
+        </p>
+      </div>
+    </div>
+
+    <div class='section'>
+      <h2>DO OBJETO DA LOCAÇÃO</h2>
+      <p>
+        <strong>Cláusula 1ª.</strong> O objeto deste contrato é a locação do imóvel residencial situado em:
+        <strong>{{property.street}}, nº {{property.number}}, {{#if property.complement}}Complemento: {{property.complement}},{{/if}} Bairro {{property.district}}, Cidade {{property.city}}, Estado {{property.state}}, CEP {{formatCEP property.cep}}</strong>.
+      </p>
+      <p>
+        <strong>Parágrafo único.</strong> O(A) LOCATÁRIO(A) declara ter vistoriado o imóvel e recebê-lo em perfeitas condições de uso, conservação e limpeza.
+      </p>
+    </div>
+
+    <div class='section'>
+      <h2>DO PRAZO DA LOCAÇÃO</h2>
+      <p>
+        <strong>Cláusula 2ª.</strong> O prazo da locação é de
+        <strong>{{durationInMonths}} meses</strong>, com início em
+        <strong>{{formatDate startDate "dd/MM/yyyy"}}</strong> e término em
+        <strong>{{formatDate endDate "dd/MM/yyyy"}}</strong>.
+      </p>
+    </div>
+
+    <div class='section'>
+      <h2>DO VALOR E DO PAGAMENTO</h2>
+     <p>
+        <strong>Cláusula 3ª.</strong> O valor mensal do aluguel é de
+        <strong>{{formatCurrency rentAmount}}</strong>, a ser pago até o dia <strong>{{formatDate startDate "dd"}}</strong> de cada mês subsequente ao vencido. O boleto bancário para pagamento será disponibilizado através da plataforma Colibri, podendo também ser enviado para o e-mail do(a) LOCATÁRIO(A).
+      </p>
+      <p>
+        <strong>Cláusula 4ª.</strong> Além do aluguel, será de responsabilidade do(a) LOCATÁRIO(A) o pagamento dos seguintes encargos:
+        <ul>
+            {{#if condoFee}}<li>Taxa de Condomínio: <strong>{{formatCurrency condoFee}}</strong></li>{{/if}}
+            {{#if iptuFee}}<li>IPTU: <strong>{{formatCurrency iptuFee}}</strong></li>{{/if}}
+            <li>Contas de consumo (água, luz, gás, etc.).</li>
+        </ul>
+      </p>
+    </div>
+
+    <div class='section'>
+      <h2>DA GARANTIA</h2>
+      <p>
+        <strong>Cláusula 5ª.</strong> A presente locação é garantida pela modalidade de
+        <strong>{{formatGuaranteeType guaranteeType}}</strong>.
+        {{#if (eq guaranteeType "DEPOSITO_CAUCAO")}}
+          No valor de <strong>{{formatCurrency securityDeposit}}</strong>, depositado no início do contrato.
+        {{/if}}
+      </p>
+    </div>
+
+    <div class='section'>
+      <h2>DISPOSIÇÕES GERAIS</h2>
+      <p>
+        <strong>Cláusula 6ª.</strong> Fica eleito o foro da comarca de <strong>{{property.city}} - {{property.state}}</strong> para dirimir quaisquer dúvidas oriundas deste contrato.
+      </p>
+       <p>
+        E, por estarem justos e contratados, assinam o presente instrumento em 2 (duas) vias de igual teor e forma.
+      </p>
+    </div>
+
+    <div class='signature-block'>
+      <p style='text-align: center;'>
+        {{property.city}}, {{formatDate now "dd 'de' MMMM 'de' yyyy"}}.
+      </p>
+
+      <div class='signature-line'></div>
+      <div class='signature-info'>
+        <strong>{{landlord.name}}</strong><br />
+        (LOCADOR(A))
+      </div>
+
+      <div class='signature-line'></div>
+      <div class='signature-info'>
+        <strong>{{tenant.name}}</strong><br />
+        (LOCATÁRIO(A))
+      </div>
+    </div>
+
+  </body>
+</html>

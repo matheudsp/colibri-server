@@ -37,6 +37,10 @@ enum ContractStatus {
   CANCELADO
 }
 
+enum PdfType {
+  CONTRATO_LOCACAO
+}
+
 enum GuaranteeType {
   DEPOSITO_CAUCAO
   FIADOR
@@ -50,7 +54,6 @@ enum DocumentType {
   CPF
   COMPROVANTE_RENDA
   COMPROVANTE_ENDERECO
-  CONTRATO_ALUGUEL
 }
 
 enum DocumentStatus {
@@ -236,6 +239,17 @@ model Contract {
 
   paymentsOrders PaymentOrder[]
   documents      Document[]
+  GeneratedPdf   GeneratedPdf[]
+}
+
+model GeneratedPdf {
+  id        String   @id @default(uuid())
+  filePath  String
+  type      PdfType
+  createdAt DateTime @default(now())
+
+  contractId String
+  contract   Contract @relation(fields: [contractId], references: [id])
 }
 
 model PaymentOrder {

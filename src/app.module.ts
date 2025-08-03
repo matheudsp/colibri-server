@@ -26,6 +26,7 @@ import { SubaccountsModule } from './modules/subaccounts/subaccounts.module';
 import { BankSlipsModule } from './modules/bank-slips/bank-slips.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
+import { PdfsModule } from './modules/pdfs/pdfs.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     BankSlipsModule,
     SchedulerModule,
     WebhooksModule,
+    PdfsModule,
   ],
   providers: [
     {
