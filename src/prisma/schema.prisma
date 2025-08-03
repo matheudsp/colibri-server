@@ -100,7 +100,6 @@ model User {
   propertiesOwned     Property[]      @relation("LandlordProperties")
   contractsAsLandlord Contract[]      @relation("LandlordContracts")
   contractsAsTenant   Contract[]      @relation("TenantContracts")
-  documents           Document[]
   logs                Log[]
   webhooks            Webhook[]
   bankAccount         BankAccount?
@@ -300,10 +299,8 @@ model Document {
   type       DocumentType
   filePath   String
   status     DocumentStatus @default(AGUARDANDO_APROVACAO)
-  userId     String?
-  user       User?          @relation(fields: [userId], references: [id])
-  contractId String?
-  contract   Contract?      @relation(fields: [contractId], references: [id])
+  contractId String
+  contract   Contract       @relation(fields: [contractId], references: [id])
   uploadedAt DateTime       @default(now())
 }
 

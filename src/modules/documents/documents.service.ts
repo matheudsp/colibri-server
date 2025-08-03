@@ -54,7 +54,6 @@ export class DocumentsService {
         filePath: key,
         type: documentType,
         contractId: contractId,
-        userId: contract.tenantId,
         status: DocumentStatus.AGUARDANDO_APROVACAO,
       },
     });
@@ -113,13 +112,15 @@ export class DocumentsService {
       where: { id: documentId },
       include: {
         contract: {
-          include: { property: { select: { title: true } } },
+          include: {
+            property: { select: { title: true } },
+            tenant: { select: { name: true, email: true } },
+          },
         },
-        user: { select: { name: true, email: true } },
       },
     });
 
-    if (!document || !document.contract || !document.user) {
+    if (!document || !document.contract || !document.contract.tenant) {
       throw new NotFoundException(
         'Documento, contrato ou usuário associado não encontrado.',
       );
@@ -149,12 +150,12 @@ export class DocumentsService {
     if (status === DocumentStatus.REPROVADO) {
       const job: NotificationJob = {
         user: {
-          name: document.user.name,
-          email: document.user.email,
+          name: document.contract.tenant.name,
+          email: document.contract.tenant.email,
         },
         notification: {
           title: 'Seu Documento foi Reprovado',
-          message: `Olá, ${document.user.name}. O documento que você enviou para o contrato do imóvel "${document.contract.property.title}" foi reprovado.\nMotivo: "${rejectionReason || 'Não especificado'}".\nPor favor, acesse a plataforma para enviar um novo documento.`,
+          message: `Olá,  ${document.contract.tenant.name}. O documento que você enviou para o contrato do imóvel "${document.contract.property.title}" foi reprovado.\nMotivo: "${rejectionReason || 'Não especificado'}".\nPor favor, acesse a plataforma para enviar um novo documento.`,
         },
         action: {
           text: 'Enviar Documento Novamente',
