@@ -6,10 +6,11 @@ import { IsUUID, IsEnum } from 'class-validator';
 export class CreatePdfDto {
   @Expose()
   @ApiProperty({
-    description: 'Project ID',
+    description:
+      'ID of the entity (e.g. Contract) for which the PDF will be generated. ',
   })
   @IsUUID()
-  projectId!: string;
+  contractId!: string;
 
   @Expose()
   @ApiProperty({

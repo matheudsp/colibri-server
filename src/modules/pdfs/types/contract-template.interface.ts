@@ -1,4 +1,4 @@
-export interface ContractTemplate {
+export interface ContractTemplateData {
   /**
    * Dados do Locador (proprietário).
    */

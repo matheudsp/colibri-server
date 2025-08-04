@@ -242,10 +242,11 @@ model Contract {
 }
 
 model GeneratedPdf {
-  id        String   @id @default(uuid())
-  filePath  String
-  type      PdfType
-  createdAt DateTime @default(now())
+  id             String   @id @default(uuid())
+  filePath       String
+  pdfType        PdfType
+  generatedAt    DateTime
+  signedFilePath String?
 
   contractId String
   contract   Contract @relation(fields: [contractId], references: [id])
