@@ -85,7 +85,7 @@ export class PdfsService {
       now: new Date(),
     };
 
-    const formatPdfType = pdfType.replace(/_/g, '-');
+    const formatPdfType = pdfType.replace(/_/g, '_');
     const pdfBuffer = await generatePdfFromTemplate(
       formatPdfType,
       templateData,

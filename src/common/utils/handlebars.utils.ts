@@ -53,6 +53,20 @@ export function registerHandlebarsHelpers(): void {
   );
 
   /**
+   * Formata um CEP.
+   * Exemplo: {{formatCEP property.cep}} -> "123.456.789-00"
+   */
+  Handlebars.registerHelper(
+    'formatCEP',
+    (cep: string | null | undefined): string => {
+      if (!cep || typeof cep !== 'string' || cep.length !== 8) {
+        return cep || '';
+      }
+      return cep.replace(/^(\d{5})(\d{3})$/, '$1-$2');
+    },
+  );
+
+  /**
    * Formata um número de telefone.
    * Exemplo: {{formatPhone user.phone}} -> "(11) 98765-4321"
    */
@@ -67,6 +81,33 @@ export function registerHandlebarsHelpers(): void {
         return phone.replace(/^(\d{2})(\d{4})(\d{4})$/, '($1) $2-$3');
       }
       return phone;
+    },
+  );
+
+  /**
+   * Formata o tipo de garantia do contrato.
+   * @example {{formatGuaranteeType contract.guaranteeType}} -> "Depósito Caução"
+   */
+  Handlebars.registerHelper(
+    'formatGuaranteeType',
+    (type: string | null | undefined): string => {
+      if (!type) {
+        return 'N/A';
+      }
+
+      switch (type) {
+        case 'DEPOSITO_CAUCAO':
+          return 'Depósito Caução';
+        case 'FIADOR':
+          return 'Fiador';
+        case 'SEGURO_FIANCA':
+          return 'Seguro Fiança';
+        case 'SEM_GARANTIA':
+          return 'Sem Garantia';
+        default:
+          // Retorna o próprio valor se não for um tipo conhecido
+          return type;
+      }
     },
   );
 
