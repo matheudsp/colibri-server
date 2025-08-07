@@ -5,7 +5,7 @@
     <style>
       body {
         font-family: Arial, sans-serif;
-        line-height: 1.5;
+        line-height: 1.6;
         margin: 0;
         padding: 40px;
         color: #333;
@@ -15,155 +15,151 @@
         color: #000;
         margin: 0;
         padding: 0;
+        font-weight: bold;
       }
       h1 {
         text-align: center;
         font-size: 14pt;
-        margin-bottom: 30px;
+        margin-bottom: 35px;
         text-transform: uppercase;
       }
       h2 {
         font-size: 12pt;
-        margin-top: 25px;
+        margin-top: 20px;
+        margin-bottom: 15px;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 5px;
       }
       h3 {
         font-size: 11pt;
-        font-weight: bold;
         margin-top: 15px;
+        margin-bottom: 5px;
       }
       p {
-        orphans: 3;
-        widows: 3;
-        page-break-inside: avoid;
-        break-inside: avoid;
         text-align: justify;
-        margin: 0.5em 0;
+        margin: 0 0 10px 0;
       }
-      .section {
+      ol {
+        padding-left: 0;
+        list-style-type: none;
+        counter-reset: clausula-counter;
+      }
+      ol > li {
+        counter-increment: clausula-counter;
         margin-bottom: 20px;
+        padding-left: 25px;
+        position: relative;
       }
-      .party-block {
+      ol > li strong.clausula-titulo {
+        display: block;
+        margin-left: -25px;
+        font-weight: bold;
+      }
+      ol > li strong.clausula-titulo::before {
+        content: counter(clausula-counter) '. ';
+        font-weight: bold;
+      }
+      .party-block p {
         margin-bottom: 15px;
       }
       .signature-block {
+        /* Reduzido de 100px para 50px */
+        margin-top: 50px;
         page-break-inside: avoid;
-        break-inside: avoid;
-        margin-top: 80px;
       }
       .signature-line {
         border-bottom: 1px solid #333;
-        width: 80%;
-        margin: 60px auto 5px auto;
-        text-align: center;
+        width: 70%;
+        /* Reduzido de 50px para 40px */
+        margin: 40px auto 5px auto;
       }
       .signature-info {
         text-align: center;
         font-size: 10pt;
       }
-      .clausula {
-        margin-bottom: 10px;
-      }
     </style>
   </head>
   <body>
 
-    <h1>Contrato de Locação de Imóvel Residencial</h1>
+    <h1>Contrato de Locação Residencial</h1>
 
-    <div class='section'>
-      <h2>DAS PARTES</h2>
-      <div class='party-block'>
-        <h3>LOCADOR(A):</h3>
-        <p>
-          <strong>Nome:</strong> {{landlord.name}}<br />
-          <strong>CPF/CNPJ:</strong> {{formatCPF landlord.cpfCnpj}}<br />
-          <strong>Endereço:</strong> {{landlord.street}}, {{landlord.number}} - {{landlord.province}}, {{landlord.city}} - {{landlord.state}}<br />
-          <strong>E-mail:</strong> {{landlord.email}}
-        </p>
-      </div>
-      <div class='party-block'>
-        <h3>LOCATÁRIO(A):</h3>
-        <p>
-          <strong>Nome:</strong> {{tenant.name}}<br />
-          <strong>CPF/CNPJ:</strong> {{formatCPF tenant.cpfCnpj}}<br />
-          <strong>Endereço:</strong> (Informar endereço do locatário se disponível)<br/>
-          <strong>E-mail:</strong> {{tenant.email}}
-        </p>
-      </div>
-    </div>
-
-    <div class='section'>
-      <h2>DO OBJETO DA LOCAÇÃO</h2>
+    <div class='party-block'>
+      <h2>1. AS PARTES</h2>
       <p>
-        <strong>Cláusula 1ª.</strong> O objeto deste contrato é a locação do imóvel residencial situado em:
-        <strong>{{property.street}}, nº {{property.number}}, {{#if property.complement}}Complemento: {{property.complement}},{{/if}} Bairro {{property.district}}, Cidade {{property.city}}, Estado {{property.state}}, CEP {{formatCEP property.cep}}</strong>.
+        <strong>LOCADOR(A):</strong> {{landlord.name}}, inscrito(a) no CPF/CNPJ sob o nº {{formatCPF landlord.cpfCnpj}}, com endereço na {{landlord.street}}, nº {{landlord.number}}, {{landlord.province}}, {{landlord.city}} - {{landlord.state}}.
       </p>
       <p>
-        <strong>Parágrafo único.</strong> O(A) LOCATÁRIO(A) declara ter vistoriado o imóvel e recebê-lo em perfeitas condições de uso, conservação e limpeza.
+        <strong>LOCATÁRIO(A):</strong> {{tenant.name}}, inscrito(a) no CPF/CNPJ sob o nº {{formatCPF tenant.cpfCnpj}}, com e-mail para contato {{tenant.email}}.
       </p>
     </div>
 
-    <div class='section'>
-      <h2>DO PRAZO DA LOCAÇÃO</h2>
-      <p>
-        <strong>Cláusula 2ª.</strong> O prazo da locação é de
-        <strong>{{durationInMonths}} meses</strong>, com início em
-        <strong>{{formatDate startDate "dd/MM/yyyy"}}</strong> e término em
-        <strong>{{formatDate endDate "dd/MM/yyyy"}}</strong>.
-      </p>
-    </div>
+    <p>As partes acima qualificadas celebram o presente Contrato de Locação, regido pela Lei nº 8.245/91 e pelas seguintes cláusulas e condições:</p>
+    
+    <h2>2. CLÁUSULAS CONTRATUAIS</h2>
+    <ol>
+        <li>
+            <strong class='clausula-titulo'>OBJETO DA LOCAÇÃO</strong>
+            <p>O presente contrato tem como objeto a locação do imóvel residencial localizado na <strong>{{property.street}}, nº {{property.number}}, {{#if property.complement}}Compl.: {{property.complement}},{{/if}} Bairro {{property.district}}, Cidade {{property.city}}/{{property.state}}, CEP {{formatCEP property.cep}}</strong>.</p>
+            <p><strong>Parágrafo Único:</strong> O(A) LOCATÁRIO(A) declara receber o imóvel em perfeitas condições de uso, conforme Laudo de Vistoria assinado em anexo.</p>
+        </li>
 
-    <div class='section'>
-      <h2>DO VALOR E DO PAGAMENTO</h2>
-     <p>
-        <strong>Cláusula 3ª.</strong> O valor mensal do aluguel é de
-        <strong>{{formatCurrency rentAmount}}</strong>, a ser pago até o dia <strong>{{formatDate startDate "dd"}}</strong> de cada mês subsequente ao vencido. O boleto bancário para pagamento será disponibilizado através da plataforma Colibri, podendo também ser enviado para o e-mail do(a) LOCATÁRIO(A).
-      </p>
-      <p>
-        <strong>Cláusula 4ª.</strong> Além do aluguel, será de responsabilidade do(a) LOCATÁRIO(A) o pagamento dos seguintes encargos:
-        <ul>
-            {{#if condoFee}}<li>Taxa de Condomínio: <strong>{{formatCurrency condoFee}}</strong></li>{{/if}}
-            {{#if iptuFee}}<li>IPTU: <strong>{{formatCurrency iptuFee}}</strong></li>{{/if}}
-            <li>Contas de consumo (água, luz, gás, etc.).</li>
-        </ul>
-      </p>
-    </div>
+        <li>
+            <strong class='clausula-titulo'>PRAZO DE VIGÊNCIA</strong>
+            <p>O prazo de locação é de <strong>{{durationInMonths}} meses</strong>, com início em <strong>{{formatDate startDate "dd/MM/yyyy"}}</strong> e término previsto para <strong>{{formatDate endDate "dd/MM/yyyy"}}</strong>. Ao final do prazo, o(a) LOCATÁRIO(A) deverá restituir o imóvel, independentemente de notificação.</p>
+        </li>
+        
+        <li>
+            <strong class='clausula-titulo'>VALOR E PAGAMENTO</strong>
+            <p>O valor mensal do aluguel é de <strong>{{formatCurrency rentAmount}}</strong>, com vencimento no <strong>dia {{formatDate startDate "dd"}}</strong> de cada mês. O pagamento será efetuado via boleto bancário.</p>
+            <p><strong>Parágrafo Primeiro:</strong> O não pagamento até a data de vencimento implicará em multa, juros ao mês e correção monetária sobre o valor devido.</p>
+            <p><strong>Parágrafo Segundo:</strong> Além do aluguel, são de responsabilidade do(a) LOCATÁRIO(A) as despesas de condomínio (se houver), IPTU, e contas de consumo como água, energia e gás.</p>
+        </li>
 
-    <div class='section'>
-      <h2>DA GARANTIA</h2>
-      <p>
-        <strong>Cláusula 5ª.</strong> A presente locação é garantida pela modalidade de
-        <strong>{{formatGuaranteeType guaranteeType}}</strong>.
-        {{#if (eq guaranteeType "DEPOSITO_CAUCAO")}}
-          No valor de <strong>{{formatCurrency securityDeposit}}</strong>, depositado no início do contrato.
-        {{/if}}
-      </p>
-    </div>
+        <li>
+            <strong class='clausula-titulo'>GARANTIA</strong>
+            <p>A presente locação é garantida por <strong>{{formatGuaranteeType guaranteeType}}</strong>.
+            {{#if (eq guaranteeType "DEPOSITO_CAUCAO")}}
+            <span> No valor de <strong>{{formatCurrency securityDeposit}}</strong>, que será restituído ao final do contrato, conforme a lei.</span>
+            {{/if}}
+            </p>
+        </li>
 
-    <div class='section'>
-      <h2>DISPOSIÇÕES GERAIS</h2>
-      <p>
-        <strong>Cláusula 6ª.</strong> Fica eleito o foro da comarca de <strong>{{property.city}} - {{property.state}}</strong> para dirimir quaisquer dúvidas oriundas deste contrato.
-      </p>
-       <p>
-        E, por estarem justos e contratados, assinam o presente instrumento em 2 (duas) vias de igual teor e forma.
-      </p>
-    </div>
+        <li>
+            <strong class='clausula-titulo'>USO DO IMÓVEL</strong>
+            <p>O imóvel destina-se a fins exclusivamente residenciais, não sendo permitida a sublocação, cessão ou empréstimo a terceiros sem autorização prévia e por escrito do(a) LOCADOR(A).</p>
+        </li>
+
+        <li>
+            <strong class='clausula-titulo'>CONSERVAÇÃO E BENFEITORIAS</strong>
+            <p>O(A) LOCATÁRIO(A) se compromete a manter o imóvel em perfeito estado de conservação. Quaisquer benfeitorias ou alterações estruturais dependerão de autorização expressa do(a) LOCADOR(A) e não gerarão direito a indenização.</p>
+        </li>
+        
+        <li>
+            <strong class='clausula-titulo'>DIREITO DE PREFERÊNCIA E RESCISÃO</strong>
+            <p>Em caso de venda do imóvel, será assegurado ao(à) LOCATÁRIO(A) o direito de preferência na compra. A quebra de qualquer cláusula deste contrato por qualquer uma das partes resultará na sua rescisão imediata, sujeitando o infrator às penalidades legais.</p>
+        </li>
+
+        <li>
+            <strong class='clausula-titulo'>FORO</strong>
+            <p>Fica eleito o foro da comarca de <strong>{{property.city}} - {{property.state}}</strong> para resolver quaisquer questões decorrentes deste contrato.</p>
+        </li>
+    </ol>
+
+    <p>E, por estarem de pleno acordo, as partes assinam este contrato em duas vias de igual teor.</p>
 
     <div class='signature-block'>
-      <p style='text-align: center;'>
-        {{property.city}}, {{formatDate now "dd 'de' MMMM 'de' yyyy"}}.
-      </p>
+      <p style='text-align: center;'>{{property.city}}, {{formatDate now "dd 'de' MMMM 'de' yyyy"}}.</p>
 
       <div class='signature-line'></div>
       <div class='signature-info'>
         <strong>{{landlord.name}}</strong><br />
-        (LOCADOR(A))
+        LOCADOR(A)
       </div>
 
       <div class='signature-line'></div>
       <div class='signature-info'>
         <strong>{{tenant.name}}</strong><br />
-        (LOCATÁRIO(A))
+        LOCATÁRIO(A)
       </div>
     </div>
 

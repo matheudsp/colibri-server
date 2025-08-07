@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as puppeteer from 'puppeteer';
 import Handlebars from '../../../config/handlebars.config';
+import { DateUtils } from 'src/common/utils/date.utils';
 
 export async function generatePdfFromTemplate(templateName: string, data: any) {
   try {
@@ -44,6 +45,10 @@ export async function generatePdfFromTemplate(templateName: string, data: any) {
 
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0' });
+    const formattedDateForFooter = DateUtils.formatDateTime(
+      new Date(),
+      "dd/MM/yyyy 'às' HH:mm",
+    );
 
     const pdfOptions: puppeteer.PDFOptions = {
       format: 'A4',
@@ -57,7 +62,7 @@ export async function generatePdfFromTemplate(templateName: string, data: any) {
         : '',
       footerTemplate: `
                <div style="width: 100%; font-size: 8pt; text-align: center; padding: 10px 0; border-top: 1px solid #ddd;">
-                  Gerado pela plataforma Colibri em {{formatDate now "dd/MM/yyyy 'às' HH:mm"}}
+                  Gerado pela plataforma Colibri em ${formattedDateForFooter}
                   <div style="margin-top: 5px; font-size: 6pt; color: #666;">Página <span class="pageNumber"></span> de <span class="totalPages"></span></div>
                 </div>
             `,
