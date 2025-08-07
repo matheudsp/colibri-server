@@ -28,7 +28,7 @@ import { Roles } from 'src/common/decorator/roles.decorator';
 import { ROLES } from 'src/common/constants/roles.constant';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { DocumentResponseDto } from './dto/response-document.dto';
-import type { UpdateDocumentStatusDto } from './dto/update-document-status.dto';
+import { UpdateDocumentStatusDto } from './dto/update-document-status.dto';
 
 @ApiTags('Documents')
 @RequireAuth()
@@ -71,6 +71,9 @@ export class DocumentsController {
   @Roles(ROLES.LOCADOR, ROLES.ADMIN)
   @ApiOperation({ summary: 'Update the status of a document (Approve/Reject)' })
   @ApiResponse({ status: 200, type: DocumentResponseDto })
+  @ApiBody({
+    type: UpdateDocumentStatusDto,
+  })
   updateStatus(
     @Param('documentId', ParseUUIDPipe) documentId: string,
     @CurrentUser() currentUser: JwtPayload,

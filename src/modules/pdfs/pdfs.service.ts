@@ -98,7 +98,9 @@ export class PdfsService {
       size: pdfBuffer.length,
     };
 
-    const { key } = await this.storageService.uploadFile(file);
+    const { key } = await this.storageService.uploadFile(file, {
+      folder: 'contracts',
+    });
     const newPdf = await this.prisma.generatedPdf.create({
       data: {
         contractId,

@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { DocumentStatus } from '@prisma/client';
+import { Expose } from 'class-transformer';
 import {
   IsEnum,
   IsNotEmpty,
@@ -9,15 +10,17 @@ import {
 } from 'class-validator';
 
 export class UpdateDocumentStatusDto {
+  @Expose()
   @ApiProperty({
     description: 'The new status for the document',
     enum: DocumentStatus,
-    example: DocumentStatus.APROVADO,
+    example: DocumentStatus.REPROVADO,
   })
   @IsEnum(DocumentStatus)
   @IsNotEmpty()
   status: DocumentStatus;
 
+  @Expose()
   @ApiProperty({
     description: 'Motivo da reprovação. Obrigatório se o status for REPROVADO.',
     example: 'A foto do documento está ilegível.',

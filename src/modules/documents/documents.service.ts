@@ -47,7 +47,25 @@ export class DocumentsService {
       );
     }
 
-    const { key } = await this.storageService.uploadFile(file);
+    const existingDocument = await this.prisma.document.findFirst({
+      where: {
+        contractId: contractId,
+        type: documentType,
+      },
+    });
+
+    if (existingDocument) {
+      // Deleta o arquivo antigo do armazenamento
+      await this.storageService.deleteFile(existingDocument.filePath);
+      // Deleta o registro antigo do banco de dados
+      await this.prisma.document.delete({
+        where: { id: existingDocument.id },
+      });
+    }
+
+    const { key } = await this.storageService.uploadFile(file, {
+      folder: 'documents',
+    });
 
     const document = await this.prisma.document.create({
       data: {

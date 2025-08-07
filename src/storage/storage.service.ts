@@ -20,8 +20,11 @@ export class StorageService {
     this.bucketName = this.config.getOrThrow<string>('SUPABASE_STORAGE_BUCKET');
   }
 
-  async uploadFile(file: FileUpload, bucket?: string): Promise<StorageResult> {
-    const targetBucket = bucket || this.bucketName;
+  async uploadFile(
+    file: FileUpload,
+    options?: { bucket?: string; folder?: string },
+  ): Promise<StorageResult> {
+    const targetBucket = options?.bucket || this.bucketName;
 
     try {
       const { data: bucketExists, error: bucketError } =
@@ -76,9 +79,11 @@ export class StorageService {
 
       const fileExt =
         file.originalname?.split('.').pop()?.toLowerCase() || getExtension();
-      const folder = file.mimetype.startsWith('image/') ? 'Images' : 'Pdfs';
+      const targetFolder =
+        options?.folder ||
+        (file.mimetype.startsWith('image/') ? 'images' : 'pdfs');
 
-      const filePath = `${folder}/${Date.now()}-${sanitizedName}.${fileExt}`;
+      const filePath = `${targetFolder}/${Date.now()}-${sanitizedName}.${fileExt}`;
 
       const { error } = await this.supabase.storage
         .from(targetBucket)
