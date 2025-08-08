@@ -84,17 +84,20 @@ model User {
   role            UserRole @default(LOCATARIO)
   status          Boolean  @default(true)
   asaasCustomerId String?  @unique
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   birthDate   DateTime?    @db.Date
   companyType CompanyType?
   incomeValue Decimal?
 
-  cep      String?
-  street   String?
-  number   String?
-  city     String?
-  state    String?
-  province String?
+  cep        String?
+  street     String?
+  number     String?
+  city       String?
+  state      String?
+  province   String?
+  complement String?
 
   condominiums        Condominium[]   @relation("LandlordCondominiums")
   propertiesOwned     Property[]      @relation("LandlordProperties")
@@ -288,11 +291,12 @@ model BankSlip {
 }
 
 model Photo {
-  id          String   @id @default(uuid())
-  filePath    String
-  description String?
-  propertyId  String
-  property    Property @relation(fields: [propertyId], references: [id])
+  id         String   @id @default(uuid())
+  filePath   String
+  name       String?
+  isCover    Boolean  @default(false)
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
 }
 
 model Document {

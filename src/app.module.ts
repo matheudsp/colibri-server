@@ -27,6 +27,7 @@ import { BankSlipsModule } from './modules/bank-slips/bank-slips.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { PdfsModule } from './modules/pdfs/pdfs.module';
+import { PhotosModule } from './modules/photos/photos.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { PdfsModule } from './modules/pdfs/pdfs.module';
     SchedulerModule,
     WebhooksModule,
     PdfsModule,
+    PhotosModule,
   ],
   providers: [
     {

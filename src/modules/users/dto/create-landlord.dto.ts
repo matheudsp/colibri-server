@@ -78,8 +78,7 @@ export class CreateLandlordDto {
     example: 5000,
   })
   @IsNumber()
-  @IsOptional()
-  incomeValue?: number;
+  incomeValue: number;
 
   @ApiProperty({
     description: 'Obrigatório se for Pessoa Jurídica.',

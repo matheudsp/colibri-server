@@ -26,14 +26,14 @@ import { ROLES } from 'src/common/constants/roles.constant';
 import { PaymentResponseDto } from './dto/response-payment.dto';
 import type { RegisterPaymentDto } from './dto/register-payment.dto';
 
-@Controller('payments')
+@Controller('payments-orders')
 @RequireAuth()
 @ApiBearerAuth()
-@ApiTags('Payments')
+@ApiTags('Payments Orders')
 export class PaymentsOrdersController {
   constructor(private readonly paymentsService: PaymentsOrdersService) {}
 
-  @Get('contracts/:contractId')
+  @Get('contract/:contractId')
   @Roles(ROLES.LOCADOR, ROLES.LOCATARIO, ROLES.ADMIN)
   @ApiOperation({ summary: 'List all payments for a contract' })
   @ApiResponse({ status: 200, type: [PaymentResponseDto] })
@@ -44,12 +44,12 @@ export class PaymentsOrdersController {
     return this.paymentsService.findPaymentsByContract(contractId, currentUser);
   }
 
-  @Patch(':paymentId')
+  @Patch(':paymentOrderId')
   @Roles(ROLES.LOCADOR, ROLES.ADMIN)
   @ApiOperation({ summary: 'Registra um pagamento manualmente (dar baixa)' })
   @ApiResponse({ status: 200, type: PaymentResponseDto })
   registerPayment(
-    @Param('paymentId', ParseUUIDPipe) paymentId: string,
+    @Param('paymentOrderId', ParseUUIDPipe) paymentId: string,
     @CurrentUser() currentUser: JwtPayload,
     @Body() registerPaymentDto: RegisterPaymentDto,
   ) {

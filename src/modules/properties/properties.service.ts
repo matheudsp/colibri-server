@@ -347,4 +347,15 @@ export class PropertiesService {
     );
     return { message: 'Imóvel removido com sucesso.' };
   }
+  async validatePropertyExists(propertyId: string) {
+    const property = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+    });
+
+    if (!property) {
+      throw new NotFoundException('Imóvel não encontrado');
+    }
+
+    return property;
+  }
 }

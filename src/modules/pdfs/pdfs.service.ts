@@ -99,7 +99,7 @@ export class PdfsService {
     };
 
     const { key } = await this.storageService.uploadFile(file, {
-      folder: 'contracts',
+      folder: `contracts/${contract.id}`,
     });
     const newPdf = await this.prisma.generatedPdf.create({
       data: {
