@@ -221,11 +221,11 @@ export class UserService {
 
       return this.create(createUserData, ROLES.LOCATARIO, creatorRole);
     } else {
-      if (!data.cpfCnpj) {
-        throw new BadRequestException(
-          'Para associar um locatário existente, o CPF/CNPJ é obrigatório.',
-        );
-      }
+      // if (!data.cpfCnpj) {
+      //   throw new BadRequestException(
+      //     'Para associar um locatário existente, o CPF/CNPJ é obrigatório.',
+      //   );
+      // }
       const user = await this.prisma.user.findFirst({
         where: {
           OR: [{ email: data.email }, { cpfCnpj: data.cpfCnpj }],

@@ -1,5 +1,6 @@
 import {
   ForbiddenException,
+  forwardRef,
   Inject,
   Injectable,
   NotFoundException,
@@ -14,17 +15,23 @@ import type { SearchPropertyDto } from './dto/search-property.dto';
 import { ContractStatus, type Prisma } from '@prisma/client';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import { PhotosService } from '../photos/photos.service';
 
 @Injectable()
 export class PropertiesService {
   constructor(
     private prisma: PrismaService,
     private logHelper: LogHelperService,
-
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    @Inject(forwardRef(() => PhotosService))
+    private propertyPhotosService: PhotosService,
+    @Inject(CACHE_MANAGER)
+    private cacheManager: Cache,
   ) {}
 
   async create(
+    // createPropertyDto: Omit<CreatePropertyDto, 'photos'> & {
+    //   photos?: Express.Multer.File[];
+    // },
     createPropertyDto: CreatePropertyDto,
     currentUser: { sub: string; role: string },
   ) {
@@ -36,13 +43,18 @@ export class PropertiesService {
         'Apenas locadores e administradores podem criar imóveis.',
       );
     }
-
+    // const { photos, ...propertyData } = createPropertyDto;
     const property = await this.prisma.property.create({
       data: {
+        // ...propertyData,
         ...createPropertyDto,
         landlordId: currentUser.sub,
       },
     });
+
+    // if (photos?.length) {
+    //   await this.propertyPhotosService.uploadPhotos(photos, property.id);
+    // }
 
     await this.logHelper.createLog(
       currentUser?.sub,
@@ -71,8 +83,19 @@ export class PropertiesService {
       this.prisma.property.count({ where }),
     ]);
 
+    const propertiesWithSignedUrls = await Promise.all(
+      properties.map(async (property) => {
+        const photosWithUrls =
+          await this.propertyPhotosService.getPhotosByProperty(
+            property.id,
+            true,
+          );
+        return { ...property, photos: photosWithUrls };
+      }),
+    );
+
     return {
-      data: properties,
+      data: propertiesWithSignedUrls,
       meta: {
         total,
         page,
@@ -126,14 +149,25 @@ export class PropertiesService {
         where,
         include: {
           landlord: { select: { name: true, email: true, phone: true } },
-          photos: { take: 1 },
+          photos: true,
         },
       }),
       this.prisma.property.count({ where }),
     ]);
 
+    const propertiesWithSignedUrls = await Promise.all(
+      properties.map(async (property) => {
+        const photosWithUrls =
+          await this.propertyPhotosService.getPhotosByProperty(
+            property.id,
+            true,
+          );
+        return { ...property, photos: photosWithUrls };
+      }),
+    );
+
     const result = {
-      data: properties,
+      data: propertiesWithSignedUrls,
       meta: {
         total,
         page,
@@ -159,7 +193,12 @@ export class PropertiesService {
     if (!property) {
       throw new NotFoundException(`Imóvel com ID "${id}" não encontrado.`);
     }
-    return property;
+
+    const photosWithUrls = await this.propertyPhotosService.getPhotosByProperty(
+      property.id,
+      true,
+    );
+    return { ...property, photos: photosWithUrls };
   }
 
   async publicSearch(params: Partial<SearchPropertyDto>) {
@@ -216,8 +255,19 @@ export class PropertiesService {
       this.prisma.property.count({ where }),
     ]);
 
+    const propertiesWithSignedUrls = await Promise.all(
+      properties.map(async (property) => {
+        const photosWithUrls =
+          await this.propertyPhotosService.getPhotosByProperty(
+            property.id,
+            true,
+          );
+        return { ...property, photos: photosWithUrls };
+      }),
+    );
+
     return {
-      data: properties,
+      data: propertiesWithSignedUrls,
       meta: {
         total,
         page,
@@ -287,8 +337,19 @@ export class PropertiesService {
       this.prisma.property.count({ where }),
     ]);
 
+    const propertiesWithSignedUrls = await Promise.all(
+      properties.map(async (property) => {
+        const photosWithUrls =
+          await this.propertyPhotosService.getPhotosByProperty(
+            property.id,
+            true,
+          );
+        return { ...property, photos: photosWithUrls };
+      }),
+    );
+
     return {
-      data: properties,
+      data: propertiesWithSignedUrls,
       meta: {
         total,
         page,
@@ -316,7 +377,7 @@ export class PropertiesService {
 
     const updatedProperty = await this.prisma.property.update({
       where: { id },
-      data: updatePropertyDto,
+      data: { ...updatePropertyDto },
       select: { id: true },
     });
     await this.logHelper.createLog(

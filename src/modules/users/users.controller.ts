@@ -54,8 +54,8 @@ export class UserController {
   }
 
   @Get('search')
-  @Roles(ROLES.ADMIN)
-  @ApiOperation({ summary: 'Search users with filters (Admin)' })
+  @Roles(ROLES.ADMIN, ROLES.LOCADOR)
+  @ApiOperation({ summary: 'Search users with filters ' })
   @ApiResponse({
     status: 200,
     type: [UserResponseDto],
