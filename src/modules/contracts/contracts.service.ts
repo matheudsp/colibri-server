@@ -144,8 +144,8 @@ export class ContractsService {
         where,
         include: {
           property: { select: { title: true } },
-          landlord: { select: { name: true } },
-          tenant: { select: { name: true } },
+          landlord: { select: { name: true, email: true } },
+          tenant: { select: { name: true, email: true } },
         },
       }),
       this.prisma.contract.count({ where }),
@@ -242,7 +242,13 @@ export class ContractsService {
   async findOne(id: string, currentUser: { sub: string; role: string }) {
     const contract = await this.prisma.contract.findUnique({
       where: { id },
-      include: { paymentsOrders: true, property: true },
+      include: {
+        paymentsOrders: true,
+        property: true,
+        landlord: { select: { name: true, email: true } },
+        tenant: { select: { name: true, email: true } },
+        documents: { select: { id: true, status: true, type: true } },
+      },
     });
     if (!contract) {
       throw new NotFoundException(`Contrato com ID "${id}" não encontrado.`);

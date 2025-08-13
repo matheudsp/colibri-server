@@ -190,6 +190,7 @@ model Property {
   id          String  @id @default(uuid())
   title       String
   description String? @db.Text
+  rentValue   Decimal
 
   cep      String?
   street   String?

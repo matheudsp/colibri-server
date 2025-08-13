@@ -37,6 +37,11 @@ export class CreatePropertyDto {
   @Expose() @ApiProperty() @IsNumber() @Min(0) numParking: number;
   @Expose() @ApiProperty() @IsBoolean() @IsOptional() isAvailable?: boolean;
 
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  rentValue!: number;
   // @Expose()
   // @ApiProperty()
   // photos!: Express.Multer.File[];

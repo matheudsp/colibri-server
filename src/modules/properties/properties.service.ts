@@ -11,7 +11,7 @@ import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
 import { ROLES } from 'src/common/constants/roles.constant';
 import { LogHelperService } from '../logs/log-helper.service';
-import type { SearchPropertyDto } from './dto/search-property.dto';
+import { SearchPropertyDto } from './dto/search-property.dto';
 import { ContractStatus, type Prisma } from '@prisma/client';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';

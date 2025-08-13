@@ -99,6 +99,7 @@ async function main() {
     data: {
       title: 'Apartamento 2 Quartos com Varanda',
       description: 'Unidade 101, Bloco A. Sol da manhã.',
+      rentValue: 4500.0,
       number: '101',
       complement: 'Bloco A',
       areaInM2: 65,
@@ -118,6 +119,7 @@ async function main() {
       title: 'Apartamento 3 Quartos (Cobertura)',
       description: 'Unidade 202, Bloco B. Cobertura com área gourmet.',
       number: '202',
+      rentValue: 4500.0,
       complement: 'Bloco B',
       areaInM2: 120,
       numRooms: 3,
@@ -136,6 +138,7 @@ async function main() {
       title: 'Casa Espaçosa com Quintal',
       description: 'Ótima casa em rua tranquila, ideal para famílias.',
       cep: '05407-002',
+      rentValue: 4500.0,
       street: 'Rua dos Pinheiros',
       number: '1500',
       district: 'Pinheiros',
