@@ -28,6 +28,7 @@ import { SchedulerModule } from './scheduler/scheduler.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { PdfsModule } from './modules/pdfs/pdfs.module';
 import { PhotosModule } from './modules/photos/photos.module';
+import { ClicksignModule } from './modules/clicksign/clicksign.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { PhotosModule } from './modules/photos/photos.module';
     WebhooksModule,
     PdfsModule,
     PhotosModule,
+    ClicksignModule,
   ],
   providers: [
     {

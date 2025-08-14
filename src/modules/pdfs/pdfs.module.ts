@@ -7,9 +7,16 @@ import { LogHelperService } from '../logs/log-helper.service';
 import { ContractsModule } from '../contracts/contracts.module';
 import { StorageModule } from 'src/storage/storage.module';
 import { PrismaModule } from 'src/prisma/prisma.module';
+import { ClicksignModule } from '../clicksign/clicksign.module';
 
 @Module({
-  imports: [AppConfigModule, PrismaModule, ContractsModule, StorageModule],
+  imports: [
+    AppConfigModule,
+    PrismaModule,
+    ContractsModule,
+    StorageModule,
+    ClicksignModule,
+  ],
   providers: [PdfsService, LogHelperService],
   controllers: [PdfsController],
 })

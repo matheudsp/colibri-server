@@ -159,6 +159,52 @@ export class StorageService {
     }
   }
 
+  // async getFileBuffer(
+  //   filePath: string,
+  //   bucket?: string,
+  // ): Promise<FileBufferResult> {
+  //   const targetBucket = bucket || this.bucketName;
+
+  //   try {
+  //     const { data: downloadData, error: downloadError } =
+  //       await this.supabase.storage.from(targetBucket).download(filePath);
+
+  //     if (downloadError || !downloadData) {
+  //       throw new Error(downloadError?.message || 'Falha ao baixar o arquivo');
+  //     }
+
+  //     const buffer = Buffer.from(await downloadData.arrayBuffer());
+
+  //     const { data: fileList, error: listError } = await this.supabase.storage
+  //       .from(targetBucket)
+  //       .list('', { search: filePath.split('/').pop() });
+
+  //     if (listError || !fileList || fileList.length === 0) {
+  //       throw new Error(listError?.message || 'Falha ao obter metadados');
+  //     }
+
+  //     const fileMeta = fileList.find(
+  //       (file) => file.name === filePath.split('/').pop(),
+  //     );
+
+  //     return {
+  //       buffer,
+  //       metadata: {
+  //         contentType:
+  //           (fileMeta?.metadata as { mimetype?: string })?.mimetype ||
+  //           'application/octet-stream',
+  //         contentLength:
+  //           (fileMeta?.metadata as { size?: number })?.size ||
+  //           downloadData.size,
+  //         originalName: filePath.split('/').pop() || 'file',
+  //       },
+  //     };
+  //   } catch (error) {
+  //     const typedError = error as Error;
+  //     throw new Error(`Erro ao obter o arquivo: ${typedError.message}`);
+  //   }
+  // }
+
   async getFileBuffer(
     filePath: string,
     bucket?: string,
@@ -175,27 +221,11 @@ export class StorageService {
 
       const buffer = Buffer.from(await downloadData.arrayBuffer());
 
-      const { data: fileList, error: listError } = await this.supabase.storage
-        .from(targetBucket)
-        .list('', { search: filePath.split('/').pop() });
-
-      if (listError || !fileList || fileList.length === 0) {
-        throw new Error(listError?.message || 'Falha ao obter metadados');
-      }
-
-      const fileMeta = fileList.find(
-        (file) => file.name === filePath.split('/').pop(),
-      );
-
       return {
         buffer,
         metadata: {
-          contentType:
-            (fileMeta?.metadata as { mimetype?: string })?.mimetype ||
-            'application/octet-stream',
-          contentLength:
-            (fileMeta?.metadata as { size?: number })?.size ||
-            downloadData.size,
+          contentType: 'application/pdf',
+          contentLength: downloadData.size,
           originalName: filePath.split('/').pop() || 'file',
         },
       };

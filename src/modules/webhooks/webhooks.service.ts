@@ -1,11 +1,57 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PaymentsOrdersService } from '../payments-orders/payments-orders.service';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { ContractsService } from '../contracts/contracts.service';
 
 @Injectable()
 export class WebhooksService {
   private readonly logger = new Logger(WebhooksService.name);
 
-  constructor(private readonly paymentsService: PaymentsOrdersService) {}
+  constructor(
+    private readonly paymentsService: PaymentsOrdersService,
+    private readonly prisma: PrismaService,
+    private readonly contractsService: ContractsService,
+  ) {}
+
+  async processClicksignEvent(payload: any) {
+    const eventName = payload?.event?.name;
+    const document = payload?.document;
+
+    if (!eventName || !document) {
+      this.logger.warn(`[Webhook Clicksign] Payload inválido recebido.`);
+      return;
+    }
+
+    this.logger.log(
+      `[Webhook Clicksign] Evento '${eventName}' recebido para o documento ${document.key}.`,
+    );
+
+    // O evento 'close' é disparado quando o documento é finalizado (todas as partes assinaram)
+    if (eventName === 'close' || eventName === 'auto_close') {
+      const requestSignatureKey = document.request_signature_key;
+
+      const pdf = await this.prisma.generatedPdf.findFirst({
+        where: { requestSignatureKey },
+        select: { contractId: true },
+      });
+
+      if (pdf && pdf.contractId) {
+        this.logger.log(
+          `Contrato ${pdf.contractId} associado encontrado. Solicitando ativação...`,
+        );
+
+        await this.contractsService.activateContractAfterSignature(
+          pdf.contractId,
+        );
+        // Baixar a versão assinada e salvar no seu storage
+        // e atualizar o campo `signedFilePath`
+      } else {
+        this.logger.warn(
+          `Nenhum contrato encontrado para a chave de assinatura: ${requestSignatureKey}`,
+        );
+      }
+    }
+  }
 
   async processAsaasEvent(payload: { event: string; payment: any }) {
     const { event, payment } = payload;

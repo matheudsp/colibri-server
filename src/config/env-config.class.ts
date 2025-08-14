@@ -84,6 +84,15 @@ export class EnvConfig {
   MAIL_FROM_ADDRESS!: string;
 
   @IsString()
+  CLICKSIGN_API_URL!: string;
+
+  @IsString()
+  CLICKSIGN_API_KEY!: string;
+
+  @IsString()
+  CLICKSIGN_HMAC_SECRET!: string;
+
+  @IsString()
   SUPABASE_URL!: string;
 
   @IsString()

@@ -20,5 +20,6 @@ import { PaymentsOrdersModule } from '../payments-orders/payments-orders.module'
   ],
   controllers: [ContractsController],
   providers: [ContractsService, PrismaService, LogHelperService],
+  exports: [ContractsService],
 })
 export class ContractsModule {}

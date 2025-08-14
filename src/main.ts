@@ -4,12 +4,21 @@ import { setupSwagger } from './docs/swagger.config';
 import { PrismaService } from './prisma/prisma.service';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { json } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const prismaService = app.get(PrismaService);
   const logger = new Logger('Bootstrap');
   const port = process.env.PORT || 3000;
+
+  app.use(
+    json({
+      verify: (req: any, res, buf) => {
+        req.rawBody = buf;
+      },
+    }),
+  );
 
   app.setGlobalPrefix('api/v1');
   setupSwagger(app);

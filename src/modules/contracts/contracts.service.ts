@@ -37,6 +37,59 @@ export class ContractsService {
     @InjectQueue(QueueName.EMAIL) private emailQueue: Queue,
   ) {}
 
+  async activateContractAfterSignature(contractId: string): Promise<void> {
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+      include: {
+        tenant: { select: { name: true, email: true } },
+        landlord: { select: { name: true, email: true } },
+        property: { select: { title: true } },
+      },
+    });
+
+    if (!contract) {
+      console.warn(
+        `[Webhook] Contrato ${contractId} não encontrado para ativação.`,
+      );
+      return;
+    }
+
+    if (contract.status === ContractStatus.AGUARDANDO_ASSINATURAS) {
+      await this.prisma.contract.update({
+        where: { id: contractId },
+        data: { status: ContractStatus.ATIVO },
+      });
+
+      const notification = {
+        title: 'Contrato Assinado e Ativado!',
+        message: `O contrato de aluguel para o imóvel "${contract.property.title}" foi assinado por todas as partes e agora está ativo.`,
+      };
+
+      const action = {
+        text: 'Ver Contrato',
+        path: `/contracts/${contract.id}`,
+      };
+
+      this.emailQueue.add(EmailJobType.NOTIFICATION, {
+        user: contract.tenant,
+        notification,
+        action,
+      });
+
+      this.emailQueue.add(EmailJobType.NOTIFICATION, {
+        user: contract.landlord,
+        notification,
+        action,
+      });
+
+      console.log(`Contrato ${contractId} ativado com sucesso via webhook.`);
+    } else {
+      console.log(
+        `Contrato ${contractId} já estava em um estado diferente de AGUARDANDO_ASSINATURAS. Nenhuma ação foi tomada.`,
+      );
+    }
+  }
+
   async create(
     createContractDto: CreateContractDto,
     currentUser: { sub: string; role: string },

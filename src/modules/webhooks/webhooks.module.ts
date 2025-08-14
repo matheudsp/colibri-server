@@ -3,9 +3,10 @@ import { WebhooksController } from './webhooks.controller';
 import { WebhooksService } from './webhooks.service';
 import { PaymentsOrdersModule } from '../payments-orders/payments-orders.module';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { ContractsModule } from '../contracts/contracts.module';
 
 @Module({
-  imports: [PaymentsOrdersModule],
+  imports: [PaymentsOrdersModule, ContractsModule],
   controllers: [WebhooksController],
   providers: [WebhooksService, PrismaService],
 })

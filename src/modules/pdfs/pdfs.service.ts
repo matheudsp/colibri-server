@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -12,16 +13,89 @@ import { LogHelperService } from '../logs/log-helper.service';
 import { ContractTemplateData } from './types/contract-template.interface';
 import { getPdfFileName } from '../../common/utils/pdf-naming-helper.utils';
 import { ROLES } from 'src/common/constants/roles.constant';
+import { ClicksignService } from '../clicksign/clicksign.service';
 // import { ContractsService } from '../contracts/contracts.service';
 
 @Injectable()
 export class PdfsService {
+  private readonly logger = new Logger(PdfsService.name);
   constructor(
     private prisma: PrismaService,
     private storageService: StorageService,
     private logHelper: LogHelperService,
     // private contractService: ContractsService,
+    private clicksignService: ClicksignService,
   ) {}
+
+  async requestSignature(
+    pdfId: string,
+    currentUser: { sub: string; role: string },
+  ) {
+    if (currentUser.role === ROLES.LOCATARIO) {
+      throw new ForbiddenException(
+        'Locatários não têm permissão para solicitar assinaturas.',
+      );
+    }
+
+    const pdf = await this.prisma.generatedPdf.findUnique({
+      where: { id: pdfId },
+      include: {
+        contract: { include: { landlord: true, tenant: true, property: true } },
+      },
+    });
+
+    if (!pdf) throw new NotFoundException('PDF não encontrado');
+
+    const { contract } = pdf;
+    const originalFileName = getPdfFileName(pdf.pdfType, contract.id);
+
+    this.logger.log(
+      `Etapa 1: Criando o documento "${originalFileName}" na Clicksign...`,
+    );
+    const clicksignDocument = await this.clicksignService.createDocument(
+      pdf.filePath,
+      originalFileName,
+    );
+    const documentKey = clicksignDocument.document.key;
+    this.logger.log(`Documento criado com a chave: ${documentKey}.`);
+
+    this.logger.log('Etapa 2: Criando signatários...');
+    const landlordSigner = await this.clicksignService.createSigner({
+      email: contract.landlord.email,
+      name: contract.landlord.name,
+    });
+    const tenantSigner = await this.clicksignService.createSigner({
+      email: contract.tenant.email,
+      name: contract.tenant.name,
+    });
+    const landlordSignerKey = landlordSigner.signer.key;
+    const tenantSignerKey = tenantSigner.signer.key;
+    this.logger.log(
+      `Signatários criados: ${landlordSignerKey} (Locador), ${tenantSignerKey} (Locatário)`,
+    );
+
+    this.logger.log('Etapa 3: Vinculando signatários ao documento...');
+    const landlordSignatureRequest =
+      await this.clicksignService.addSignerToDocumentList(
+        documentKey,
+        landlordSignerKey,
+        'lessor',
+      );
+    await this.clicksignService.addSignerToDocumentList(
+      documentKey,
+      tenantSignerKey,
+      'lessee',
+    );
+    this.logger.log('Signatários vinculados e notificados com sucesso.');
+
+    const requestSignatureKey =
+      landlordSignatureRequest.list.request_signature_key;
+
+    return this.prisma.generatedPdf.update({
+      where: { id: pdfId },
+      data: { requestSignatureKey: requestSignatureKey },
+    });
+  }
 
   async generatePdf(
     contractId: string,

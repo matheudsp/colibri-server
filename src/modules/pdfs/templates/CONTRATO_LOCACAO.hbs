@@ -150,16 +150,20 @@
     <div class='signature-block'>
       <p style='text-align: center;'>{{property.city}}, {{formatDate now "dd 'de' MMMM 'de' yyyy"}}.</p>
 
-      <div class='signature-line'></div>
+      <div class='signature-line'>
+          <p style="font-size: 10px; color: #fff;">{{ass_locador}}</p>
+      </div>
       <div class='signature-info'>
         <strong>{{landlord.name}}</strong><br />
-        LOCADOR(A)
+        (LOCADOR(A))
       </div>
 
-      <div class='signature-line'></div>
+      <div class='signature-line'>
+          <p style="font-size: 10px; color: #fff;">{{ass_locatario}}</p>
+      </div>
       <div class='signature-info'>
         <strong>{{tenant.name}}</strong><br />
-        LOCATÁRIO(A)
+        (LOCATÁRIO(A))
       </div>
     </div>
 
