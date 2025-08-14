@@ -21,6 +21,7 @@ import { QueueName } from './jobs/jobs';
     BullModule.registerQueue(
       { name: QueueName.EMAIL },
       { name: QueueName.BANK_SLIP },
+      { name: QueueName.SIGNATURE },
     ),
     MailerModule,
     BankSlipsModule,

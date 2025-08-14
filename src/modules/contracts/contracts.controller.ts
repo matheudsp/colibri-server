@@ -56,6 +56,15 @@ export class ContractsController {
     return this.contractsService.create(createContractDto, currentUser);
   }
 
+  @Post(':id/request-signature')
+  @ApiOperation({ summary: 'Request digital signatures via Clicksign' })
+  async requestSignature(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() currentUser: JwtPayload,
+  ) {
+    return this.contractsService.requestSignature(id, currentUser);
+  }
+
   @Get()
   // @CacheKey('contracts_all')
   // @CacheTTL(30)

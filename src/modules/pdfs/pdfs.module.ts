@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { PdfsService } from './pdfs.service';
 import { PdfsController } from './pdfs.controller';
 import { AppConfigModule } from 'src/config/config.module';
@@ -13,11 +13,12 @@ import { ClicksignModule } from '../clicksign/clicksign.module';
   imports: [
     AppConfigModule,
     PrismaModule,
-    ContractsModule,
+    forwardRef(() => ContractsModule),
     StorageModule,
     ClicksignModule,
   ],
   providers: [PdfsService, LogHelperService],
   controllers: [PdfsController],
+  exports: [PdfsModule, PdfsService],
 })
 export class PdfsModule {}

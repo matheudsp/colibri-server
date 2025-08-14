@@ -38,15 +38,6 @@ export class PdfsController {
     private readonly storageService: StorageService,
   ) {}
 
-  @Post(':id/request-signature')
-  @ApiOperation({ summary: 'Request digital signatures via Clicksign' })
-  async requestSignature(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() currentUser: JwtPayload,
-  ) {
-    return this.pdfService.requestSignature(id, currentUser);
-  }
-
   @Post('generate')
   @ApiOperation({ summary: 'Generate a new document PDF' })
   @ApiResponse({

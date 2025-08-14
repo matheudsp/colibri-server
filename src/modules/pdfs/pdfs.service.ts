@@ -8,12 +8,13 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { StorageService } from '../../storage/storage.service';
 import { generatePdfFromTemplate } from './utils/pdf-generator';
-import { PdfType } from '@prisma/client';
+import { ContractStatus, PdfType } from '@prisma/client';
 import { LogHelperService } from '../logs/log-helper.service';
 import { ContractTemplateData } from './types/contract-template.interface';
 import { getPdfFileName } from '../../common/utils/pdf-naming-helper.utils';
 import { ROLES } from 'src/common/constants/roles.constant';
 import { ClicksignService } from '../clicksign/clicksign.service';
+import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 // import { ContractsService } from '../contracts/contracts.service';
 
 @Injectable()
@@ -95,6 +96,60 @@ export class PdfsService {
       where: { id: pdfId },
       data: { requestSignatureKey: requestSignatureKey },
     });
+  }
+
+  async initiateSignatureProcess(contractId: string, currentUser: JwtPayload) {
+    let pdf = await this.prisma.generatedPdf.findFirst({
+      where: {
+        contractId: contractId,
+        pdfType: PdfType.CONTRATO_LOCACAO,
+      },
+    });
+
+    if (!pdf) {
+      this.logger.log(
+        `Nenhum PDF encontrado para o contrato ${contractId}. Gerando um novo...`,
+      );
+      pdf = await this.generatePdf(
+        contractId,
+        PdfType.CONTRATO_LOCACAO,
+        currentUser,
+      );
+      this.logger.log(`PDF ${pdf.id} gerado para o contrato ${contractId}.`);
+    } else {
+      this.logger.log(
+        `PDF ${pdf.id} existente encontrado para o contrato ${contractId}.`,
+      );
+    }
+
+    await this.requestSignature(pdf.id, currentUser);
+    this.logger.log(
+      `Processo de assinatura para o PDF ${pdf.id} iniciado com sucesso.`,
+    );
+
+    return { message: 'Processo de assinatura iniciado com sucesso.' };
+  }
+
+  async retrySignatureRequest(contractId: string, currentUser: JwtPayload) {
+    this.logger.log(
+      `Iniciando retentativa manual de assinatura para o contrato: ${contractId}`,
+    );
+
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+    });
+
+    if (!contract) {
+      throw new NotFoundException('Contrato não encontrado.');
+    }
+
+    if (contract.status !== ContractStatus.AGUARDANDO_ASSINATURAS) {
+      throw new BadRequestException(
+        `O contrato não está no status 'AGUARDANDO_ASSINATURAS', e sim '${contract.status}'. A operação não pode ser refeita.`,
+      );
+    }
+
+    return this.initiateSignatureProcess(contractId, currentUser);
   }
 
   async generatePdf(

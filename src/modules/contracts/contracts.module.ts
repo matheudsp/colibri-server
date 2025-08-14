@@ -9,6 +9,7 @@ import { LogHelperService } from '../logs/log-helper.service';
 import { QueueModule } from 'src/queue/queue.module';
 import { PaymentGatewayModule } from 'src/payment-gateway/payment-gateway.module';
 import { PaymentsOrdersModule } from '../payments-orders/payments-orders.module';
+import { PdfsModule } from '../pdfs/pdfs.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { PaymentsOrdersModule } from '../payments-orders/payments-orders.module'
     QueueModule,
     PaymentGatewayModule,
     PaymentsOrdersModule,
+    PdfsModule,
   ],
   controllers: [ContractsController],
   providers: [ContractsService, PrismaService, LogHelperService],

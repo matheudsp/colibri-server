@@ -25,6 +25,8 @@ import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { PaymentsOrdersService } from '../payments-orders/payments-orders.service';
 import { QueueName } from 'src/queue/jobs/jobs';
+import { PdfsService } from '../pdfs/pdfs.service';
+import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 
 @Injectable()
 export class ContractsService {
@@ -34,8 +36,33 @@ export class ContractsService {
     private paymentsOrdersService: PaymentsOrdersService,
     private userService: UserService,
     private logHelper: LogHelperService,
+    private pdfsService: PdfsService,
     @InjectQueue(QueueName.EMAIL) private emailQueue: Queue,
   ) {}
+
+  async requestSignature(contractId: string, currentUser: JwtPayload) {
+    if (currentUser.role === ROLES.LOCATARIO) {
+      throw new ForbiddenException(
+        'Locatários não têm permissão para solicitar assinaturas.',
+      );
+    }
+
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+    });
+
+    if (!contract) {
+      throw new NotFoundException('Contrato não encontrado.');
+    }
+
+    if (contract.status !== ContractStatus.AGUARDANDO_ASSINATURAS) {
+      throw new BadRequestException(
+        `A solicitação de assinatura só pode ser feita para contratos com status 'AGUARDANDO_ASSINATURAS'. O status atual é '${contract.status}'.`,
+      );
+    }
+
+    return this.pdfsService.initiateSignatureProcess(contractId, currentUser);
+  }
 
   async activateContractAfterSignature(contractId: string): Promise<void> {
     const contract = await this.prisma.contract.findUnique({

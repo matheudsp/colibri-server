@@ -5,9 +5,10 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { LogHelperService } from '../logs/log-helper.service';
 import { StorageModule } from 'src/storage/storage.module';
 import { QueueModule } from 'src/queue/queue.module';
+import { PdfsModule } from '../pdfs/pdfs.module';
 
 @Module({
-  imports: [StorageModule, QueueModule],
+  imports: [StorageModule, QueueModule, PdfsModule],
   controllers: [DocumentsController],
   providers: [DocumentsService, PrismaService, LogHelperService],
 })
