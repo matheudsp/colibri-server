@@ -99,15 +99,16 @@ model User {
   province   String?
   complement String?
 
-  condominiums        Condominium[]   @relation("LandlordCondominiums")
-  propertiesOwned     Property[]      @relation("LandlordProperties")
-  contractsAsLandlord Contract[]      @relation("LandlordContracts")
-  contractsAsTenant   Contract[]      @relation("TenantContracts")
+  condominiums        Condominium[]      @relation("LandlordCondominiums")
+  propertiesOwned     Property[]         @relation("LandlordProperties")
+  contractsAsLandlord Contract[]         @relation("LandlordContracts")
+  contractsAsTenant   Contract[]         @relation("TenantContracts")
   logs                Log[]
   webhooks            Webhook[]
   bankAccount         BankAccount?
   subAccount          SubAccount?
-  asaasCustomers      AsaasCustomer[] @relation("TenantAsaasCustomers")
+  asaasCustomers      AsaasCustomer[]    @relation("TenantAsaasCustomers")
+  signatureRequests   SignatureRequest[]
 }
 
 model SubAccount {
@@ -246,15 +247,28 @@ model Contract {
 }
 
 model GeneratedPdf {
-  id                  String   @id @default(uuid())
-  filePath            String
-  pdfType             PdfType
-  generatedAt         DateTime
-  signedFilePath      String?
-  requestSignatureKey String?  @unique
+  id                   String             @id @default(uuid())
+  filePath             String
+  pdfType              PdfType
+  generatedAt          DateTime
+  signedFilePath       String?
+  clicksignDocumentKey String?            @unique
+  contractId           String
+  contract             Contract           @relation(fields: [contractId], references: [id])
+  signatureRequests    SignatureRequest[]
+}
 
-  contractId String
-  contract   Contract @relation(fields: [contractId], references: [id])
+model SignatureRequest {
+  id                  String @id @default(uuid())
+  requestSignatureKey String @unique
+
+  generatedPdfId String
+  generatedPdf   GeneratedPdf @relation(fields: [generatedPdfId], references: [id])
+
+  signerId String
+  user     User   @relation(fields: [signerId], references: [id])
+
+  createdAt DateTime @default(now())
 }
 
 model PaymentOrder {

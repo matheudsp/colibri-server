@@ -28,16 +28,12 @@ export class PdfsService {
     private clicksignService: ClicksignService,
   ) {}
 
-  async requestSignature(
-    pdfId: string,
-    currentUser: { sub: string; role: string },
-  ) {
+  async requestSignature(pdfId: string, currentUser: JwtPayload) {
     if (currentUser.role === ROLES.LOCATARIO) {
       throw new ForbiddenException(
         'Locatários não têm permissão para solicitar assinaturas.',
       );
     }
-
     const pdf = await this.prisma.generatedPdf.findUnique({
       where: { id: pdfId },
       include: {
@@ -46,110 +42,112 @@ export class PdfsService {
     });
 
     if (!pdf) throw new NotFoundException('PDF não encontrado');
-
     const { contract } = pdf;
-    const originalFileName = getPdfFileName(pdf.pdfType, contract.id);
 
-    this.logger.log(
-      `Etapa 1: Criando o documento "${originalFileName}" na Clicksign...`,
-    );
+    const originalFileName = getPdfFileName(pdf.pdfType, contract.id);
     const clicksignDocument = await this.clicksignService.createDocument(
       pdf.filePath,
       originalFileName,
     );
     const documentKey = clicksignDocument.document.key;
-    this.logger.log(`Documento criado com a chave: ${documentKey}.`);
 
-    this.logger.log('Etapa 2: Criando signatários...');
+    await this.prisma.generatedPdf.update({
+      where: { id: pdfId },
+      data: { clicksignDocumentKey: documentKey },
+    });
+
     const landlordSigner = await this.clicksignService.createSigner({
       email: contract.landlord.email,
       name: contract.landlord.name,
+      phone: contract.landlord.phone,
     });
     const tenantSigner = await this.clicksignService.createSigner({
       email: contract.tenant.email,
       name: contract.tenant.name,
+      phone: contract.tenant.phone,
     });
-    const landlordSignerKey = landlordSigner.signer.key;
-    const tenantSignerKey = tenantSigner.signer.key;
-    this.logger.log(
-      `Signatários criados: ${landlordSignerKey} (Locador), ${tenantSignerKey} (Locatário)`,
-    );
 
-    this.logger.log('Etapa 3: Vinculando signatários ao documento...');
-    const landlordSignatureRequest =
-      await this.clicksignService.addSignerToDocumentList(
-        documentKey,
-        landlordSignerKey,
-        'lessor',
-      );
-    await this.clicksignService.addSignerToDocumentList(
+    const notificationMessage = `Você foi convidado para assinar o contrato de aluguel referente ao imóvel "${contract.property.title}".\n\nPor favor, clique no link para assinar o documento.`;
+
+    const landlordRequest = await this.clicksignService.addSignerToDocumentList(
       documentKey,
-      tenantSignerKey,
-      'lessee',
+      landlordSigner.signer.key,
+      'lessor',
+      notificationMessage,
+      1,
     );
-    this.logger.log('Signatários vinculados e notificados com sucesso.');
+    const tenantRequest = await this.clicksignService.addSignerToDocumentList(
+      documentKey,
+      tenantSigner.signer.key,
+      'lessee',
+      notificationMessage,
+      1,
+    );
 
-    const requestSignatureKey =
-      landlordSignatureRequest.list.request_signature_key;
+    // const landlordRequestKey = landlordRequest.list.request_signature_key;
+    // const tenantRequestKey = tenantRequest.list.request_signature_key;
 
-    return this.prisma.generatedPdf.update({
-      where: { id: pdfId },
-      data: { requestSignatureKey: requestSignatureKey },
+    // await this.clicksignService.notifyByEmail(landlordRequestKey);
+    // await this.clicksignService.notifyByWhatsapp(landlordRequestKey);
+
+    // await this.clicksignService.notifyByEmail(tenantRequestKey);
+    // await this.clicksignService.notifyByWhatsapp(tenantRequestKey);
+
+    await this.prisma.signatureRequest.createMany({
+      data: [
+        {
+          generatedPdfId: pdf.id,
+          signerId: contract.landlordId,
+          requestSignatureKey: landlordRequest.list.request_signature_key,
+        },
+        {
+          generatedPdfId: pdf.id,
+          signerId: contract.tenantId,
+          requestSignatureKey: tenantRequest.list.request_signature_key,
+        },
+      ],
     });
+
+    return;
   }
 
   async initiateSignatureProcess(contractId: string, currentUser: JwtPayload) {
     let pdf = await this.prisma.generatedPdf.findFirst({
-      where: {
-        contractId: contractId,
-        pdfType: PdfType.CONTRATO_LOCACAO,
-      },
+      where: { contractId, pdfType: PdfType.CONTRATO_LOCACAO },
+      orderBy: { generatedAt: 'desc' },
     });
 
     if (!pdf) {
-      this.logger.log(
-        `Nenhum PDF encontrado para o contrato ${contractId}. Gerando um novo...`,
-      );
       pdf = await this.generatePdf(
         contractId,
         PdfType.CONTRATO_LOCACAO,
         currentUser,
       );
-      this.logger.log(`PDF ${pdf.id} gerado para o contrato ${contractId}.`);
-    } else {
+    }
+
+    if (pdf.clicksignDocumentKey) {
       this.logger.log(
-        `PDF ${pdf.id} existente encontrado para o contrato ${contractId}.`,
+        `Verificando status do documento existente na Clicksign: ${pdf.clicksignDocumentKey}`,
       );
-    }
-
-    await this.requestSignature(pdf.id, currentUser);
-    this.logger.log(
-      `Processo de assinatura para o PDF ${pdf.id} iniciado com sucesso.`,
-    );
-
-    return { message: 'Processo de assinatura iniciado com sucesso.' };
-  }
-
-  async retrySignatureRequest(contractId: string, currentUser: JwtPayload) {
-    this.logger.log(
-      `Iniciando retentativa manual de assinatura para o contrato: ${contractId}`,
-    );
-
-    const contract = await this.prisma.contract.findUnique({
-      where: { id: contractId },
-    });
-
-    if (!contract) {
-      throw new NotFoundException('Contrato não encontrado.');
-    }
-
-    if (contract.status !== ContractStatus.AGUARDANDO_ASSINATURAS) {
-      throw new BadRequestException(
-        `O contrato não está no status 'AGUARDANDO_ASSINATURAS', e sim '${contract.status}'. A operação não pode ser refeita.`,
+      const clicksignDoc = await this.clicksignService.getDocument(
+        pdf.clicksignDocumentKey,
       );
+
+      if (clicksignDoc && clicksignDoc.document.status === 'running') {
+        this.logger.warn(
+          `O documento ${pdf.clicksignDocumentKey} já está em processo de assinatura.`,
+        );
+
+        throw new BadRequestException(
+          'Este contrato já possui um processo de assinatura em andamento. Re-envie notificações para assinar o contrato.',
+        );
+      }
     }
 
-    return this.initiateSignatureProcess(contractId, currentUser);
+    this.logger.log(
+      `Nenhum processo de assinatura ativo encontrado. Iniciando um novo para o PDF ${pdf.id}...`,
+    );
+    return this.requestSignature(pdf.id, currentUser);
   }
 
   async generatePdf(

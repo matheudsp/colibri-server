@@ -26,28 +26,24 @@ export class WebhooksService {
       `[Webhook Clicksign] Evento '${eventName}' recebido para o documento ${document.key}.`,
     );
 
-    // O evento 'close' é disparado quando o documento é finalizado (todas as partes assinaram)
     if (eventName === 'close' || eventName === 'auto_close') {
-      const requestSignatureKey = document.request_signature_key;
+      const documentKey = document.key;
 
-      const pdf = await this.prisma.generatedPdf.findFirst({
-        where: { requestSignatureKey },
+      const pdf = await this.prisma.generatedPdf.findUnique({
+        where: { clicksignDocumentKey: documentKey },
         select: { contractId: true },
       });
 
-      if (pdf && pdf.contractId) {
+      if (pdf?.contractId) {
+        const contractId = pdf.contractId;
         this.logger.log(
-          `Contrato ${pdf.contractId} associado encontrado. Solicitando ativação...`,
+          `Contrato ${contractId} associado encontrado. Solicitando ativação...`,
         );
 
-        await this.contractsService.activateContractAfterSignature(
-          pdf.contractId,
-        );
-        // Baixar a versão assinada e salvar no seu storage
-        // e atualizar o campo `signedFilePath`
+        await this.contractsService.activateContractAfterSignature(contractId);
       } else {
         this.logger.warn(
-          `Nenhum contrato encontrado para a chave de assinatura: ${requestSignatureKey}`,
+          `Nenhum PDF no banco de dados encontrado para a Clicksign Document Key: ${documentKey}`,
         );
       }
     }

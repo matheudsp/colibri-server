@@ -10,6 +10,7 @@ import { QueueModule } from 'src/queue/queue.module';
 import { PaymentGatewayModule } from 'src/payment-gateway/payment-gateway.module';
 import { PaymentsOrdersModule } from '../payments-orders/payments-orders.module';
 import { PdfsModule } from '../pdfs/pdfs.module';
+import { ClicksignModule } from '../clicksign/clicksign.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { PdfsModule } from '../pdfs/pdfs.module';
     PaymentGatewayModule,
     PaymentsOrdersModule,
     PdfsModule,
+    ClicksignModule,
   ],
   controllers: [ContractsController],
   providers: [ContractsService, PrismaService, LogHelperService],

@@ -27,6 +27,7 @@ import { PaymentsOrdersService } from '../payments-orders/payments-orders.servic
 import { QueueName } from 'src/queue/jobs/jobs';
 import { PdfsService } from '../pdfs/pdfs.service';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
+import { ClicksignService } from '../clicksign/clicksign.service';
 
 @Injectable()
 export class ContractsService {
@@ -37,8 +38,71 @@ export class ContractsService {
     private userService: UserService,
     private logHelper: LogHelperService,
     private pdfsService: PdfsService,
+    private clicksignService: ClicksignService,
     @InjectQueue(QueueName.EMAIL) private emailQueue: Queue,
   ) {}
+
+  async resendNotification(
+    contractId: string,
+    signerId: string,
+    method: 'email' | 'whatsapp',
+    currentUser: JwtPayload,
+  ) {
+    if (
+      currentUser.role !== ROLES.LOCADOR &&
+      currentUser.role !== ROLES.ADMIN
+    ) {
+      throw new ForbiddenException(
+        'Apenas locadores ou administradores podem reenviar notificações.',
+      );
+    }
+
+    const pdf = await this.prisma.generatedPdf.findFirst({
+      where: { contractId: contractId },
+      orderBy: { generatedAt: 'desc' },
+    });
+
+    if (!pdf) {
+      throw new NotFoundException(
+        'Nenhum PDF de contrato encontrado para esta solicitação.',
+      );
+    }
+
+    const signatureRequest = await this.prisma.signatureRequest.findFirst({
+      where: {
+        generatedPdfId: pdf.id,
+        signerId: signerId,
+      },
+    });
+
+    if (!signatureRequest) {
+      throw new NotFoundException(
+        'Solicitação de assinatura não encontrada para este usuário e documento.',
+      );
+    }
+
+    if (method === 'email') {
+      await this.clicksignService.notifyByEmail(
+        signatureRequest.requestSignatureKey,
+      );
+    } else if (method === 'whatsapp') {
+      const signerUser = await this.prisma.user.findUnique({
+        where: { id: signerId },
+      });
+      if (!signerUser?.phone) {
+        throw new BadRequestException(
+          'Este signatário não possui um número de telefone cadastrado para notificações via WhatsApp.',
+        );
+      }
+      await this.clicksignService.notifyByWhatsapp(
+        signatureRequest.requestSignatureKey,
+      );
+    } else {
+      throw new BadRequestException('Método de notificação inválido.');
+    }
+
+    return { message: `Notificação por ${method} enviada com sucesso.` };
+  }
 
   async requestSignature(contractId: string, currentUser: JwtPayload) {
     if (currentUser.role === ROLES.LOCATARIO) {

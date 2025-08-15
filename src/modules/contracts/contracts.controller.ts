@@ -32,6 +32,7 @@ import { Roles } from 'src/common/decorator/roles.decorator';
 import { ROLES } from 'src/common/constants/roles.constant';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { ContractResponseDto } from './dto/response-contract.dto';
+import { ResendNotificationDto } from './dto/resend-notification.dto';
 
 @ApiTags('Contracts')
 @ApiBearerAuth()
@@ -63,6 +64,25 @@ export class ContractsController {
     @CurrentUser() currentUser: JwtPayload,
   ) {
     return this.contractsService.requestSignature(id, currentUser);
+  }
+
+  @Post(':id/resend-notification')
+  @ApiOperation({
+    summary: 'Re-sends a signature notification to a specific signer.',
+  })
+  @ApiBody({ type: ResendNotificationDto })
+  async resendNotification(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() resendNotificationDto: ResendNotificationDto,
+    @CurrentUser() currentUser: JwtPayload,
+  ) {
+    const { signerId, method } = resendNotificationDto;
+    return this.contractsService.resendNotification(
+      id,
+      signerId,
+      method,
+      currentUser,
+    );
   }
 
   @Get()
