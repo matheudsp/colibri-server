@@ -9,6 +9,9 @@ import { BankSlipsModule } from 'src/modules/bank-slips/bank-slips.module';
 import { QueueName } from './jobs/jobs';
 import { SignatureWorker } from './workers/signature.worker';
 import { PdfsModule } from 'src/modules/pdfs/pdfs.module';
+import { StorageModule } from 'src/storage/storage.module';
+import { PrismaModule } from 'src/prisma/prisma.module';
+import { PdfWorker } from './workers/pdf.worker';
 
 @Module({
   imports: [
@@ -23,12 +26,15 @@ import { PdfsModule } from 'src/modules/pdfs/pdfs.module';
       { name: QueueName.EMAIL },
       { name: QueueName.BANK_SLIP },
       { name: QueueName.SIGNATURE },
+      { name: QueueName.PDF },
     ),
     MailerModule,
     BankSlipsModule,
     PdfsModule,
+    StorageModule,
+    PrismaModule,
   ],
-  providers: [EmailWorker, BankSlipWorker, SignatureWorker],
+  providers: [EmailWorker, BankSlipWorker, SignatureWorker, PdfWorker],
   exports: [BullModule],
 })
 export class QueueModule {}

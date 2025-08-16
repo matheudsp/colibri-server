@@ -450,6 +450,47 @@ export class ContractsService {
     return contract;
   }
 
+  async cancelContract(contractId: string, currentUser: JwtPayload) {
+    const contract = await this.findOne(contractId, currentUser); // Reutiliza o findOne para validar permissões
+
+    if (
+      contract.status === ContractStatus.CANCELADO ||
+      contract.status === ContractStatus.FINALIZADO
+    ) {
+      throw new BadRequestException(
+        `Este contrato já está '${contract.status}' e não pode ser cancelado.`,
+      );
+    }
+
+    // Opcional, mas recomendado: Cancela todas as ordens de pagamento pendentes
+    await this.prisma.paymentOrder.updateMany({
+      where: {
+        contractId: contractId,
+        status: 'PENDENTE',
+      },
+      data: {
+        status: 'CANCELADO',
+      },
+    });
+
+    // Atualiza o status do contrato
+    const updatedContract = await this.prisma.contract.update({
+      where: { id: contractId },
+      data: { status: ContractStatus.CANCELADO },
+    });
+
+    await this.logHelper.createLog(
+      currentUser.sub,
+      'CANCEL',
+      'Contract',
+      updatedContract.id,
+    );
+
+    // Opcional: Enviar notificação de cancelamento para as partes
+
+    return updatedContract;
+  }
+
   async remove(id: string, currentUser: { sub: string; role: string }) {
     const contract = await this.findOne(id, currentUser);
     if (
@@ -460,7 +501,7 @@ export class ContractsService {
         'Você não tem permissão para remover este contrato.',
       );
     }
-    // A aplicar soft delete ou remoção em cascata
+    // A aplicar remoção em cascata
     await this.prisma.paymentOrder.deleteMany({ where: { contractId: id } });
     await this.prisma.contract.delete({ where: { id } });
     await this.logHelper.createLog(

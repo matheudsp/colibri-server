@@ -15,6 +15,13 @@ import { getPdfFileName } from '../../common/utils/pdf-naming-helper.utils';
 import { ROLES } from 'src/common/constants/roles.constant';
 import { ClicksignService } from '../clicksign/clicksign.service';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
+import { InjectQueue } from '@nestjs/bull';
+import { QueueName } from 'src/queue/jobs/jobs';
+import { Queue } from 'bull';
+import {
+  PdfJobType,
+  type GenerateContractPdfJob,
+} from 'src/queue/jobs/pdf.job';
 // import { ContractsService } from '../contracts/contracts.service';
 
 @Injectable()
@@ -26,6 +33,7 @@ export class PdfsService {
     private logHelper: LogHelperService,
     // private contractService: ContractsService,
     private clicksignService: ClicksignService,
+    @InjectQueue(QueueName.PDF) private pdfQueue: Queue,
   ) {}
   async getSignedUrl(pdfId: string) {
     const pdf = await this.getPdfById(pdfId);
@@ -224,34 +232,45 @@ export class PdfsService {
       now: new Date(),
     };
 
-    const formatPdfType = pdfType.replace(/_/g, '_');
-    const pdfBuffer = await generatePdfFromTemplate(
-      formatPdfType,
-      templateData,
-    );
+    // const formatPdfType = pdfType.replace(/_/g, '_');
+    // const pdfBuffer = await generatePdfFromTemplate(
+    //   formatPdfType,
+    //   templateData,
+    // );
 
-    const file = {
-      buffer: Buffer.from(pdfBuffer),
-      originalname: getPdfFileName(pdfType as PdfType, contract.id),
-      mimetype: 'application/pdf',
-      size: pdfBuffer.length,
-    };
+    // const file = {
+    //   buffer: Buffer.from(pdfBuffer),
+    //   originalname: getPdfFileName(pdfType as PdfType, contract.id),
+    //   mimetype: 'application/pdf',
+    //   size: pdfBuffer.length,
+    // };
 
-    const { key } = await this.storageService.uploadFile(file, {
-      folder: `contracts/${contract.id}`,
-    });
+    // const { key } = await this.storageService.uploadFile(file, {
+    //   folder: `contracts/${contract.id}`,
+    // });
+
+    const fileName = getPdfFileName(pdfType, contractId);
+    const tempFilePath = `contracts/${contractId}/generating-${fileName}`;
     const newPdf = await this.prisma.generatedPdf.create({
       data: {
         contractId,
-        filePath: key,
+        filePath: tempFilePath,
         generatedAt: new Date(),
-        pdfType: pdfType as PdfType,
+        pdfType: pdfType,
       },
     });
+    const jobData: GenerateContractPdfJob = {
+      pdfRecordId: newPdf.id,
+      templateData: templateData,
+      fileName: fileName,
+      contractId: contractId,
+    };
+
+    await this.pdfQueue.add(PdfJobType.GENERATE_CONTRACT_PDF, jobData);
 
     await this.logHelper.createLog(
       currentUser.sub,
-      'CREATE',
+      'QUEUE_PDF_GENERATION',
       'GeneratedPdf',
       newPdf.id,
     );

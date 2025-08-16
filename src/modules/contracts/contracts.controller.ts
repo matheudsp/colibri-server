@@ -174,6 +174,16 @@ export class ContractsController {
   ) {
     return this.contractsService.forceActivateContract(id, currentUser);
   }
+  @Patch(':id/cancel')
+  @Roles(ROLES.LOCADOR, ROLES.ADMIN)
+  @ApiOperation({ summary: 'Cancel a contract' })
+  @ApiResponse({ status: 200, description: 'Contract successfully cancelled.' })
+  async cancel(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() currentUser: JwtPayload,
+  ) {
+    return this.contractsService.cancelContract(id, currentUser);
+  }
 
   @Delete(':id')
   @Roles(ROLES.ADMIN, ROLES.LOCADOR)

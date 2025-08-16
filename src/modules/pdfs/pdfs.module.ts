@@ -8,14 +8,16 @@ import { ContractsModule } from '../contracts/contracts.module';
 import { StorageModule } from 'src/storage/storage.module';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { ClicksignModule } from '../clicksign/clicksign.module';
+import { QueueModule } from 'src/queue/queue.module';
 
 @Module({
   imports: [
     AppConfigModule,
     PrismaModule,
-    forwardRef(() => ContractsModule),
+    ContractsModule,
     StorageModule,
     ClicksignModule,
+    forwardRef(() => QueueModule),
   ],
   providers: [PdfsService, LogHelperService],
   controllers: [PdfsController],
