@@ -6,8 +6,9 @@ import { redisConfig } from '../config/redis.config';
 import { MailerModule } from '../mailer/mailer.module';
 import { BankSlipWorker } from './workers/bank-slip.worker';
 import { BankSlipsModule } from 'src/modules/bank-slips/bank-slips.module';
-import { BankSlipsService } from 'src/modules/bank-slips/bank-slips.service';
 import { QueueName } from './jobs/jobs';
+import { SignatureWorker } from './workers/signature.worker';
+import { PdfsModule } from 'src/modules/pdfs/pdfs.module';
 
 @Module({
   imports: [
@@ -25,8 +26,9 @@ import { QueueName } from './jobs/jobs';
     ),
     MailerModule,
     BankSlipsModule,
+    PdfsModule,
   ],
-  providers: [EmailWorker, BankSlipWorker],
+  providers: [EmailWorker, BankSlipWorker, SignatureWorker],
   exports: [BullModule],
 })
 export class QueueModule {}

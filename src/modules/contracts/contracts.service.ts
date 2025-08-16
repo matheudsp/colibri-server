@@ -41,6 +41,22 @@ export class ContractsService {
     private clicksignService: ClicksignService,
     @InjectQueue(QueueName.EMAIL) private emailQueue: Queue,
   ) {}
+  async getContractPdfSignedUrl(contractId: string, currentUser: JwtPayload) {
+    const contract = await this.findOne(contractId, currentUser);
+
+    const pdf = await this.prisma.generatedPdf.findFirst({
+      where: { contractId: contract.id, pdfType: 'CONTRATO_LOCACAO' },
+      orderBy: { generatedAt: 'desc' },
+    });
+
+    if (!pdf) {
+      throw new NotFoundException(
+        'Nenhum PDF de contrato foi gerado para esta locação ainda.',
+      );
+    }
+
+    return this.pdfsService.getSignedUrl(pdf.id);
+  }
 
   async resendNotification(
     contractId: string,
@@ -139,9 +155,6 @@ export class ContractsService {
     });
 
     if (!contract) {
-      console.warn(
-        `[Webhook] Contrato ${contractId} não encontrado para ativação.`,
-      );
       return;
     }
 
@@ -150,7 +163,7 @@ export class ContractsService {
         where: { id: contractId },
         data: { status: ContractStatus.ATIVO },
       });
-
+      await this.paymentsOrdersService.createPaymentsForContract(contractId);
       const notification = {
         title: 'Contrato Assinado e Ativado!',
         message: `O contrato de aluguel para o imóvel "${contract.property.title}" foi assinado por todas as partes e agora está ativo.`,
@@ -158,7 +171,7 @@ export class ContractsService {
 
       const action = {
         text: 'Ver Contrato',
-        path: `/contracts/${contract.id}`,
+        path: `/properties/${contract.propertyId}/contracts/${contract.id}`,
       };
 
       this.emailQueue.add(EmailJobType.NOTIFICATION, {
@@ -305,7 +318,7 @@ export class ContractsService {
     };
   }
 
-  async activateContract(
+  async forceActivateContract(
     contractId: string,
     currentUser: { role: string; sub: string },
   ) {
@@ -388,9 +401,10 @@ export class ContractsService {
       where: { id },
       include: {
         paymentsOrders: true,
+        GeneratedPdf: { select: { signatureRequests: true } },
         property: true,
-        landlord: { select: { name: true, email: true } },
-        tenant: { select: { name: true, email: true } },
+        landlord: { select: { id: true, name: true, email: true } },
+        tenant: { select: { id: true, name: true, email: true } },
         documents: { select: { id: true, status: true, type: true } },
       },
     });

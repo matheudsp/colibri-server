@@ -2,6 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PaymentsOrdersService } from '../payments-orders/payments-orders.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ContractsService } from '../contracts/contracts.service';
+import { StorageService } from 'src/storage/storage.service';
+import { HttpService } from '@nestjs/axios';
+import { getPdfFileName } from 'src/common/utils/pdf-naming-helper.utils';
+import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class WebhooksService {
@@ -11,6 +15,8 @@ export class WebhooksService {
     private readonly paymentsService: PaymentsOrdersService,
     private readonly prisma: PrismaService,
     private readonly contractsService: ContractsService,
+    private readonly httpService: HttpService,
+    private readonly storageService: StorageService,
   ) {}
 
   async processClicksignEvent(payload: any) {
@@ -26,26 +32,70 @@ export class WebhooksService {
       `[Webhook Clicksign] Evento '${eventName}' recebido para o documento ${document.key}.`,
     );
 
-    if (eventName === 'close' || eventName === 'auto_close') {
+    if (
+      eventName === 'close' ||
+      eventName === 'auto_close' ||
+      eventName === 'document_closed'
+    ) {
       const documentKey = document.key;
 
       const pdf = await this.prisma.generatedPdf.findUnique({
         where: { clicksignDocumentKey: documentKey },
-        select: { contractId: true },
+        include: { contract: true },
       });
 
-      if (pdf?.contractId) {
-        const contractId = pdf.contractId;
-        this.logger.log(
-          `Contrato ${contractId} associado encontrado. Solicitando ativação...`,
-        );
-
-        await this.contractsService.activateContractAfterSignature(contractId);
-      } else {
+      if (!pdf?.contractId) {
         this.logger.warn(
           `Nenhum PDF no banco de dados encontrado para a Clicksign Document Key: ${documentKey}`,
         );
+        return;
       }
+
+      try {
+        const signedUrl = document.downloads?.signed_file_url;
+        if (signedUrl) {
+          this.logger.log(
+            `Iniciando download do documento assinado para o contrato ${pdf.contractId}.`,
+          );
+          const response = await firstValueFrom(
+            this.httpService.get(signedUrl, { responseType: 'arraybuffer' }),
+          );
+          const fileBuffer = Buffer.from(response.data);
+
+          const signedFileName = `assinado-${getPdfFileName(pdf.pdfType, pdf.contractId)}`;
+          const { key } = await this.storageService.uploadFile({
+            buffer: fileBuffer,
+            originalname: signedFileName,
+            mimetype: 'application/pdf',
+            size: fileBuffer.length,
+          });
+
+          await this.prisma.generatedPdf.update({
+            where: { id: pdf.id },
+            data: { signedFilePath: key },
+          });
+
+          this.logger.log(
+            `Documento assinado para o contrato ${pdf.contractId} guardado com sucesso em: ${key}.`,
+          );
+        } else {
+          this.logger.warn(
+            `[Webhook Clicksign] URL do ficheiro assinado não encontrada no payload para o documento ${documentKey}. O contrato será ativado sem o anexo.`,
+          );
+        }
+      } catch (error) {
+        this.logger.error(
+          `[Webhook Clicksign] Falha crítica ao guardar o ficheiro assinado para o documento ${documentKey}. O contrato ainda será ativado.`,
+          error,
+        );
+      }
+
+      this.logger.log(
+        `Solicitando ativação para o contrato ${pdf.contractId}...`,
+      );
+      await this.contractsService.activateContractAfterSignature(
+        pdf.contractId,
+      );
     }
   }
 

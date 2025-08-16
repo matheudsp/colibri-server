@@ -27,6 +27,18 @@ export class PdfsService {
     // private contractService: ContractsService,
     private clicksignService: ClicksignService,
   ) {}
+  async getSignedUrl(pdfId: string) {
+    const pdf = await this.getPdfById(pdfId);
+
+    if (!pdf) {
+      throw new NotFoundException('PDF não encontrado.');
+    }
+
+    const pathToUse = pdf.signedFilePath || pdf.filePath;
+
+    const signedUrl = await this.storageService.getSignedUrl(pathToUse);
+    return { url: signedUrl };
+  }
 
   async requestSignature(pdfId: string, currentUser: JwtPayload) {
     if (currentUser.role === ROLES.LOCATARIO) {
@@ -297,14 +309,8 @@ export class PdfsService {
     });
   }
 
-  async downloadPdf(id: string, currentUser?: { role: string }) {
-    if (currentUser?.role === ROLES.LOCATARIO) {
-      throw new ForbiddenException(
-        'Locatários não têm permissão para fazer download do PDF',
-      );
-    }
-
-    const pdf = await this.getPdfById(id, currentUser);
+  async downloadPdf(id: string) {
+    const pdf = await this.getPdfById(id);
 
     if (!pdf) {
       throw new NotFoundException('PDF não encontrado');
@@ -333,13 +339,7 @@ export class PdfsService {
     }
   }
 
-  async getPdfById(id: string, currentUser?: { role: string }) {
-    if (currentUser?.role === ROLES.LOCATARIO) {
-      throw new ForbiddenException(
-        'Locatários não têm permissão para visualizar PDF',
-      );
-    }
-
+  async getPdfById(id: string) {
     const pdf = await this.prisma.generatedPdf.findUnique({
       where: { id },
     });

@@ -54,11 +54,15 @@ export class ContractResponseDto {
 
   @ApiProperty()
   landlord!: {
+    id: string;
     name: string;
+    email: string;
   };
 
   @ApiProperty()
   tenant!: {
+    id: string;
     name: string;
+    email: string;
   };
 }

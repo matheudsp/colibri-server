@@ -101,9 +101,9 @@ export class PdfsController {
   })
   async getSignedUrl(
     @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() currentUser: JwtPayload,
+    // @CurrentUser() currentUser: JwtPayload,
   ) {
-    const pdf = await this.pdfService.getPdfById(id, currentUser);
+    const pdf = await this.pdfService.getPdfById(id);
 
     const pathToUse = pdf.signedFilePath || pdf.filePath;
     const signedUrl = await this.storageService.getSignedUrl(pathToUse);
@@ -126,11 +126,8 @@ export class PdfsController {
     status: 404,
     description: 'PDF document not found',
   })
-  async findOne(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() currentUser: JwtPayload,
-  ) {
-    return this.pdfService.getPdfById(id, currentUser);
+  async findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.pdfService.getPdfById(id);
   }
 
   @Get(':id/download')
@@ -159,10 +156,10 @@ export class PdfsController {
   async downloadPdf(
     @Param('id', ParseUUIDPipe) id: string,
     @Res() res: Response,
-    @CurrentUser() currentUser: JwtPayload,
+    // @CurrentUser() currentUser: JwtPayload,
   ) {
     try {
-      const result = await this.pdfService.downloadPdf(id, currentUser);
+      const result = await this.pdfService.downloadPdf(id);
 
       if (!result) {
         throw new NotFoundException('PDF não encontrado');

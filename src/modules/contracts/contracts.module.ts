@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { ContractsController } from './contracts.controller';
 import { ContractsService } from './contracts.service';
@@ -15,11 +15,11 @@ import { ClicksignModule } from '../clicksign/clicksign.module';
 @Module({
   imports: [
     PropertiesModule,
-    UserModule,
-    QueueModule,
+    forwardRef(() => UserModule),
+    forwardRef(() => QueueModule),
     PaymentGatewayModule,
     PaymentsOrdersModule,
-    PdfsModule,
+    forwardRef(() => PdfsModule),
     ClicksignModule,
   ],
   controllers: [ContractsController],

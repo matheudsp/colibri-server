@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { PaymentsOrdersService } from './payments-orders.service';
 import { PaymentsOrdersController } from './payments-orders.controller';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -14,7 +14,7 @@ import { QueueModule } from 'src/queue/queue.module';
     PaymentGatewayModule,
     AsaasCustomersModule,
     BankSlipsModule,
-    QueueModule,
+    forwardRef(() => QueueModule),
   ],
   providers: [PaymentsOrdersService, PrismaService, LogHelperService],
   controllers: [PaymentsOrdersController],
