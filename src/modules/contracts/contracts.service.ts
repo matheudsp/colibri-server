@@ -5,6 +5,8 @@ import {
   ForbiddenException,
   BadRequestException,
   ConflictException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateContractDto } from './dto/create-contract.dto';
@@ -33,6 +35,7 @@ import { ClicksignService } from '../clicksign/clicksign.service';
 export class ContractsService {
   constructor(
     private prisma: PrismaService,
+    @Inject(forwardRef(() => PropertiesService))
     private propertiesService: PropertiesService,
     private paymentsOrdersService: PaymentsOrdersService,
     private userService: UserService,
@@ -491,6 +494,20 @@ export class ContractsService {
     return updatedContract;
   }
 
+  async deleteContractsByProperty(propertyId: string) {
+    const contracts = await this.prisma.contract.findMany({
+      where: { propertyId },
+    });
+
+    if (contracts.length === 0) {
+      return;
+    }
+
+    for (const contract of contracts) {
+      await this.pdfsService.deletePdfsByContract(contract.id);
+    }
+  }
+
   async remove(id: string, currentUser: { sub: string; role: string }) {
     const contract = await this.findOne(id, currentUser);
     if (
@@ -501,9 +518,10 @@ export class ContractsService {
         'Você não tem permissão para remover este contrato.',
       );
     }
-    // A aplicar remoção em cascata
+    await this.pdfsService.deletePdfsByContract(id);
     await this.prisma.paymentOrder.deleteMany({ where: { contractId: id } });
     await this.prisma.contract.delete({ where: { id } });
+
     await this.logHelper.createLog(
       currentUser?.sub,
       'DELETE',

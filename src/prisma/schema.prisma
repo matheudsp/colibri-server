@@ -209,7 +209,7 @@ model Property {
   isAvailable  Boolean @default(true)
 
   condominiumId String?
-  condominium   Condominium? @relation(fields: [condominiumId], references: [id])
+  condominium   Condominium? @relation(fields: [condominiumId], references: [id], onDelete: Cascade)
 
   landlordId String
   landlord   User   @relation("LandlordProperties", fields: [landlordId], references: [id])
@@ -233,7 +233,7 @@ model Contract {
   updatedAt        DateTime       @updatedAt
 
   propertyId String
-  property   Property @relation(fields: [propertyId], references: [id])
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   landlordId String
   landlord   User   @relation("LandlordContracts", fields: [landlordId], references: [id])
@@ -263,7 +263,7 @@ model SignatureRequest {
   requestSignatureKey String @unique
 
   generatedPdfId String
-  generatedPdf   GeneratedPdf @relation(fields: [generatedPdfId], references: [id])
+  generatedPdf   GeneratedPdf @relation(fields: [generatedPdfId], references: [id], onDelete: Cascade)
 
   signerId String
   user     User   @relation(fields: [signerId], references: [id])
@@ -279,7 +279,7 @@ model PaymentOrder {
   dueDate      DateTime       @default(now()) @db.Date
   paidAt       DateTime?      @db.Date
   status       PaymentStatus  @default(PENDENTE)
-  contract     Contract       @relation(fields: [contractId], references: [id])
+  contract     Contract       @relation(fields: [contractId], references: [id], onDelete: Cascade)
   bankSlip     BankSlip?
   PaymentSplit PaymentSplit[]
 }
@@ -291,7 +291,7 @@ model PaymentSplit {
   amount    Decimal
   type      String // FIXED ou PERCENTUAL
 
-  payment PaymentOrder @relation(fields: [paymentId], references: [id])
+  payment PaymentOrder @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 }
 
 model BankSlip {
@@ -303,7 +303,7 @@ model BankSlip {
   nossoNumero    String
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
-  paymentOrder   PaymentOrder @relation(fields: [paymentOrderId], references: [id])
+  paymentOrder   PaymentOrder @relation(fields: [paymentOrderId], references: [id], onDelete: Cascade)
 }
 
 model Photo {
@@ -321,7 +321,7 @@ model Document {
   filePath   String
   status     DocumentStatus @default(AGUARDANDO_APROVACAO)
   contractId String
-  contract   Contract       @relation(fields: [contractId], references: [id])
+  contract   Contract       @relation(fields: [contractId], references: [id], onDelete: Cascade)
   uploadedAt DateTime       @default(now())
 }
 

@@ -18,6 +18,7 @@ import { InjectQueue } from '@nestjs/bull';
 import { EmailJobType, type NotificationJob } from 'src/queue/jobs/email.job';
 import { DateUtils } from 'src/common/utils/date.utils';
 import { CurrencyUtils } from 'src/common/utils/currency.utils';
+import { FindUserPaymentsDto } from './dto/find-user-payments.dto';
 
 @Injectable()
 export class PaymentsOrdersService {
@@ -27,6 +28,43 @@ export class PaymentsOrdersService {
     private logHelper: LogHelperService,
     @InjectQueue(QueueName.EMAIL) private emailQueue: Queue,
   ) {}
+  async findUserPayments(
+    currentUser: JwtPayload,
+    filters?: FindUserPaymentsDto,
+  ) {
+    const whereClause: Prisma.PaymentOrderWhereInput = {};
+
+    whereClause.contract = {};
+
+    if (currentUser.role === ROLES.LOCATARIO) {
+      whereClause.contract.tenantId = currentUser.sub;
+    } else if (currentUser.role === ROLES.LOCADOR) {
+      whereClause.contract.landlordId = currentUser.sub;
+    }
+
+    if (filters?.propertyId) {
+      whereClause.contract.propertyId = filters.propertyId;
+    }
+    if (filters?.status) {
+      whereClause.status = filters.status;
+    }
+
+    return this.prisma.paymentOrder.findMany({
+      where: whereClause,
+      include: {
+        bankSlip: true,
+        contract: {
+          select: {
+            property: { select: { title: true, id: true } },
+            tenant: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: {
+        dueDate: 'asc',
+      },
+    });
+  }
 
   async findPaymentsByContract(contractId: string, currentUser: JwtPayload) {
     const contract = await this.prisma.contract.findUnique({

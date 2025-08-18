@@ -7,6 +7,7 @@ import {
   Body,
   Put,
   Patch,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -24,7 +25,8 @@ import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { Roles } from 'src/common/decorator/roles.decorator';
 import { ROLES } from 'src/common/constants/roles.constant';
 import { PaymentResponseDto } from './dto/response-payment.dto';
-import type { RegisterPaymentDto } from './dto/register-payment.dto';
+import { RegisterPaymentDto } from './dto/register-payment.dto';
+import { FindUserPaymentsDto } from './dto/find-user-payments.dto';
 
 @Controller('payments-orders')
 @RequireAuth()
@@ -33,7 +35,7 @@ import type { RegisterPaymentDto } from './dto/register-payment.dto';
 export class PaymentsOrdersController {
   constructor(private readonly paymentsService: PaymentsOrdersService) {}
 
-  @Get('contract/:contractId')
+  @Get('contracts/:contractId')
   @Roles(ROLES.LOCADOR, ROLES.LOCATARIO, ROLES.ADMIN)
   @ApiOperation({ summary: 'List all payments for a contract' })
   @ApiResponse({ status: 200, type: [PaymentResponseDto] })
@@ -42,6 +44,15 @@ export class PaymentsOrdersController {
     @CurrentUser() currentUser: JwtPayload,
   ) {
     return this.paymentsService.findPaymentsByContract(contractId, currentUser);
+  }
+  @Get('user-payments')
+  @Roles(ROLES.LOCATARIO, ROLES.LOCADOR, ROLES.ADMIN)
+  @ApiOperation({ summary: 'List all payments related to the logged-in user' })
+  findUserPayments(
+    @CurrentUser() currentUser: JwtPayload,
+    @Query() filters: FindUserPaymentsDto,
+  ) {
+    return this.paymentsService.findUserPayments(currentUser, filters);
   }
 
   @Patch(':paymentOrderId')

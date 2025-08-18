@@ -14,7 +14,7 @@ import { ClicksignModule } from '../clicksign/clicksign.module';
 
 @Module({
   imports: [
-    PropertiesModule,
+    forwardRef(() => PropertiesModule),
     forwardRef(() => UserModule),
     forwardRef(() => QueueModule),
     PaymentGatewayModule,

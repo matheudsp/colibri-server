@@ -381,6 +381,40 @@ export class PdfsService {
       where: { contractId },
     });
   }
+  async deletePdfsByContract(contractId: string) {
+    this.logger.log(
+      `A iniciar a exclusão de todos os PDFs para o contrato ${contractId}...`,
+    );
+
+    const pdfs = await this.prisma.generatedPdf.findMany({
+      where: { contractId },
+    });
+
+    if (pdfs.length === 0) {
+      return;
+    }
+
+    const filePathsToDelete: string[] = [];
+    pdfs.forEach((pdf) => {
+      if (pdf.filePath && !pdf.filePath.includes('generating-')) {
+        filePathsToDelete.push(pdf.filePath);
+      }
+      if (pdf.signedFilePath) {
+        filePathsToDelete.push(pdf.signedFilePath);
+      }
+    });
+
+    if (filePathsToDelete.length > 0) {
+      await this.storageService.deleteFiles(filePathsToDelete);
+      this.logger.log(
+        `${filePathsToDelete.length} ficheiro(s) PDF do contrato ${contractId} apagados do storage.`,
+      );
+    }
+
+    await this.prisma.generatedPdf.deleteMany({
+      where: { contractId },
+    });
+  }
 
   async deletePdf(id: string, currentUser: { sub: string; role: string }) {
     if (currentUser.role === ROLES.LOCATARIO) {

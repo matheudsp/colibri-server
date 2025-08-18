@@ -113,6 +113,24 @@ export class PhotosService {
     return photos;
   }
 
+  async deletePhotosByProperty(propertyId: string) {
+    const photos = await this.prisma.photo.findMany({
+      where: { propertyId },
+    });
+
+    if (photos.length === 0) {
+      return;
+    }
+
+    const filePathsToDelete = photos.map((photo) => photo.filePath);
+
+    await this.storageService.deleteFiles(filePathsToDelete);
+
+    await this.prisma.photo.deleteMany({
+      where: { propertyId },
+    });
+  }
+
   async updatePhoto(
     id: string,
     isCover: boolean | undefined,

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { FileUpload, StorageResult } from './types/file-upload.type';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { ConfigService } from '@nestjs/config';
@@ -12,7 +12,7 @@ import {
 @Injectable()
 export class StorageService {
   private readonly bucketName: string;
-
+  private readonly logger = new Logger(StorageService.name);
   constructor(
     @InjectSupabaseClient() private supabase: SupabaseClient,
     private config: ConfigService,
@@ -277,5 +277,28 @@ export class StorageService {
     }
 
     return publicUrl;
+  }
+
+  async deleteFiles(filePaths: string[], bucket?: string): Promise<void> {
+    const targetBucket = bucket || this.bucketName;
+
+    if (!filePaths || filePaths.length === 0) {
+      return;
+    }
+
+    const { error } = await this.supabase.storage
+      .from(targetBucket)
+      .remove(filePaths);
+
+    if (error) {
+      this.logger.error(
+        `Falha ao apagar ficheiros do storage: ${error.message}`,
+        { filePaths },
+      );
+    } else {
+      this.logger.log(
+        `${filePaths.length} ficheiro(s) apagados com sucesso do bucket.`,
+      );
+    }
   }
 }

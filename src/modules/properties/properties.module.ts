@@ -5,9 +5,14 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { LogHelperService } from '../logs/log-helper.service';
 import { AppConfigModule } from 'src/config/config.module';
 import { PhotosModule } from '../photos/photos.module';
+import { ContractsModule } from '../contracts/contracts.module';
 
 @Module({
-  imports: [AppConfigModule, forwardRef(() => PhotosModule)],
+  imports: [
+    AppConfigModule,
+    forwardRef(() => PhotosModule),
+    forwardRef(() => ContractsModule),
+  ],
   providers: [PropertiesService, PrismaService, LogHelperService],
   controllers: [PropertiesController],
   exports: [PropertiesService],

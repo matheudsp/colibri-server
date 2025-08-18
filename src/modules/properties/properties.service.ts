@@ -16,6 +16,7 @@ import { ContractStatus, type Prisma } from '@prisma/client';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { PhotosService } from '../photos/photos.service';
+import { ContractsService } from '../contracts/contracts.service';
 
 @Injectable()
 export class PropertiesService {
@@ -24,6 +25,8 @@ export class PropertiesService {
     private logHelper: LogHelperService,
     @Inject(forwardRef(() => PhotosService))
     private propertyPhotosService: PhotosService,
+    @Inject(forwardRef(() => ContractsService))
+    private contractsService: ContractsService,
     @Inject(CACHE_MANAGER)
     private cacheManager: Cache,
   ) {}
@@ -95,7 +98,7 @@ export class PropertiesService {
     );
 
     return {
-      data: propertiesWithSignedUrls,
+      properties: propertiesWithSignedUrls,
       meta: {
         total,
         page,
@@ -267,7 +270,7 @@ export class PropertiesService {
     );
 
     return {
-      data: propertiesWithSignedUrls,
+      properties: propertiesWithSignedUrls,
       meta: {
         total,
         page,
@@ -349,7 +352,7 @@ export class PropertiesService {
     );
 
     return {
-      data: propertiesWithSignedUrls,
+      properties: propertiesWithSignedUrls,
       meta: {
         total,
         page,
@@ -399,6 +402,9 @@ export class PropertiesService {
         'Você não tem permissão para remover este imóvel.',
       );
     }
+
+    await this.propertyPhotosService.deletePhotosByProperty(id);
+    await this.contractsService.deleteContractsByProperty(id);
     await this.prisma.property.delete({ where: { id } });
     await this.logHelper.createLog(
       currentUser?.sub,
@@ -406,7 +412,10 @@ export class PropertiesService {
       'Property',
       property.id,
     );
-    return { message: 'Imóvel removido com sucesso.' };
+    return {
+      message:
+        'Imóvel e todos os dados e ficheiros associados (fotos, contratos, PDFs) foram removidos com sucesso.',
+    };
   }
   async validatePropertyExists(propertyId: string) {
     const property = await this.prisma.property.findUnique({
@@ -418,5 +427,18 @@ export class PropertiesService {
     }
 
     return property;
+  }
+
+  async findAllPropertiesPaginated(skip: number, take: number) {
+    const [agencies, total] = await Promise.all([
+      this.prisma.property.findMany({
+        skip,
+        take,
+        // orderBy: { : 'desc' },
+      }),
+      this.prisma.property.count(),
+    ]);
+
+    return [agencies, total];
   }
 }
