@@ -1,18 +1,17 @@
 services:
-  # --- Aplicação NestJS ---
-  # api:
-  #   build:
-  #     context: .
-  #     dockerfile: dockerfile.yml
-  #   ports:
-  #     - '${PORT}:${PORT}'
-  #   env_file:
-  #     - .env
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_started
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '${PORT}:${PORT}'
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   db:
     image: postgres:15-alpine
@@ -41,10 +40,12 @@ services:
   # --- Redis Exporter (Métricas do Redis) ---
   redis_exporter:
     image: oliver006/redis_exporter
+    restart: always
     ports:
       - '9121:9121'
     command:
-      - '--redis.addr=redis://redis:6379'
+      - '--redis.addr=redis://${REDIS_HOST}:${REDIS_PORT}'
+      - '--redis.password=${REDIS_PASSWORD}'
     depends_on:
       - redis
 
