@@ -170,7 +170,7 @@ export class PropertiesService {
     );
 
     const result = {
-      data: propertiesWithSignedUrls,
+      properties: propertiesWithSignedUrls,
       meta: {
         total,
         page,

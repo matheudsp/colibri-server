@@ -166,7 +166,12 @@ export class ContractsService {
         where: { id: contractId },
         data: { status: ContractStatus.ATIVO },
       });
+      await this.prisma.property.update({
+        where: { id: contract.propertyId },
+        data: { isAvailable: false },
+      });
       await this.paymentsOrdersService.createPaymentsForContract(contractId);
+
       const notification = {
         title: 'Contrato Assinado e Ativado!',
         message: `O contrato de aluguel para o imóvel "${contract.property.title}" foi assinado por todas as partes e agora está ativo.`,
@@ -372,7 +377,10 @@ export class ContractsService {
     });
 
     await this.paymentsOrdersService.createPaymentsForContract(contractId);
-
+    await this.prisma.property.update({
+      where: { id: contract.propertyId },
+      data: { isAvailable: false },
+    });
     await this.logHelper.createLog(
       currentUser.sub,
       'ACTIVATE',
