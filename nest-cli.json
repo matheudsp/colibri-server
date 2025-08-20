@@ -5,16 +5,14 @@
   "compilerOptions": {
     "assets": [
       {
-        "include": "modules/pdfs/templates/**/*.hbs",
-        "outDir": "dist/src"
+        "include": "**/*.hbs",
+        "watchAssets": true,
+        "outDir": "dist"
       },
       {
-        "include": "modules/pdfs/assets/**/*",
-        "outDir": "dist/src"
-      },
-      {
-        "include": "mailer/templates/**/*.hbs",
-        "outDir": "dist/src"
+        "include": "**/*.png",
+        "watchAssets": true,
+        "outDir": "dist"
       }
     ],
     "watchAssets": true

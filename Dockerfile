@@ -1,26 +1,40 @@
-# Use uma imagem base do Node.js
-FROM node:18-alpine
+# Etapa de build
+FROM node:20-alpine AS builder
 
-# Instala o pnpm globalmente dentro do contêiner
-RUN npm install -g pnpm
-
-# Define o diretório de trabalho
 WORKDIR /app
 
-# Copia os arquivos de manifesto do pnpm e o package.json
-COPY package.json pnpm-lock.yaml ./
+# Instala dependências
+COPY package.json pnpm-lock.yaml* ./
+RUN corepack enable && pnpm install --frozen-lockfile
 
-# Instala as dependências de forma otimizada usando o lockfile
-RUN pnpm install --frozen-lockfile
+# Copia código
+COPY tsconfig.json ./
+COPY src ./src
 
-# Copia o restante do código da sua aplicação
-COPY . .
+# Gera Prisma Client
+RUN pnpm prisma generate
 
-# Compila o projeto TypeScript
+# 🔑 Compila usando o script do package.json
 RUN pnpm run build
 
-# Expõe a porta da aplicação
-EXPOSE 3000
+# Etapa final (execução)
+FROM node:20-alpine AS runner
 
-# Comando para iniciar a aplicação em produção
-CMD ["pnpm", "run", "start:prod"]
+WORKDIR /app
+ENV NODE_ENV=production
+
+RUN corepack enable
+
+# Copia dependências e build
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/src/prisma ./src/prisma
+COPY package.json ./
+
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
+
+CMD ["node", "dist/src/main.js"]
+ENTRYPOINT ["./entrypoint.sh"]
+
+
