@@ -1,0 +1,8 @@
+# Por enquanto, teremos uma configuração mínima para evitar erros.
+# A rota principal não faz nada, mas está pronta para ser configurada
+# com recetores de e-mail, Slack, etc.
+route:
+  receiver: 'null'
+
+receivers:
+  - name: 'null'
