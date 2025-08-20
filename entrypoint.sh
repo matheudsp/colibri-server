@@ -1,7 +1,13 @@
 #!/bin/sh
 
-sleep 2
-echo "A executar as migrations do banco de dados..."
-pnpm prisma:migrate:deploy
-echo "A iniciar a aplicação..."
+echo "⏳ Aguardando banco de dados..."
+until nc -z -v -w30 db 5432; do
+  echo "Banco não disponível ainda - esperando..."
+  sleep 5
+done
+
+echo "🚀 Executando migrations..."
+pnpm prisma migrate deploy
+
+echo "✅ Iniciando aplicação..."
 exec "$@"
