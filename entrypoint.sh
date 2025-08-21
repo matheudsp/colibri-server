@@ -9,5 +9,8 @@ done
 echo "🚀 Executando migrations..."
 pnpm prisma migrate deploy
 
+echo "🌱 Populando o banco de dados com dados iniciais (se necessário)..."
+pnpm run prisma:seed
+
 echo "✅ Iniciando aplicação..."
 exec "$@"

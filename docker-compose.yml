@@ -100,16 +100,6 @@ services:
     depends_on:
       - prometheus
 
-  seeder:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-    container_name: colibri_seeder
-    env_file: .env
-    command: ['pnpm', 'run', 'prisma:seed']
-    depends_on:
-      - db
-
 volumes:
   postgres_data:
   redis_data:
