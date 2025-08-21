@@ -68,13 +68,21 @@ export class ClicksignService {
         remind_interval: 14,
       },
     };
-    return (
-      await firstValueFrom(
+    try {
+      this.logger.log(`Criando documento na Clicksign: ${originalFileName}`);
+      const response = await firstValueFrom(
         this.httpService.post(url, documentData, {
           headers: this.getHeaders(),
         }),
-      )
-    ).data;
+      );
+      return response.data;
+    } catch (error) {
+      this.logger.error(
+        `Falha ao criar documento na Clicksign. Payload enviado: ${JSON.stringify(documentData.document.path)}`,
+        error.response?.data,
+      );
+      throw error;
+    }
   }
 
   async createSigner(signer: {
@@ -92,11 +100,19 @@ export class ClicksignService {
         phone_number: signer.phone,
       },
     };
-    return (
-      await firstValueFrom(
+    try {
+      this.logger.log(`Criando signatário na Clicksign: ${signer.email}`);
+      const response = await firstValueFrom(
         this.httpService.post(url, signerData, { headers: this.getHeaders() }),
-      )
-    ).data;
+      );
+      return response.data;
+    } catch (error) {
+      this.logger.error(
+        `Falha ao criar signatário na Clicksign. Payload enviado: ${JSON.stringify(signerData)}`,
+        error.response?.data,
+      );
+      throw error;
+    }
   }
 
   async addSignerToDocumentList(

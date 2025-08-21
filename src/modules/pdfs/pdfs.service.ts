@@ -64,6 +64,19 @@ export class PdfsService {
     if (!pdf) throw new NotFoundException('PDF não encontrado');
     const { contract } = pdf;
 
+    if (!contract.landlord.phone || !contract.tenant.phone) {
+      this.logger.error(
+        `Tentativa de assinatura falhou: Dados do signatário incompletos para o contrato ${contract.id}.`,
+        {
+          landlordPhone: contract.landlord.phone,
+          tenantPhone: contract.tenant.phone,
+        },
+      );
+      throw new BadRequestException(
+        'Não é possível iniciar o processo de assinatura. O locador e o locatário devem ter um número de telefone cadastrado.',
+      );
+    }
+
     const originalFileName = getPdfFileName(pdf.pdfType, contract.id);
     const clicksignDocument = await this.clicksignService.createDocument(
       pdf.filePath,
