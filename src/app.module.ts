@@ -29,6 +29,7 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { PdfsModule } from './modules/pdfs/pdfs.module';
 import { PhotosModule } from './modules/photos/photos.module';
 import { ClicksignModule } from './modules/clicksign/clicksign.module';
+import { TestModule } from './modules/test/test.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { ClicksignModule } from './modules/clicksign/clicksign.module';
     PdfsModule,
     PhotosModule,
     ClicksignModule,
+    TestModule,
   ],
   providers: [
     {

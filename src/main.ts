@@ -28,7 +28,7 @@ async function bootstrap() {
     origin: [
       'http://localhost:8080',
       'http://localhost:3001',
-      'https://colibri-app.com',
+      'https://colibri-client.vercel.app',
     ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
