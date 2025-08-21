@@ -93,25 +93,30 @@ export class UserService {
     role: UserRole,
     creatorRole?: UserRole,
   ) {
-    const { email, cpfCnpj, password } = data;
-    const whereClause: Prisma.UserWhereInput = cpfCnpj
-      ? { OR: [{ email }, { cpfCnpj }] }
-      : { email };
+    const { name, email, cpfCnpj, phone, password } = data;
+
+    if (!name || !email || !cpfCnpj || !phone || !password) {
+      throw new BadRequestException(
+        'Nome, e-mail, CPF/CNPJ, telefone e senha são obrigatórios para criar um novo usuário.',
+      );
+    }
 
     const existingUser = await this.prisma.user.findFirst({
-      where: whereClause,
+      where: {
+        OR: [{ email }, { cpfCnpj }],
+      },
     });
 
     if (existingUser) {
-      throw new ConflictException(
-        'E-mail ou CPF/CNPJ já associado a outra conta.',
-      );
+      let message = 'Já existe uma conta com os dados fornecidos.';
+      if (existingUser.email === email) {
+        message = 'O e-mail fornecido já está em uso.';
+      } else if (existingUser.cpfCnpj === cpfCnpj) {
+        message = 'O CPF/CNPJ fornecido já está em uso.';
+      }
+      throw new ConflictException(message);
     }
-    if (!data.name || !data.password || !email || !cpfCnpj) {
-      throw new BadRequestException(
-        'Para criar um novo usuário, é necessário fornecer nome, email e CPF/CNPJ.',
-      );
-    }
+
     let newUser: User;
     if (role === ROLES.LOCADOR) {
       newUser = await this.createLandlord(data as CreateLandlordDto);
@@ -196,8 +201,8 @@ export class UserService {
    */
   async findOrCreateTenant(
     data: {
-      email: string;
-      cpfCnpj?: string;
+      email?: string;
+      cpfCnpj: string;
       name?: string;
       password?: string;
       phone?: string;
@@ -205,9 +210,9 @@ export class UserService {
     creatorRole: UserRole,
   ): Promise<User> {
     if (data.password) {
-      if (!data.name || !data.cpfCnpj) {
+      if (!data.name || !data.email || !data.cpfCnpj || !data.phone) {
         throw new BadRequestException(
-          'Para criar um novo locatário, é necessário fornecer nome, CPF, telefone e senha.',
+          'Para criar um novo locatário, é necessário fornecer nome, CPF/CNPJ, telefone e senha.',
         );
       }
 
@@ -221,20 +226,19 @@ export class UserService {
 
       return this.create(createUserData, ROLES.LOCATARIO, creatorRole);
     } else {
-      // if (!data.cpfCnpj) {
-      //   throw new BadRequestException(
-      //     'Para associar um locatário existente, o CPF/CNPJ é obrigatório.',
-      //   );
-      // }
-      const user = await this.prisma.user.findFirst({
+      if (!data.cpfCnpj) {
+        throw new BadRequestException(
+          'Para associar um locatário existente, o CPF/CNPJ é obrigatório.',
+        );
+      }
+      const user = await this.prisma.user.findUnique({
         where: {
-          OR: [{ email: data.email }, { cpfCnpj: data.cpfCnpj }],
+          cpfCnpj: data.cpfCnpj,
         },
       });
-
       if (!user) {
         throw new NotFoundException(
-          `Nenhum locatário encontrado com o email ou CPF/CNPJ fornecido. Para cadastrá-lo, forneça também nome, telefone e uma senha.`,
+          `Nenhum locatário encontrado com o CPF/CNPJ fornecido. Cadastre-o.`,
         );
       }
 

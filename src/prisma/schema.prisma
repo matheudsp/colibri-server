@@ -80,7 +80,7 @@ model User {
   email           String   @unique
   password        String
   cpfCnpj         String   @unique
-  phone           String?
+  phone           String
   role            UserRole @default(LOCATARIO)
   status          Boolean  @default(true)
   asaasCustomerId String?  @unique

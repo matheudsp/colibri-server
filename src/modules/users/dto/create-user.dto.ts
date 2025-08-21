@@ -30,8 +30,8 @@ export class CreateUserDto {
 
   @ApiProperty({ example: '11999998888' })
   @IsString()
-  @IsOptional()
-  phone?: string;
+  @IsNotEmpty({ message: 'O telefone não pode estar vazio' })
+  phone: string;
 
   @Expose()
   @ApiProperty({

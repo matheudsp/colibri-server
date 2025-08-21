@@ -14,6 +14,7 @@ import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.service';
 import { User } from '@prisma/client';
 import { SubaccountsService } from '../subaccounts/subaccounts.service';
+import type { UpdateBankAccountDto } from './dto/update-bank-account.dto';
 
 @Injectable()
 export class BankAccountsService {
@@ -100,5 +101,42 @@ export class BankAccountsService {
     }
 
     return this.paymentGateway.getBalance(user.subAccount.apiKey);
+  }
+
+  async findMyAccount(currentUser: JwtPayload) {
+    const bankAccount = await this.prisma.bankAccount.findUnique({
+      where: { userId: currentUser.sub },
+    });
+
+    if (!bankAccount) {
+      throw new NotFoundException(
+        'Nenhuma conta bancária encontrada para este usuário.',
+      );
+    }
+
+    return bankAccount;
+  }
+
+  async update(
+    updateBankAccountDto: UpdateBankAccountDto,
+    currentUser: JwtPayload,
+  ) {
+    const existingAccount = await this.prisma.bankAccount.findUnique({
+      where: { userId: currentUser.sub },
+    });
+
+    if (!existingAccount) {
+      throw new NotFoundException('Nenhuma conta bancária para atualizar.');
+    }
+
+    const updatedAccount = await this.prisma.bankAccount.update({
+      where: { userId: currentUser.sub },
+      data: updateBankAccountDto,
+    });
+
+    this.logger.log(
+      `Conta bancária atualizada para o usuário ${currentUser.sub}.`,
+    );
+    return updatedAccount;
   }
 }
