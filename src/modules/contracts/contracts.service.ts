@@ -235,6 +235,7 @@ export class ContractsService {
         name: tenantName,
         cpfCnpj: tenantCpfCnpj,
         password: tenantPassword,
+        phone: tenantPhone,
       },
       ROLES.LOCATARIO,
     );

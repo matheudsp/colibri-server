@@ -75,17 +75,25 @@ export class UserService {
   }
 
   async search(filters: SearchUserDto) {
-    const { name, email, role, status } = filters;
+    const { name, email, role, status, cpfCnpj } = filters;
 
     const where = {};
     if (name) where['name'] = { contains: name, mode: 'insensitive' };
     if (email) where['email'] = { contains: email, mode: 'insensitive' };
+    if (cpfCnpj) where['cpfCnpj'] = { equals: cpfCnpj };
     if (role) where['role'] = role;
     if (status !== undefined) where['status'] = status;
 
     return this.prisma.user.findMany({
       where,
-      select: this.userSafeFields(),
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        cpfCnpj: true,
+        role: true,
+        status: true,
+      },
     });
   }
   async create(
