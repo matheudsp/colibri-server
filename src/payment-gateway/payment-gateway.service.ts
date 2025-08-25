@@ -177,7 +177,9 @@ export class PaymentGatewayService {
       return response.data;
     } catch (error) {
       this.logger.error('Erro ao consultar saldo', error.response?.data);
-      throw new BadRequestException(error.response?.data || 'Erro no Asaas');
+      throw new BadRequestException(
+        error.response?.data || 'Erro no serviço de pagamentos',
+      );
     }
   }
 
@@ -202,7 +204,9 @@ export class PaymentGatewayService {
       return response.data;
     } catch (error) {
       this.logger.error('Erro ao criar cliente', error.response?.data);
-      throw new BadRequestException(error.response?.data || 'Erro no Asaas');
+      throw new BadRequestException(
+        error.response?.data || 'Erro no serviço de pagamentos',
+      );
     }
   }
 
@@ -225,7 +229,9 @@ export class PaymentGatewayService {
       return response.data;
     } catch (error) {
       this.logger.error('Erro ao criar cobrança', error.response?.data);
-      throw new BadRequestException(error.response?.data || 'Erro no Asaas');
+      throw new BadRequestException(
+        error.response?.data.description || 'Erro no serviço de pagamentos',
+      );
     }
   }
 
