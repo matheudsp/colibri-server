@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { PropertyType } from '@prisma/client';
 import { Expose } from 'class-transformer';
 import {
   IsString,
@@ -9,6 +10,7 @@ import {
   Min,
   MaxLength,
   Length,
+  IsEnum,
 } from 'class-validator';
 
 export class CreatePropertyDto {
@@ -18,6 +20,13 @@ export class CreatePropertyDto {
   @IsNotEmpty()
   @MaxLength(100)
   title: string;
+
+  @Expose()
+  @ApiProperty({ enum: PropertyType })
+  @IsEnum(PropertyType)
+  @IsNotEmpty()
+  propertyType: PropertyType;
+
   @Expose() @ApiProperty() @IsString() @IsOptional() description?: string;
   @Expose() @ApiProperty() @IsString() @IsNotEmpty() @Length(8, 8) cep: string;
   @Expose() @ApiProperty() @IsString() @IsNotEmpty() street: string;

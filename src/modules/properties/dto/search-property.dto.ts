@@ -1,6 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { PropertyType } from '@prisma/client';
 import { Expose, Type } from 'class-transformer';
-import { IsOptional, IsString, Length, IsNumber, Min } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  Length,
+  IsNumber,
+  Min,
+  IsEnum,
+} from 'class-validator';
 
 export class SearchPropertyDto {
   @Expose()
@@ -9,6 +17,12 @@ export class SearchPropertyDto {
   @IsString()
   @Length(1, 100, { message: 'Nome deve ter entre 1 e 100 caracteres' })
   title?: string;
+
+  @Expose()
+  @ApiProperty({ enum: PropertyType })
+  @IsEnum(PropertyType)
+  @IsOptional()
+  propertyType: PropertyType;
 
   @Expose()
   @ApiProperty({ required: false })

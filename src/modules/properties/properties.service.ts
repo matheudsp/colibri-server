@@ -205,7 +205,7 @@ export class PropertiesService {
   }
 
   async publicSearch(params: Partial<SearchPropertyDto>) {
-    const { title, state, city, page = 1, limit = 10 } = params;
+    const { title, state, city, propertyType, page = 1, limit = 10 } = params;
 
     const skip = (page - 1) * limit;
 
@@ -237,6 +237,13 @@ export class PropertiesService {
         city: {
           contains: city,
           mode: 'insensitive',
+        },
+      });
+    }
+    if (propertyType) {
+      searchConditions.push({
+        propertyType: {
+          equals: propertyType,
         },
       });
     }
@@ -284,7 +291,7 @@ export class PropertiesService {
     params: Partial<SearchPropertyDto>,
     currentUser: { role: string; sub: string },
   ) {
-    const { title, state, city, page = 1, limit = 10 } = params;
+    const { title, state, city, propertyType, page = 1, limit = 10 } = params;
 
     const skip = (page - 1) * limit;
 
@@ -316,6 +323,13 @@ export class PropertiesService {
         city: {
           startsWith: city,
           mode: 'insensitive',
+        },
+      });
+    }
+    if (propertyType) {
+      orConditions.push({
+        propertyType: {
+          equals: propertyType,
         },
       });
     }

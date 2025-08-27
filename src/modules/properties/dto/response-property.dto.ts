@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { PropertyType } from '@prisma/client';
 
 export class PropertyResponseDto {
   @ApiProperty({ format: 'uuid' })
@@ -6,6 +7,9 @@ export class PropertyResponseDto {
 
   @ApiProperty()
   title!: string;
+
+  @ApiProperty({ enum: PropertyType })
+  propertyType!: PropertyType;
 
   @ApiProperty()
   description!: string;
