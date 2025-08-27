@@ -5,6 +5,7 @@ import {
   Inject,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -16,6 +17,7 @@ import { ROLES } from 'src/common/constants/roles.constant';
 
 @Injectable()
 export class PhotosService {
+  private readonly logger = new Logger(PhotosService.name);
   constructor(
     private prisma: PrismaService,
     private storageService: StorageService,
@@ -103,10 +105,23 @@ export class PhotosService {
 
     if (includeSignedUrl) {
       return Promise.all(
-        photos.map(async (photo) => ({
-          ...photo,
-          signedUrl: await this.storageService.getSignedUrl(photo.filePath),
-        })),
+        photos.map(async (photo) => {
+          try {
+            return {
+              ...photo,
+              signedUrl: await this.storageService.getSignedUrl(photo.filePath),
+            };
+          } catch (error) {
+            this.logger.error(
+              `Falha ao obter URL assinada para a foto ${photo.id}`,
+              error.stack,
+            );
+            return {
+              ...photo,
+              signedUrl: '',
+            };
+          }
+        }),
       );
     }
 

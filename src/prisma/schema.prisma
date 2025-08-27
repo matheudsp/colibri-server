@@ -37,6 +37,18 @@ enum ContractStatus {
   CANCELADO
 }
 
+enum PropertyType {
+  APARTAMENTO
+  APARTAMENTO_DUPLEX
+  APARTAMENTO_TRIPLEX
+  CASA
+  CHACARA
+  KITNET
+  LOJA_SALA
+  PREDIO
+  TERRENO
+}
+
 enum PdfType {
   CONTRATO_LOCACAO
 }
@@ -188,10 +200,11 @@ model Condominium {
 }
 
 model Property {
-  id          String  @id @default(uuid())
-  title       String
-  description String? @db.Text
-  rentValue   Decimal
+  id           String       @id @default(uuid())
+  title        String
+  description  String?      @db.Text
+  rentValue    Decimal
+  propertyType PropertyType
 
   cep      String?
   street   String?

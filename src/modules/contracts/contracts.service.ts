@@ -30,6 +30,7 @@ import { QueueName } from 'src/queue/jobs/jobs';
 import { PdfsService } from '../pdfs/pdfs.service';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { ClicksignService } from '../clicksign/clicksign.service';
+import { PasswordUtil } from 'src/common/utils/hash.utils';
 
 @Injectable()
 export class ContractsService {
@@ -283,7 +284,16 @@ export class ContractsService {
       this.emailQueue.add(EmailJobType.NOTIFICATION, jobPayload);
     }
 
-    return contract;
+    return {
+      ...contract,
+      tenant: {
+        tenantName: tenant.name,
+        tenantPhone: tenant.phone,
+        tenantCpfCnpj: tenant.cpfCnpj,
+        tenantEmail: tenant.email,
+        tenantPassword: tenantPassword,
+      },
+    };
   }
 
   async findAll(

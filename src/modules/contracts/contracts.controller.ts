@@ -35,7 +35,6 @@ import { ROLES } from 'src/common/constants/roles.constant';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { ContractResponseDto } from './dto/response-contract.dto';
 import { ResendNotificationDto } from './dto/resend-notification.dto';
-import { Response } from 'express';
 
 @ApiTags('Contracts')
 @ApiBearerAuth()

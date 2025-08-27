@@ -9,7 +9,6 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { SearchUserDto } from './dto/search-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Prisma, type User, type UserRole } from '@prisma/client';
-import * as argon2 from 'argon2';
 import type { CreateUserDto } from './dto/create-user.dto';
 import { LogHelperService } from '../logs/log-helper.service';
 import { Queue } from 'bull';
