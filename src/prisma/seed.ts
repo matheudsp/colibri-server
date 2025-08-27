@@ -33,14 +33,6 @@ async function main() {
       cpfCnpj: generateRandomCpf(),
       role: UserRole.ADMIN,
       phone: '11999999999',
-      cep: '01001000',
-      street: 'Praça da Sé',
-      number: '1',
-      city: 'São Paulo',
-      state: 'SP',
-      province: 'Sé',
-      birthDate: new Date('1980-01-01'),
-      incomeValue: 10000.0,
     },
   });
 

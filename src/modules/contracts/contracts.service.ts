@@ -30,7 +30,6 @@ import { QueueName } from 'src/queue/jobs/jobs';
 import { PdfsService } from '../pdfs/pdfs.service';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { ClicksignService } from '../clicksign/clicksign.service';
-import { PasswordUtil } from 'src/common/utils/hash.utils';
 
 @Injectable()
 export class ContractsService {
@@ -287,11 +286,11 @@ export class ContractsService {
     return {
       ...contract,
       tenant: {
-        tenantName: tenant.name,
-        tenantPhone: tenant.phone,
-        tenantCpfCnpj: tenant.cpfCnpj,
-        tenantEmail: tenant.email,
-        tenantPassword: tenantPassword,
+        name: tenant.name,
+        phone: tenant.phone,
+        cpfCnpj: tenant.cpfCnpj,
+        email: tenant.email,
+        password: tenantPassword,
       },
     };
   }
