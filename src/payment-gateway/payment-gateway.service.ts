@@ -110,7 +110,7 @@ export class PaymentGatewayService {
       webhooks: [
         {
           name: `Webhook Padrão Colibri`,
-          url: `${this.configService.get('APP_URL')}/api/v1/webhooks/asaas`,
+          url: `${this.configService.get('API_URL')}/api/v1/webhooks/asaas`,
           email: 'atendimentoaocliente.valedosol@gmail.com',
           sendType: 'SEQUENTIALLY',
           enabled: true,
@@ -136,6 +136,7 @@ export class PaymentGatewayService {
       //   'Enviando o seguinte payload para o Asaas:',
       //   JSON.stringify(payload, null, 2),
       // );
+      // this.logger.log(`API ASAAS KEY: ${this.asaasApiKey}`);
       const response = await firstValueFrom(
         this.httpService.post(endpoint, payload, {
           headers: {

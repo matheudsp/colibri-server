@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
@@ -279,7 +280,22 @@ export class PdfsService {
       contractId: contractId,
     };
 
-    await this.pdfQueue.add(PdfJobType.GENERATE_CONTRACT_PDF, jobData);
+    const job = await this.pdfQueue.add(
+      PdfJobType.GENERATE_CONTRACT_PDF,
+      jobData,
+    );
+
+    try {
+      await job.finished();
+      this.logger.log(
+        `Job de geração de PDF ${job.id} para o registro ${newPdf.id} foi concluído.`,
+      );
+    } catch (error) {
+      this.logger.error(`Job de geração de PDF ${job.id} falhou.`, error);
+      throw new InternalServerErrorException(
+        'Falha ao gerar o documento PDF necessário para a assinatura.',
+      );
+    }
 
     await this.logHelper.createLog(
       currentUser.sub,
@@ -287,7 +303,16 @@ export class PdfsService {
       'GeneratedPdf',
       newPdf.id,
     );
-    return newPdf;
+
+    const updatedPdf = await this.prisma.generatedPdf.findUnique({
+      where: { id: newPdf.id },
+    });
+    if (!updatedPdf) {
+      throw new NotFoundException(
+        'Não foi possível encontrar o PDF após a geração.',
+      );
+    }
+    return updatedPdf;
   }
 
   async signPdf(

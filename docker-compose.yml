@@ -100,6 +100,18 @@ services:
     depends_on:
       - prometheus
 
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: colibri_redis_commander
+    restart: always
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    ports:
+      - '8081:8081'
+    depends_on:
+      - redis
 volumes:
   postgres_data:
   redis_data:

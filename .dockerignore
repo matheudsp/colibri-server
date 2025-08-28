@@ -1,6 +1,44 @@
-node_modules
+# Git
 .git
-.env
-dist
+.gitignore
+
+# Docker
 Dockerfile
+Dockerfile.dev
 docker-compose.yml
+.dockerignore
+
+# Node
+node_modules
+dist
+build
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Env
+.env
+.env.*
+!.env-example
+
+# OS files
+.DS_Store
+
+# IDEs and editors
+.idea
+.vscode
+*.sublime-workspace
+
+# Tests & Coverage
+/coverage
+/.nyc_output
+/test
+
+# Misc
+README.md
+nest-cli.json
+.prettierrc
+/monitoring
+/nginx

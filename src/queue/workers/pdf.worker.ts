@@ -29,9 +29,7 @@ export class PdfWorker {
         'CONTRATO_LOCACAO',
         templateData,
       );
-
       const pdfBuffer = Buffer.from(generatedBuffer);
-
       const { key } = await this.storageService.uploadFile(
         {
           buffer: pdfBuffer,
@@ -52,13 +50,14 @@ export class PdfWorker {
       );
     } catch (error) {
       this.logger.error(
-        `Falha ao processar o job de PDF ${pdfRecordId}`,
+        `Falha ao processar o job de PDF ${pdfRecordId}. Removendo registro do banco de dados.`,
         error,
       );
-      await this.prisma.generatedPdf.update({
+
+      await this.prisma.generatedPdf.delete({
         where: { id: pdfRecordId },
-        data: { filePath: `contracts/${contractId}/failed-${fileName}` },
       });
+
       throw error;
     }
   }

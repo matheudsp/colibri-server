@@ -73,7 +73,7 @@ export class BankSlipsService {
         description: `Aluguel ${contract.property.title} - venc. ${DateUtils.formatDate(dueDate)}`,
         split: [
           // { walletId: landlord.subAccount.asaasWalletId, percentualValue: 97 },
-          { walletId: this.platformWalletId, percentualValue: 3 },
+          { walletId: this.platformWalletId, percentualValue: 5 },
         ],
       },
     );

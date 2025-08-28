@@ -12,11 +12,20 @@ export const redisConfig = (
     password: configService.get<string>('REDIS_PASSWORD'),
     keyPrefix: configService.get<string>('REDIS_PREFIX', 'colibri:'),
     tls: configService.get<boolean>('REDIS_TLS') ? {} : undefined,
+    // Aumenta o tempo máximo de espera pela resposta do Redis
+    commandTimeout: 5000,
+    // Garante que a conexão seja mantida ativa
+    keepAlive: 1000,
     retryStrategy: (times: number) => {
-      const delay = Math.min(times * 50, 2000);
+      // Aumenta o delay máximo para 5 segundos para dar tempo ao Redis de se recuperar
+      const delay = Math.min(times * 100, 5000);
+      console.log(
+        `Redis: Tentando reconectar (tentativa ${times}), aguardando ${delay}ms`,
+      );
       return delay;
     },
-    maxRetriesPerRequest: 3,
+    // Limita o número de tentativas de reconexão a um valor razoável
+    maxRetriesPerRequest: 5,
     enableOfflineQueue: true,
   },
 });

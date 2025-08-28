@@ -140,6 +140,9 @@ export class EnvConfig {
   @IsString()
   APP_URL!: string;
 
+  @IsString()
+  API_URL!: string;
+
   @IsNumber()
   @Transform(({ value }: { value: string }) => parseInt(value, 10))
   @IsOptional()
