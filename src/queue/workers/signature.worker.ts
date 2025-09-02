@@ -28,7 +28,7 @@ export class SignatureWorker {
         sub: userId,
         role: userRole,
         email: userEmail,
-        isActive: userIsActive,
+        status: userIsActive,
       });
       this.logger.log(
         `Job de assinatura para o contrato ${contractId} concluído com sucesso.`,

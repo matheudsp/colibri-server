@@ -17,6 +17,7 @@ import { UserService } from 'src/modules/users/users.service';
 import { ROLES } from 'src/common/constants/roles.constant';
 import type { CreateUserDto } from 'src/modules/users/dto/create-user.dto';
 import type { CreateLandlordDto } from 'src/modules/users/dto/create-landlord.dto';
+import { ConfigService } from '@nestjs/config';
 // import { EmailJobType } from '../queue/jobs/email.job';
 // import { InjectQueue } from '@nestjs/bull';
 // import { Queue } from 'bull';
@@ -27,8 +28,28 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private userService: UserService,
+    private configService: ConfigService,
     // @InjectQueue('email') private emailQueue: Queue,
   ) {}
+  async refreshToken(token: string) {
+    try {
+      const payload = await this.jwtService.verifyAsync<JwtPayload>(token, {
+        secret: this.configService.get<string>('JWT_SECRET'),
+      });
+
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+      });
+
+      if (!user) {
+        throw new UnauthorizedException('User not found');
+      }
+
+      return this.generateToken(user);
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+  }
 
   async getMe(userId: string): Promise<UserResponseDto> {
     try {
@@ -56,7 +77,7 @@ export class AuthService {
     }
   }
 
-  async loginEmployee(loginDto: LoginDto): Promise<LoginResponse> {
+  async login(loginDto: LoginDto): Promise<LoginResponse> {
     const { email, password } = loginDto;
 
     if (!email || !password) {
@@ -84,11 +105,12 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       role: user.role,
-      isActive: user.status,
+      status: user.status,
     };
 
     return {
-      token: this.jwtService.sign(payload),
+      access_token: this.jwtService.sign(payload, { expiresIn: '15m' }),
+      refresh_token: this.jwtService.sign(payload, { expiresIn: '7d' }),
       user: payload,
     };
   }
@@ -100,11 +122,12 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       role: user.role,
-      isActive: user.status,
+      status: user.status,
     };
 
     return {
-      token: this.jwtService.sign(payload),
+      access_token: this.jwtService.sign(payload, { expiresIn: '15m' }),
+      refresh_token: this.jwtService.sign(payload, { expiresIn: '7d' }),
       user: payload,
     };
   }
@@ -114,17 +137,13 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       role: user.role,
-      isActive: user.status,
+      status: user.status,
     };
 
     return {
-      access_token: this.jwtService.sign(payload),
-      user: {
-        id: user.id,
-        name: user.name,
-        role: user.role,
-        status: user.status,
-      },
+      access_token: this.jwtService.sign(payload, { expiresIn: '15m' }),
+      refresh_token: this.jwtService.sign(payload, { expiresIn: '7d' }),
+      user: payload,
     };
   }
 

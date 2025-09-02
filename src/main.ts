@@ -7,7 +7,7 @@ import { PrismaService } from './prisma/prisma.service';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { json } from 'express';
-
+import cookieParser from 'cookie-parser';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const prismaService = app.get(PrismaService);
@@ -52,7 +52,7 @@ async function bootstrap() {
       },
     }),
   );
-
+  app.use(cookieParser());
   await app.listen(port);
   logger.log(`Application running on port ${port}`);
 }

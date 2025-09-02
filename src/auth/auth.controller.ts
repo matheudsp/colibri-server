@@ -1,4 +1,16 @@
-import { Controller, Post, Body, UseGuards, Get } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Get,
+  HttpCode,
+  Res,
+  HttpStatus,
+  Req,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 
@@ -25,10 +37,66 @@ export class AuthController {
     return this.authService.getMe(currentUser.sub);
   }
 
+  @Public()
+  @Post('refresh')
+  async refreshToken(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const refreshToken = req.cookies.refreshToken;
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token not found');
+    }
+
+    const { access_token } = await this.authService.refreshToken(refreshToken);
+
+    const isProduction = process.env.NODE_ENV === 'production';
+    res.cookie('accessToken', access_token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'lax',
+      path: '/',
+      maxAge: 1000 * 60 * 15, // 15 minutos
+    });
+
+    return { message: 'Token refreshed successfully' };
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Logs out the user by clearing cookies' })
+  logout(@Res({ passthrough: true }) res: Response) {
+    res.clearCookie('accessToken');
+    res.clearCookie('refreshToken');
+    return { message: 'Logout successful' };
+  }
+
   @Post('login')
   @Public()
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.loginEmployee(loginDto);
+  async login(
+    @Res({ passthrough: true }) res: Response,
+    @Body() loginDto: LoginDto,
+  ) {
+    const { access_token, refresh_token, user } =
+      await this.authService.login(loginDto);
+    const isProduction = process.env.NODE_ENV === 'production';
+    res.cookie('accessToken', access_token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'lax',
+      path: '/',
+      maxAge: 1000 * 60 * 15, // 15 minutos
+    });
+
+    res.cookie('refreshToken', refresh_token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'lax',
+      path: '/',
+      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias
+    });
+
+    return { user };
   }
 
   @Post('register')
