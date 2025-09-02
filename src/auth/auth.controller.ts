@@ -50,11 +50,12 @@ export class AuthController {
 
     const { access_token } = await this.authService.refreshToken(refreshToken);
 
-    const isProduction = process.env.NODE_ENV === 'production';
     res.cookie('accessToken', access_token, {
       httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'strict' : 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      // NO MOMENTO NAO PODE SER STRICT, O DOMINIO DA API É DIFERENTE DO CLIENT(FRONTEND)
+      // sameSite: 'strict'
+      sameSite: 'lax',
       path: '/',
       maxAge: 1000 * 60 * 15, // 15 minutos
     });
@@ -83,7 +84,9 @@ export class AuthController {
     res.cookie('accessToken', access_token, {
       httpOnly: true,
       secure: isProduction,
-      sameSite: isProduction ? 'strict' : 'lax',
+      // NO MOMENTO NAO PODE SER STRICT, O DOMINIO DA API É DIFERENTE DO CLIENT(FRONTEND)
+      // sameSite: 'strict'
+      sameSite: 'lax',
       path: '/',
       maxAge: 1000 * 60 * 15, // 15 minutos
     });
@@ -91,7 +94,9 @@ export class AuthController {
     res.cookie('refreshToken', refresh_token, {
       httpOnly: true,
       secure: isProduction,
-      sameSite: isProduction ? 'strict' : 'lax',
+      // NO MOMENTO NAO PODE SER STRICT, O DOMINIO DA API É DIFERENTE DO CLIENT(FRONTEND)
+      // sameSite: 'strict'
+      sameSite: 'lax',
       path: '/',
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias
     });
