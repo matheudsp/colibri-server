@@ -55,7 +55,7 @@ export class AuthController {
       secure: process.env.NODE_ENV === 'production',
       // NO MOMENTO NAO PODE SER STRICT, O DOMINIO DA API É DIFERENTE DO CLIENT(FRONTEND)
       // sameSite: 'strict'
-      sameSite: 'lax',
+      sameSite: 'none',
       path: '/',
       maxAge: 1000 * 60 * 15, // 15 minutos
     });
@@ -86,7 +86,7 @@ export class AuthController {
       secure: isProduction,
       // NO MOMENTO NAO PODE SER STRICT, O DOMINIO DA API É DIFERENTE DO CLIENT(FRONTEND)
       // sameSite: 'strict'
-      sameSite: 'lax',
+      sameSite: 'none',
       path: '/',
       maxAge: 1000 * 60 * 15, // 15 minutos
     });
@@ -96,7 +96,7 @@ export class AuthController {
       secure: isProduction,
       // NO MOMENTO NAO PODE SER STRICT, O DOMINIO DA API É DIFERENTE DO CLIENT(FRONTEND)
       // sameSite: 'strict'
-      sameSite: 'lax',
+      sameSite: 'none',
       path: '/',
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias
     });
