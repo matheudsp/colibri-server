@@ -50,7 +50,7 @@ export class CreatePropertyDto {
   @IsNumber()
   @IsOptional()
   @Min(0)
-  rentValue!: number;
+  value!: number;
   // @Expose()
   // @ApiProperty()
   // photos!: Express.Multer.File[];

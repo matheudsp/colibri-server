@@ -10,6 +10,11 @@ datasource db {
 
 // --- ENUMS ---
 
+enum PropertyTransactionType {
+  VENDA
+  LOCACAO
+}
+
 enum UserRole {
   ADMIN
   LOCADOR
@@ -200,11 +205,12 @@ model Condominium {
 }
 
 model Property {
-  id           String       @id @default(uuid())
-  title        String
-  description  String?      @db.Text
-  rentValue    Decimal
-  propertyType PropertyType
+  id              String                  @id @default(uuid())
+  title           String
+  description     String?                 @db.Text
+  transactionType PropertyTransactionType @default(LOCACAO)
+  value           Decimal
+  propertyType    PropertyType
 
   cep      String?
   street   String?
@@ -229,6 +235,11 @@ model Property {
 
   contracts Contract[]
   photos    Photo[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([title, street, district, city, state, cep], name: "property_search_idx")
 }
 
 model Contract {

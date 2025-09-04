@@ -205,66 +205,136 @@ export class PropertiesService {
   }
 
   async publicSearch(params: Partial<SearchPropertyDto>) {
-    const { title, state, city, propertyType, page = 1, limit = 10 } = params;
+    const {
+      q,
+      state,
+      transactionType,
+      city,
+      propertyType,
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = params;
 
     const skip = (page - 1) * limit;
+
+    if (q) {
+      const normalizedQ = q.replace(/-/g, ' ').trim();
+
+      // Primeiro: buscar apenas os IDs que casam
+      const propertyIds = await this.prisma.$queryRawUnsafe<{ id: string }[]>(`
+          SELECT p.id
+          FROM "Property" p
+          WHERE p."isAvailable" = true
+          ${transactionType ? `AND p."transactionType" = '${transactionType}'` : ''}
+          ${propertyType ? `AND p."propertyType" = '${propertyType}'` : ''}
+          AND (
+            unaccent(lower(p."title")) LIKE unaccent(lower('%${normalizedQ}%'))
+            OR unaccent(lower(p."street")) LIKE unaccent(lower('%${normalizedQ}%'))
+            OR unaccent(lower(p."district")) LIKE unaccent(lower('%${normalizedQ}%'))
+            OR unaccent(lower(p."city")) LIKE unaccent(lower('%${normalizedQ}%'))
+            OR unaccent(lower(p."state")) LIKE unaccent(lower('%${normalizedQ}%'))
+            OR unaccent(lower(p."cep")) LIKE unaccent(lower('%${normalizedQ}%'))
+          )
+          ORDER BY p."${sortBy}" ${sortOrder.toUpperCase()}
+          LIMIT ${limit} OFFSET ${skip};
+      `);
+
+      const ids = propertyIds.map((p) => p.id);
+
+      // Agora usa Prisma normalmente com relations
+      const properties = await this.prisma.property.findMany({
+        where: { id: { in: ids } },
+        include: {
+          landlord: { select: { name: true, email: true, phone: true } },
+          photos: true,
+        },
+      });
+
+      // Busca o total
+      const total = await this.prisma.$queryRawUnsafe<{ count: number }[]>(`
+    SELECT COUNT(*)::int as count
+    FROM "Property" p
+    WHERE p."isAvailable" = true
+    ${transactionType ? `AND p."transactionType" = '${transactionType}'` : ''}
+    ${propertyType ? `AND p."propertyType" = '${propertyType}'` : ''}
+    AND (
+      unaccent(lower(p."title")) LIKE unaccent(lower('%${normalizedQ}%'))
+      OR unaccent(lower(p."street")) LIKE unaccent(lower('%${normalizedQ}%'))
+      OR unaccent(lower(p."district")) LIKE unaccent(lower('%${normalizedQ}%'))
+      OR unaccent(lower(p."city")) LIKE unaccent(lower('%${normalizedQ}%'))
+      OR unaccent(lower(p."state")) LIKE unaccent(lower('%${normalizedQ}%'))
+      OR unaccent(lower(p."cep")) LIKE unaccent(lower('%${normalizedQ}%'))
+    );
+  `);
+      const propertiesWithSignedUrls = await Promise.all(
+        properties.map(async (property) => {
+          const photosWithUrls =
+            await this.propertyPhotosService.getPhotosByProperty(
+              property.id,
+              true,
+            );
+          return { ...property, photos: photosWithUrls };
+        }),
+      );
+      return {
+        properties: propertiesWithSignedUrls,
+        meta: {
+          total: total[0]?.count || 0,
+          page,
+          limit,
+          totalPages: Math.ceil((total[0]?.count || 0) / limit),
+        },
+      };
+    }
 
     const where: Prisma.PropertyWhereInput = {
       isAvailable: true,
       AND: [],
     };
 
-    const searchConditions: Prisma.PropertyWhereInput[] = [];
-
-    if (title) {
-      searchConditions.push({
-        title: {
-          contains: title,
-          mode: 'insensitive',
-        },
+    if (transactionType) {
+      (where.AND as Prisma.PropertyWhereInput[]).push({
+        transactionType,
       });
     }
+
     if (state) {
-      searchConditions.push({
-        state: {
-          equals: state,
-          mode: 'insensitive',
-        },
-      });
-    }
-    if (city) {
-      searchConditions.push({
-        city: {
-          contains: city,
-          mode: 'insensitive',
-        },
-      });
-    }
-    if (propertyType) {
-      searchConditions.push({
-        propertyType: {
-          equals: propertyType,
-        },
+      (where.AND as Prisma.PropertyWhereInput[]).push({
+        state: { equals: state, mode: 'insensitive' },
       });
     }
 
-    if (searchConditions.length > 0) {
-      (where.AND as Prisma.PropertyWhereInput[]).push({ OR: searchConditions });
+    if (city) {
+      (where.AND as Prisma.PropertyWhereInput[]).push({
+        city: { contains: city, mode: 'insensitive' },
+      });
     }
+
+    if (propertyType) {
+      (where.AND as Prisma.PropertyWhereInput[]).push({
+        propertyType,
+      });
+    }
+
+    const orderBy: Prisma.PropertyOrderByWithRelationInput = {
+      [sortBy]: sortOrder,
+    };
 
     const [properties, total] = await Promise.all([
       this.prisma.property.findMany({
         where,
         skip,
         take: limit,
+        orderBy,
         include: {
           landlord: { select: { name: true, email: true } },
-          photos: { take: 1 },
+          photos: { where: { isCover: true }, take: 1 },
         },
       }),
       this.prisma.property.count({ where }),
     ]);
-
     const propertiesWithSignedUrls = await Promise.all(
       properties.map(async (property) => {
         const photosWithUrls =
@@ -275,7 +345,6 @@ export class PropertiesService {
         return { ...property, photos: photosWithUrls };
       }),
     );
-
     return {
       properties: propertiesWithSignedUrls,
       meta: {
@@ -291,7 +360,7 @@ export class PropertiesService {
     params: Partial<SearchPropertyDto>,
     currentUser: { role: string; sub: string },
   ) {
-    const { title, state, city, propertyType, page = 1, limit = 10 } = params;
+    const { state, city, propertyType, page = 1, limit = 10 } = params;
 
     const skip = (page - 1) * limit;
 
@@ -302,14 +371,7 @@ export class PropertiesService {
     }
 
     const orConditions: Prisma.PropertyWhereInput[] = [];
-    if (title) {
-      orConditions.push({
-        title: {
-          contains: title,
-          mode: 'insensitive',
-        },
-      });
-    }
+
     if (state) {
       orConditions.push({
         state: {
