@@ -6,7 +6,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import * as argon2 from 'argon2';
 import { LoginDto } from './dto/login.dto';
-
+import * as crypto from 'crypto';
 import { JwtService } from '@nestjs/jwt';
 import { JwtPayload } from '../common/interfaces/jwt.payload.interface';
 import { RegisterResponse } from '../common/interfaces/response.register.interface';
@@ -15,12 +15,14 @@ import { User } from '@prisma/client';
 import { UserResponseDto } from '../modules/users/dto/response-user.dto';
 import { UserService } from 'src/modules/users/users.service';
 import { ROLES } from 'src/common/constants/roles.constant';
-import type { CreateUserDto } from 'src/modules/users/dto/create-user.dto';
-import type { CreateLandlordDto } from 'src/modules/users/dto/create-landlord.dto';
+import { CreateUserDto } from 'src/modules/users/dto/create-user.dto';
 import { ConfigService } from '@nestjs/config';
-// import { EmailJobType } from '../queue/jobs/email.job';
-// import { InjectQueue } from '@nestjs/bull';
-// import { Queue } from 'bull';
+import { InjectQueue } from '@nestjs/bull';
+import { QueueName } from 'src/queue/jobs/jobs';
+import { Queue } from 'bull';
+import { EmailJobType } from 'src/queue/jobs/email.job';
+import { PasswordUtil } from 'src/common/utils/hash.utils';
+import { CreateLandlordDto } from 'src/modules/users/dto/create-landlord.dto';
 
 @Injectable()
 export class AuthService {
@@ -29,7 +31,7 @@ export class AuthService {
     private jwtService: JwtService,
     private userService: UserService,
     private configService: ConfigService,
-    // @InjectQueue('email') private emailQueue: Queue,
+    @InjectQueue(QueueName.EMAIL) private emailQueue: Queue,
   ) {}
   async refreshToken(token: string) {
     try {
@@ -147,66 +149,86 @@ export class AuthService {
     };
   }
 
-  // async requestPasswordReset(email: string): Promise<{ message: string }> {
-  //   const user = await this.prisma.user.findUnique({
-  //     where: { email },
-  //   });
+  /**
+   * Solicita a redefinição de senha.
+   * Gera um token, armazena seu hash e enfileira o envio de e-mail.
+   */
+  async requestPasswordReset(email: string): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
 
-  //   if (!user) {
-  //     return {
-  //       message: 'Se o email existir, um link de redefinição será enviado',
-  //     };
-  //   }
+    // Resposta genérica para evitar enumeração de e-mails
+    const successMessage =
+      'Se o e-mail existir em nossa base, um link de redefinição será enviado.';
 
-  //   const resetToken = crypto.randomBytes(32).toString('hex');
-  //   const resetTokenExpiry = new Date(Date.now() + 1000 * 60 * 60); // 1 hora
+    if (!user) {
+      return { message: successMessage };
+    }
 
-  //   await this.prisma.user.update({
-  //     where: { email },
-  //     data: {
-  //       resetToken,
-  //       resetTokenExpiry,
-  //     },
-  //   });
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = await this.hashData(resetToken);
+    const resetTokenExpiry = new Date(Date.now() + 1000 * 60 * 60); // Expira em 1 hora
 
-  //   await this.emailQueue.add(EmailJobType.RECOVERY_PASSWORD, {
-  //     email: user.email,
-  //     name: user.name,
-  //     token: resetToken,
-  //     expiresIn: 60, // 60 minutos
-  //   });
+    await this.prisma.user.update({
+      where: { email },
+      data: {
+        resetToken: hashedToken,
+        resetTokenExpiry,
+      },
+    });
 
-  //   return {
-  //     message: 'Se o email existir, um link de redefinição será enviado',
-  //   };
-  // }
+    // Enfileira e-mail, enviando o token original (não-hasheado)
+    await this.emailQueue.add(EmailJobType.RECOVERY_PASSWORD, {
+      email: user.email,
+      name: user.name,
+      token: resetToken,
+      expiresIn: '1 hora',
+    });
 
-  // async resetPassword(
-  //   token: string,
-  //   newPassword: string,
-  // ): Promise<{ message: string }> {
-  //   const user = await this.prisma.user.findFirst({
-  //     where: {
-  //       resetToken: token,
-  //       resetTokenExpiry: {
-  //         gt: new Date(),
-  //       },
-  //     },
-  //   });
+    return { message: successMessage };
+  }
 
-  //   if (!user) {
-  //     throw new BadRequestException('Token inválido ou expirado');
-  //   }
+  /**
+   * Reseta a senha do usuário usando o token e a nova senha.
+   */
+  async resetPassword(
+    token: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    const hashedToken = await this.hashData(token);
 
-  //   await this.prisma.user.update({
-  //     where: { id: user.id },
-  //     data: {
-  //       password: await argon2.hash(newPassword),
-  //       resetToken: null,
-  //       resetTokenExpiry: null,
-  //     },
-  //   });
+    const user = await this.prisma.user.findFirst({
+      where: {
+        resetToken: hashedToken,
+        resetTokenExpiry: {
+          gt: new Date(),
+        },
+      },
+    });
 
-  //   return { message: 'Senha redefinida com sucesso' };
-  // }
+    if (!user) {
+      throw new BadRequestException('Token inválido ou expirado.');
+    }
+
+    const newHashedPassword = await PasswordUtil.hash(newPassword);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: newHashedPassword,
+        resetToken: null, // Invalida o token após o uso
+        resetTokenExpiry: null,
+      },
+    });
+
+    return { message: 'Senha redefinida com sucesso.' };
+  }
+
+  /**
+   * Helper para hashear dados (como o token) de forma consistente.
+   */
+  private async hashData(data: string): Promise<string> {
+    return crypto.createHash('sha256').update(data).digest('hex');
+  }
 }

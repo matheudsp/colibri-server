@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { addMonths, startOfMonth, endOfMonth } from 'date-fns';
+import { startOfDay, endOfDay, addDays } from 'date-fns';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { BankSlipJobType } from 'src/queue/jobs/bank-slip';
@@ -23,8 +23,8 @@ export class BankSlipsScheduler {
   @Cron(CronExpression.EVERY_DAY_AT_6AM, { name: 'generateMonthlyBankSlips' })
   async handleCron() {
     const now = new Date();
-    const startDate = startOfMonth(addMonths(now, 1));
-    const endDate = endOfMonth(addMonths(now, 1));
+    const startDate = startOfDay(now);
+    const endDate = endOfDay(addDays(now, 7));
 
     const pendingPaymentOrders = await this.prisma.paymentOrder.findMany({
       where: {

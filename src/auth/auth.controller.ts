@@ -9,6 +9,7 @@ import {
   HttpStatus,
   Req,
   UnauthorizedException,
+  BadRequestException,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
@@ -22,6 +23,8 @@ import { RolesGuard } from './guards/roles.guard';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CreateUserDto } from 'src/modules/users/dto/create-user.dto';
 import { CreateLandlordDto } from 'src/modules/users/dto/create-landlord.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 // import { ForgotPasswordDto } from './dto/forgot-password.dto';
 // import { ResetPasswordDto } from './dto/reset-password.dto';
 
@@ -119,16 +122,24 @@ export class AuthController {
     return this.authService.registerLandlord(registerDto);
   }
 
-  // @Post('forgot-password')
-  // async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
-  //   return this.authService.requestPasswordReset(forgotPasswordDto.email);
-  // }
+  @Post('forgot-password')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Request a password reset email' })
+  @ApiBody({ type: ForgotPasswordDto })
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.requestPasswordReset(forgotPasswordDto.email);
+  }
 
-  // @Post('reset-password')
-  // async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
-  //   return this.authService.resetPassword(
-  //     resetPasswordDto.token,
-  //     resetPasswordDto.newPassword,
-  //   );
-  // }
+  @Post('reset-password')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset user password using a token' })
+  @ApiBody({ type: ResetPasswordDto })
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(
+      resetPasswordDto.token,
+      resetPasswordDto.newPassword,
+    );
+  }
 }

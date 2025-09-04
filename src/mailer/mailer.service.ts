@@ -65,7 +65,7 @@ export class MailerService {
     token: string,
     expiresIn: string,
   ): Promise<SentMessageInfo> {
-    const resetUrl = `${this.appUrl}/reset-password?token=${token}`;
+    const resetUrl = `${this.appUrl}/resetar-senha?token=${token}`;
 
     return this.sendEmail(
       user.email,

@@ -118,11 +118,11 @@ export class PaymentGatewayService {
           interrupted: false,
           authToken: authToken,
           events: [
+            'PAYMENT_CREATED',
+            'PAYMENT_UPDATED',
             'PAYMENT_CONFIRMED', // Pagamento confirmado (ainda não creditado)
-            'PAYMENT_OVERDUE',
+            'PAYMENT_OVERDUE', // Pagamento vencido
             'PAYMENT_RECEIVED', // Pagamento recebido (creditado na conta)
-            // 'PAYMENT_CREATED',
-            // 'PAYMENT_UPDATED',
             // 'PAYMENT_DELETED',
             // 'PAYMENT_REFUNDED',
           ],
