@@ -14,7 +14,7 @@ import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.service';
 import { User } from '@prisma/client';
 import { SubaccountsService } from '../subaccounts/subaccounts.service';
-import type { UpdateBankAccountDto } from './dto/update-bank-account.dto';
+import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
 
 @Injectable()
 export class BankAccountsService {
@@ -42,7 +42,7 @@ export class BankAccountsService {
     }
     if (user.role !== ROLES.LOCADOR) {
       throw new ForbiddenException(
-        'Apenas locadores podem criar contas bancárias.',
+        'Apenas locadores podem cadastrar chaves PIX.',
       );
     }
     const existingBankAccount = await this.prisma.bankAccount.findUnique({
@@ -51,33 +51,23 @@ export class BankAccountsService {
 
     if (existingBankAccount) {
       throw new ConflictException(
-        'Este usuário já possui uma conta bancária cadastrada.',
+        'Este usuário já possui uma chave PIX cadastrada.',
       );
     }
 
+    // Garante que a subconta no Asaas existe antes de salvar a chave PIX
     await this.subaccountService.getOrCreateSubaccount(user);
 
-    try {
-      const bankAccount = await this.prisma.bankAccount.create({
-        data: {
-          userId: currentUser.sub,
-          ...createBankAccountDto,
-        },
-      });
+    const bankAccount = await this.prisma.bankAccount.create({
+      data: {
+        userId: currentUser.sub,
+        pixAddressKey: createBankAccountDto.pixAddressKey,
+        pixAddressKeyType: createBankAccountDto.pixAddressKeyType,
+      },
+    });
 
-      this.logger.log(
-        `Conta bancária local criada para o usuário ${currentUser.sub}.`,
-      );
-      return bankAccount;
-    } catch (dbError: any) {
-      this.logger.error(
-        'Falha ao salvar a conta bancária no banco de dados',
-        dbError.stack,
-      );
-      throw new InternalServerErrorException(
-        'Erro ao salvar os dados da conta bancária.',
-      );
-    }
+    this.logger.log(`Chave PIX cadastrada para o usuário ${currentUser.sub}.`);
+    return bankAccount;
   }
 
   async getBalance(currentUser: JwtPayload) {
@@ -134,9 +124,7 @@ export class BankAccountsService {
       data: updateBankAccountDto,
     });
 
-    this.logger.log(
-      `Conta bancária atualizada para o usuário ${currentUser.sub}.`,
-    );
+    this.logger.log(`Chave PIX atualizada para o usuário ${currentUser.sub}.`);
     return updatedAccount;
   }
 }

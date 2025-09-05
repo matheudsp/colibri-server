@@ -1,39 +1,50 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { BankAccountType } from '@prisma/client';
-import { IsEnum, IsNotEmpty, IsString } from 'class-validator';
+import { PixAddressKeyType } from '@prisma/client';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsString,
+  Matches,
+  ValidateIf,
+} from 'class-validator';
 
 export class CreateBankAccountDto {
   @ApiProperty({
-    description: 'Código ou nome do banco (Ex: "001" para Banco do Brasil)',
-    example: '290',
+    description: 'Tipo da chave PIX.',
+    enum: PixAddressKeyType,
+    example: PixAddressKeyType.CPF,
+  })
+  @IsEnum(PixAddressKeyType)
+  @IsNotEmpty()
+  pixAddressKeyType: PixAddressKeyType;
+
+  @ApiProperty({
+    description:
+      'A chave PIX do locador (CPF/CNPJ sem formatação, e-mail, telefone no padrão E.164 ou chave aleatória UUID).',
+    example: '09493012301',
   })
   @IsString()
   @IsNotEmpty()
-  bank: string;
-
-  @ApiProperty({
-    description: 'Número da agência, sem o dígito verificador',
-    example: '1234',
+  @ValidateIf((o) => o.pixAddressKeyType === PixAddressKeyType.CPF)
+  @Matches(/^\d{11}$/, {
+    message: 'A chave PIX do tipo CPF deve conter 11 dígitos, sem formatação.',
   })
-  @IsString()
-  @IsNotEmpty()
-  agency: string;
-
-  @ApiProperty({
-    description: 'Número da conta, incluindo o dígito verificador',
-    example: '12345-6',
+  @ValidateIf((o) => o.pixAddressKeyType === PixAddressKeyType.CNPJ)
+  @Matches(/^\d{14}$/, {
+    message: 'A chave PIX do tipo CNPJ deve conter 14 dígitos, sem formatação.',
   })
-  @IsString()
-  @IsNotEmpty()
-  account: string;
-
-  @ApiProperty({
-    description: 'Tipo de conta bancária',
-    enum: BankAccountType,
-    example: BankAccountType.CONTA_CORRENTE,
+  @ValidateIf((o) => o.pixAddressKeyType === PixAddressKeyType.EMAIL)
+  @Matches(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, {
+    message: 'Formato de e-mail inválido para chave PIX.',
   })
-  @IsEnum(BankAccountType)
-  @IsNotEmpty()
-  accountType: BankAccountType;
-
+  @ValidateIf((o) => o.pixAddressKeyType === PixAddressKeyType.PHONE)
+  @Matches(/^\+[1-9][0-9]\d{1,14}$/, {
+    message:
+      'A chave PIX de telefone deve seguir o padrão E.164 (ex: +5511999998888).',
+  })
+  @ValidateIf((o) => o.pixAddressKeyType === PixAddressKeyType.EVP)
+  @Matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, {
+    message: 'A chave aleatória (EVP) deve ter o formato de um UUID.',
+  })
+  pixAddressKey: string;
 }

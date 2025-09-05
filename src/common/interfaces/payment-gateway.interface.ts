@@ -82,6 +82,25 @@ export interface CreateAsaasChargeDto {
   }[];
 }
 
+export interface CreateAsaasTransferDto {
+  value: number;
+  bankAccount: {
+    bank: string;
+    accountName: string;
+    ownerName: string;
+    cpfCnpj: string;
+    agency: string;
+    account: string;
+    accountDigit: string;
+    bankAccountType: 'CONTA_CORRENTE' | 'CONTA_POUPANCA';
+  };
+}
+export interface CreateAsaasPixTransferDto {
+  value: number;
+  pixAddressKey: string;
+  pixAddressKeyType: 'CPF' | 'CNPJ' | 'EMAIL' | 'PHONE' | 'EVP';
+  description?: string;
+}
 export interface WebhookEvent {
   id: 'evt_d26e303b238e509335ac9ba210e51b0f&9922354';
   event: 'PAYMENT_RECEIVED';

@@ -9,6 +9,13 @@ datasource db {
 }
 
 // --- ENUMS ---
+enum PixAddressKeyType {
+  CPF
+  CNPJ
+  EMAIL
+  PHONE
+  EVP // Chave Aleatória (Endereço Virtual de Pagamento)
+}
 
 enum PropertyTransactionType {
   VENDA
@@ -19,11 +26,6 @@ enum UserRole {
   ADMIN
   LOCADOR
   LOCATARIO
-}
-
-enum BankAccountType {
-  CONTA_CORRENTE
-  CONTA_POUPANCA
 }
 
 enum CompanyType {
@@ -87,6 +89,7 @@ enum PaymentStatus {
   CONFIRMADO
   FALHOU
   CANCELADO
+  RECEBIDO
 }
 
 // --- MODELS ---
@@ -166,18 +169,14 @@ model AsaasCustomer {
 model BankAccount {
   id     String @id @default(uuid())
   userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
 
-  bank        String
-  agency      String
-  account     String
-  accountType BankAccountType
-
-  pixKey String?
+  // Campos exclusivos para PIX
+  pixAddressKey     String
+  pixAddressKeyType PixAddressKeyType
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id])
 }
 
 model Webhook {

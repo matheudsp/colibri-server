@@ -7,11 +7,13 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
-import type {
+import {
   CreateAsaasChargeDto,
   CreateAsaasCustomerDto,
+  CreateAsaasPixTransferDto,
   CreateAsaasSubAccountDto,
   CreateAsaasSubAccountResponse,
+  CreateAsaasTransferDto,
 } from 'src/common/interfaces/payment-gateway.interface';
 import * as crypto from 'crypto';
 @Injectable()
@@ -268,6 +270,95 @@ export class PaymentGatewayService {
       }
       throw new InternalServerErrorException(
         'Ocorreu um erro ao se comunicar com o gateway de pagamento.',
+      );
+    }
+  }
+  /**
+   * Cria uma nova transferência exclusivamente via PIX.
+   * @param apiKey - A chave de API da subconta Asaas do locador.
+   * @param transferData - Os dados da transferência PIX.
+   * @returns O objeto da transferência criada no Asaas.
+   */
+  async createPixTransfer(
+    apiKey: string,
+    transferData: CreateAsaasPixTransferDto,
+  ): Promise<any> {
+    const endpoint = `${this.asaasApiUrl}/transfers`;
+    try {
+      this.logger.log(
+        `Iniciando solicitação de transferência PIX para a chave: ${transferData.pixAddressKey}`,
+      );
+
+      // O payload agora segue exatamente o que a API do Asaas espera para PIX
+      const payload = {
+        value: transferData.value,
+        pixAddressKey: transferData.pixAddressKey,
+        pixAddressKeyType: transferData.pixAddressKeyType,
+        description: transferData.description,
+      };
+
+      const response = await firstValueFrom(
+        this.httpService.post(endpoint, payload, {
+          headers: {
+            'Content-Type': 'application/json',
+            access_token: apiKey,
+          },
+        }),
+      );
+      this.logger.log(
+        `Transferência PIX criada com sucesso. Asaas Transfer ID: ${response.data.id}`,
+      );
+      return response.data;
+    } catch (error) {
+      this.logger.error(
+        'Falha ao criar transferência PIX no Asaas',
+        error.response?.data,
+      );
+      if (error.response?.data) {
+        throw new BadRequestException(error.response.data);
+      }
+      throw new InternalServerErrorException(
+        'Ocorreu um erro ao se comunicar com o gateway de pagamento para criar a transferência PIX.',
+      );
+    }
+  }
+  /**
+   * Cria uma nova transferência para uma conta bancária.
+   * @param apiKey - A chave de API da subconta Asaas do locador.
+   * @param transferData - Os dados da transferência.
+   * @returns O objeto da transferência criada no Asaas.
+   */
+  async createTransfer(
+    apiKey: string,
+    transferData: CreateAsaasTransferDto,
+  ): Promise<any> {
+    const endpoint = `${this.asaasApiUrl}/transfers`;
+    try {
+      this.logger.log(
+        `Iniciando solicitação de transferência para a conta: ${transferData.bankAccount.account}`,
+      );
+      const response = await firstValueFrom(
+        this.httpService.post(endpoint, transferData, {
+          headers: {
+            'Content-Type': 'application/json',
+            access_token: apiKey,
+          },
+        }),
+      );
+      this.logger.log(
+        `Transferência criada com sucesso. Asaas Transfer ID: ${response.data.id}`,
+      );
+      return response.data;
+    } catch (error) {
+      this.logger.error(
+        'Falha ao criar transferência no Asaas',
+        error.response?.data,
+      );
+      if (error.response?.data) {
+        throw new BadRequestException(error.response.data);
+      }
+      throw new InternalServerErrorException(
+        'Ocorreu um erro ao se comunicar com o gateway de pagamento para criar a transferência.',
       );
     }
   }

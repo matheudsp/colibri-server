@@ -8,17 +8,29 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { LogHelperService } from '../logs/log-helper.service';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { ROLES } from 'src/common/constants/roles.constant';
-import { PaymentStatus, type PaymentOrder, type Prisma } from '@prisma/client';
+import {
+  PaymentStatus,
+  type BankAccount,
+  type Contract,
+  type PaymentOrder,
+  type PixAddressKeyType,
+  type Prisma,
+  type Property,
+  type SubAccount,
+  type User,
+} from '@prisma/client';
 import { addMonths } from 'date-fns';
-import { ConfigService } from '@nestjs/config';
 import { RegisterPaymentDto } from './dto/register-payment.dto';
-import type { Queue } from 'bull';
+import { Queue } from 'bull';
 import { QueueName } from 'src/queue/jobs/jobs';
 import { InjectQueue } from '@nestjs/bull';
 import { EmailJobType, type NotificationJob } from 'src/queue/jobs/email.job';
 import { DateUtils } from 'src/common/utils/date.utils';
 import { CurrencyUtils } from 'src/common/utils/currency.utils';
 import { FindUserPaymentsDto } from './dto/find-user-payments.dto';
+import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.service';
+import { CreateAsaasPixTransferDto } from 'src/common/interfaces/payment-gateway.interface';
+import { UserService } from '../users/users.service';
 
 @Injectable()
 export class PaymentsOrdersService {
@@ -27,6 +39,8 @@ export class PaymentsOrdersService {
     private prisma: PrismaService,
     private logHelper: LogHelperService,
     @InjectQueue(QueueName.EMAIL) private emailQueue: Queue,
+    private paymentGatewayService: PaymentGatewayService,
+    private userService: UserService,
   ) {}
   async findUserPayments(
     currentUser: JwtPayload,
@@ -172,12 +186,145 @@ export class PaymentsOrdersService {
           include: {
             property: { select: { title: true } },
             tenant: { select: { name: true, email: true } },
-            landlord: { select: { name: true, email: true } },
+            landlord: {
+              include: {
+                bankAccount: true,
+                subAccount: true,
+              },
+            },
           },
         },
       },
     });
     await this.notifyUsersOfPayment(updatedPaymentOrder);
+
+    await this.initiateAutomaticTransfer(updatedPaymentOrder);
+  }
+
+  /**
+   * Inicia a transferência automática para o locador após um pagamento ser recebido.
+   * @param paymentOrder - A ordem de pagamento, incluindo o contrato e dados do locador.
+   */
+  private async initiateAutomaticTransfer(
+    paymentOrder: PaymentOrder & {
+      contract: Contract & {
+        property: Pick<Property, 'title'>;
+        tenant: Pick<User, 'name' | 'email'>;
+        landlord: User & {
+          bankAccount: BankAccount | null;
+          subAccount: SubAccount | null;
+        };
+      };
+    },
+  ) {
+    const { contract } = paymentOrder;
+    const { landlord } = contract;
+
+    if (!landlord.bankAccount) {
+      this.logger.warn(
+        `[Repasse Automático] Locador ${landlord.id} do contrato ${contract.id} não possui conta bancária cadastrada. Repasse ignorado.`,
+      );
+      return;
+    }
+
+    if (!landlord.subAccount?.apiKey) {
+      this.logger.warn(
+        `[Repasse Automático] Locador ${landlord.id} não possui uma subconta Asaas configurada. Repasse ignorado.`,
+      );
+      return;
+    }
+
+    if (
+      paymentOrder.amountPaid === null ||
+      paymentOrder.amountPaid === undefined
+    ) {
+      this.logger.error(
+        `[Repasse Automático] Falha ao solicitar transferência para o locador ${landlord.id}. O valor pago (amountPaid) é nulo.`,
+      );
+      return;
+    }
+
+    try {
+      const transferPayload: CreateAsaasPixTransferDto = {
+        value: paymentOrder.amountPaid.toNumber(),
+        pixAddressKey: landlord.bankAccount.pixAddressKey,
+        pixAddressKeyType: landlord.bankAccount
+          .pixAddressKeyType as PixAddressKeyType,
+        description: `Repasse automático aluguel do ${contract.tenant.name} - Data do alugel ${paymentOrder.dueDate}`,
+      };
+
+      await this.paymentGatewayService.createPixTransfer(
+        landlord.subAccount.apiKey,
+        transferPayload,
+      );
+
+      await this.prisma.paymentOrder.update({
+        where: { id: paymentOrder.id },
+        data: { status: PaymentStatus.RECEBIDO },
+      });
+
+      this.logger.log(
+        `[Repasse Automático] Transferência PIX para o locador ${landlord.id} solicitada e status atualizado para RECEBIDO.`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `[Repasse Automático] Falha ao solicitar transferência para o locador ${landlord.id} (contrato ${contract.id}).`,
+        error,
+      );
+      await this.notifyAdminsOfTransferFailure(paymentOrder, error);
+    }
+  }
+
+  private async notifyAdminsOfTransferFailure(
+    paymentOrder: PaymentOrder & {
+      contract: Contract & {
+        property: Pick<Property, 'title'>;
+        tenant: Pick<User, 'name' | 'email'>;
+        landlord: User & {
+          bankAccount: BankAccount | null;
+          subAccount: SubAccount | null;
+        };
+      };
+    },
+    error: unknown,
+  ) {
+    const admins = await this.userService.findAdmins();
+    if (admins.length === 0) {
+      this.logger.warn(
+        'Nenhum administrador ativo encontrado para notificar sobre a falha na transferência.',
+      );
+      return;
+    }
+
+    const { contract } = paymentOrder;
+    const { landlord, property } = contract;
+    const errorMessage =
+      error instanceof Error ? error.message : 'Erro desconhecido';
+
+    for (const admin of admins) {
+      const job: NotificationJob = {
+        user: {
+          name: admin.name,
+          email: admin.email,
+        },
+        notification: {
+          title: '⚠️ Falha no Repasse Automático de Aluguel',
+          message: `Houve uma falha ao tentar realizar a transferência automática para o locador ${landlord.name} (ID: ${landlord.id}) referente ao pagamento do contrato ${contract.id}.\n\nDetalhes:\n- Imóvel: ${property.title}\n- Valor: ${CurrencyUtils.formatCurrency(
+            paymentOrder.amountPaid?.toNumber(),
+          )}\n- Erro: ${errorMessage}\n\nPor favor, verifique os logs e, se necessário, realize a transferência manualmente.`,
+        },
+        // action: {
+        //   text: 'Ver Contrato',
+        //   path: `/contracts/${contract.id}`,
+        // },
+      };
+
+      await this.emailQueue.add(EmailJobType.NOTIFICATION, job);
+    }
+
+    this.logger.log(
+      `Notificações de falha na transferência enfileiradas para ${admins.length} administrador(es).`,
+    );
   }
 
   async registerPayment(
