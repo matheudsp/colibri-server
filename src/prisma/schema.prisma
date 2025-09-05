@@ -92,15 +92,20 @@ enum PaymentStatus {
 // --- MODELS ---
 
 model User {
-  id               String    @id @default(uuid())
-  name             String
-  email            String    @unique
-  password         String
-  cpfCnpj          String    @unique
-  phone            String
-  role             UserRole  @default(LOCATARIO)
-  status           Boolean   @default(true)
-  asaasCustomerId  String?   @unique
+  id              String   @id @default(uuid())
+  name            String
+  email           String   @unique
+  password        String
+  cpfCnpj         String   @unique
+  phone           String
+  role            UserRole @default(LOCATARIO)
+  status          Boolean  @default(true)
+  asaasCustomerId String?  @unique
+
+  emailVerified           Boolean?  @default(false)
+  verificationToken       String?   @unique
+  verificationTokenExpiry DateTime?
+
   resetToken       String?   @unique
   resetTokenExpiry DateTime?
   createdAt        DateTime  @default(now())

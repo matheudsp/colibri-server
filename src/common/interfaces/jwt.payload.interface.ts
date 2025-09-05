@@ -5,4 +5,5 @@ export interface JwtPayload {
   email: string;
   role: UserRole;
   status: boolean;
+  emailVerified: boolean;
 }

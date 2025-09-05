@@ -2,6 +2,7 @@ export enum EmailJobType {
   RECOVERY_PASSWORD = 'recovery-password',
   NOTIFICATION = 'notification',
   NEW_ACCOUNT = 'new-account',
+  EMAIL_VERIFICATION = 'email-verification',
 }
 
 export interface RecoveryPasswordJob {
@@ -32,5 +33,10 @@ export interface NewAccountJob {
     email: string;
     name: string;
   };
-  temporaryPassword?: string
+  temporaryPassword?: string;
+}
+export interface EmailVerificationJob {
+  email: string;
+  name: string;
+  token: string;
 }

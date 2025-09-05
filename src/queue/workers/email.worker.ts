@@ -11,6 +11,7 @@ import {
   EmailJobType,
   NotificationJob,
   RecoveryPasswordJob,
+  type EmailVerificationJob,
   type NewAccountJob,
 } from '../jobs/email.job';
 import { Job } from 'bull';
@@ -43,6 +44,21 @@ export class EmailWorker {
   //     err.stack,
   //   );
   // }
+
+  @Process(EmailJobType.EMAIL_VERIFICATION)
+  async handleEmailVerification(job: Job<EmailVerificationJob>) {
+    try {
+      const { email, name, token } = job.data;
+      await this.mailerService.sendVerificationEmail({ email, name }, token);
+    } catch (error) {
+      this.logger.error(
+        `Falha ao enviar e-mail de verificação: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
+      throw error;
+    }
+  }
+
   @Process(EmailJobType.RECOVERY_PASSWORD)
   async handleRecoveryPassword(job: Job<RecoveryPasswordJob>) {
     try {

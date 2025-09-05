@@ -10,4 +10,5 @@ export interface InitiateSignatureProcessJob {
   userRole: UserRole;
   userEmail: string;
   userIsActive: boolean;
+  userIsVerified: boolean;
 }

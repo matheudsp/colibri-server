@@ -17,7 +17,14 @@ export class SignatureWorker {
 
   @Process(SignatureJobType.INITIATE_SIGNATURE_PROCESS)
   async handleInitiateSignature(job: Job<InitiateSignatureProcessJob>) {
-    const { contractId, userId, userRole, userEmail, userIsActive } = job.data;
+    const {
+      contractId,
+      userId,
+      userRole,
+      userEmail,
+      userIsActive,
+      userIsVerified,
+    } = job.data;
 
     this.logger.log(
       `Iniciando job de assinatura para o contrato ${contractId}...`,
@@ -29,6 +36,7 @@ export class SignatureWorker {
         role: userRole,
         email: userEmail,
         status: userIsActive,
+        emailVerified: userIsVerified,
       });
       this.logger.log(
         `Job de assinatura para o contrato ${contractId} concluído com sucesso.`,

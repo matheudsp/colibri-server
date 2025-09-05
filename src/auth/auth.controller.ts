@@ -9,7 +9,7 @@ import {
   HttpStatus,
   Req,
   UnauthorizedException,
-  BadRequestException,
+  Query,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
@@ -25,8 +25,6 @@ import { CreateUserDto } from 'src/modules/users/dto/create-user.dto';
 import { CreateLandlordDto } from 'src/modules/users/dto/create-landlord.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-// import { ForgotPasswordDto } from './dto/forgot-password.dto';
-// import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Controller('auth')
 @ApiTags('Auth')
@@ -141,5 +139,21 @@ export class AuthController {
       resetPasswordDto.token,
       resetPasswordDto.newPassword,
     );
+  }
+
+  @Public()
+  @Get('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify user email with a token' })
+  async verifyEmail(@Query('token') token: string) {
+    return this.authService.verifyEmail(token);
+  }
+
+  @Post('resend-verification')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resend email verification link' })
+  async resendVerificationEmail(@CurrentUser() CurrentUser: JwtPayload) {
+    return this.authService.resendVerificationEmail(CurrentUser);
   }
 }

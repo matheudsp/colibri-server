@@ -265,6 +265,7 @@ export class DocumentsService {
             email: true,
             role: true,
             status: true,
+            emailVerified: true,
           },
         },
         tenant: { select: { name: true, email: true } },
@@ -301,6 +302,7 @@ export class DocumentsService {
           userRole: contract.landlord.role,
           userEmail: contract.landlord.email,
           userIsActive: contract.landlord.status,
+          userIsVerified: contract.landlord.emailVerified,
         },
         {
           attempts: 3,

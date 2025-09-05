@@ -81,6 +81,25 @@ export class MailerService {
   }
 
   /**
+   * Envia email de verificação de conta.
+   */
+  async sendVerificationEmail(
+    user: { email: string; name: string },
+    token: string,
+  ): Promise<SentMessageInfo> {
+    const verificationUrl = `${this.appUrl}/verificar-email?token=${token}`;
+    return this.sendEmail(
+      user.email,
+      `Verifique seu e-mail no ${this.appName}`,
+      'email-verification',
+      {
+        name: user.name,
+        verificationUrl,
+      },
+    );
+  }
+
+  /**
    * Envia email de acesso concedido
    * @param user Usuário que recebeu acesso
    * @param resource Recurso acessado

@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -20,12 +22,16 @@ import { ConfigService } from '@nestjs/config';
 import { InjectQueue } from '@nestjs/bull';
 import { QueueName } from 'src/queue/jobs/jobs';
 import { Queue } from 'bull';
-import { EmailJobType } from 'src/queue/jobs/email.job';
+import {
+  EmailJobType,
+  type EmailVerificationJob,
+} from 'src/queue/jobs/email.job';
 import { PasswordUtil } from 'src/common/utils/hash.utils';
 import { CreateLandlordDto } from 'src/modules/users/dto/create-landlord.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -53,7 +59,9 @@ export class AuthService {
     }
   }
 
-  async getMe(userId: string): Promise<UserResponseDto> {
+  async getMe(
+    userId: string,
+  ): Promise<UserResponseDto & { emailVerified: boolean }> {
     try {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
@@ -63,6 +71,7 @@ export class AuthService {
           email: true,
           role: true,
           status: true,
+          emailVerified: true,
         },
       });
 
@@ -70,7 +79,10 @@ export class AuthService {
         throw new UnauthorizedException('Usuário não encontrado');
       }
 
-      return user;
+      return {
+        ...user,
+        emailVerified: user.emailVerified ?? false,
+      };
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         throw error;
@@ -102,35 +114,99 @@ export class AuthService {
     registerDto: CreateLandlordDto,
   ): Promise<RegisterResponse> {
     const user = await this.userService.create(registerDto, ROLES.LOCADOR);
-
-    const payload: JwtPayload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-      status: user.status,
-    };
-
-    return {
-      access_token: this.jwtService.sign(payload, { expiresIn: '15m' }),
-      refresh_token: this.jwtService.sign(payload, { expiresIn: '7d' }),
-      user: payload,
-    };
+    await this.sendVerificationEmail(user);
+    return this.generateToken(user);
   }
 
   async registerUser(registerDto: CreateUserDto): Promise<RegisterResponse> {
     const user = await this.userService.create(registerDto, ROLES.LOCATARIO);
+    await this.sendVerificationEmail(user);
+    return this.generateToken(user);
+  }
 
-    const payload: JwtPayload = {
-      sub: user.id,
+  async sendVerificationEmail(user: {
+    id: string;
+    email: string;
+    name: string;
+  }): Promise<void> {
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = await this.hashData(verificationToken);
+    const verificationTokenExpiry = new Date(Date.now() + 1000 * 60 * 60 * 12); // Expira em 12 horas
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        verificationToken: hashedToken,
+        verificationTokenExpiry,
+      },
+    });
+
+    const job: EmailVerificationJob = {
       email: user.email,
-      role: user.role,
-      status: user.status,
+      name: user.name,
+      token: verificationToken,
     };
 
+    await this.emailQueue.add(EmailJobType.EMAIL_VERIFICATION, job);
+  }
+
+  async verifyEmail(token: string): Promise<{ message: string }> {
+    if (!token) {
+      throw new BadRequestException('Token de verificação não fornecido.');
+    }
+    const hashedToken = await this.hashData(token);
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        verificationToken: hashedToken,
+        verificationTokenExpiry: {
+          gt: new Date(),
+        },
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException(
+        'Token de verificação inválido ou expirado.',
+      );
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerified: true,
+        verificationToken: null,
+        verificationTokenExpiry: null,
+      },
+    });
+
+    return { message: 'E-mail verificado com sucesso!' };
+  }
+
+  /**
+   * Reenvia o e-mail de verificação para o usuário.
+   */
+  async resendVerificationEmail(
+    currentUser: JwtPayload,
+  ): Promise<{ message: string }> {
+    const { sub: userId } = currentUser;
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    if (user.emailVerified) {
+      throw new BadRequestException('Este e-mail já foi verificado.');
+    }
+
+    await this.sendVerificationEmail(user);
+
     return {
-      access_token: this.jwtService.sign(payload, { expiresIn: '15m' }),
-      refresh_token: this.jwtService.sign(payload, { expiresIn: '7d' }),
-      user: payload,
+      message: 'Um novo link de verificação foi enviado para o seu e-mail.',
     };
   }
 
@@ -140,6 +216,7 @@ export class AuthService {
       email: user.email,
       role: user.role,
       status: user.status,
+      emailVerified: user.emailVerified ?? false,
     };
 
     return {
