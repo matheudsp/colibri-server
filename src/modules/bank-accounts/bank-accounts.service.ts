@@ -3,8 +3,6 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
-  BadRequestException,
-  InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -12,10 +10,10 @@ import { CreateBankAccountDto } from './dto/create-bank-account.dto';
 import { ROLES } from 'src/common/constants/roles.constant';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.service';
-import { User } from '@prisma/client';
 import { SubaccountsService } from '../subaccounts/subaccounts.service';
 import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
-
+import { InjectRedis } from '@nestjs-modules/ioredis';
+import Redis from 'ioredis';
 @Injectable()
 export class BankAccountsService {
   private readonly logger = new Logger(BankAccountsService.name);
@@ -24,6 +22,7 @@ export class BankAccountsService {
     private prisma: PrismaService,
     private subaccountService: SubaccountsService,
     private paymentGateway: PaymentGatewayService,
+    @InjectRedis() private readonly redis: Redis,
   ) {}
 
   async create(
@@ -111,6 +110,20 @@ export class BankAccountsService {
     updateBankAccountDto: UpdateBankAccountDto,
     currentUser: JwtPayload,
   ) {
+    const { actionToken, ...bankAccountData } = updateBankAccountDto;
+    const context = 'PIX_KEY_UPDATE';
+
+    const actionTokenKey = `action-token:${currentUser.sub}:${context}`;
+    const storedToken = await this.redis.get(actionTokenKey);
+
+    if (!storedToken || storedToken !== actionToken) {
+      throw new ForbiddenException(
+        'Ação não autorizada. A verificação é necessária ou o token expirou.',
+      );
+    }
+
+    await this.redis.del(actionTokenKey);
+
     const existingAccount = await this.prisma.bankAccount.findUnique({
       where: { userId: currentUser.sub },
     });
@@ -121,7 +134,7 @@ export class BankAccountsService {
 
     const updatedAccount = await this.prisma.bankAccount.update({
       where: { userId: currentUser.sub },
-      data: updateBankAccountDto,
+      data: bankAccountData,
     });
 
     this.logger.log(`Chave PIX atualizada para o usuário ${currentUser.sub}.`);

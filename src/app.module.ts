@@ -30,6 +30,7 @@ import { PdfsModule } from './modules/pdfs/pdfs.module';
 import { PhotosModule } from './modules/photos/photos.module';
 import { ClicksignModule } from './modules/clicksign/clicksign.module';
 import { TestModule } from './modules/test/test.module';
+import { VerificationModule } from './modules/verification/verification.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { TestModule } from './modules/test/test.module';
     PhotosModule,
     ClicksignModule,
     TestModule,
+    VerificationModule,
   ],
   providers: [
     {
