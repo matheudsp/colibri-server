@@ -151,6 +151,7 @@ export class TransformInterceptor<T>
       GET: 'Dados recuperados com sucesso',
       POST: 'Dados criados com sucesso',
       PUT: 'Dados atualizados com sucesso',
+      PATCH: 'Dados modificados com sucesso',
       DELETE: 'Dados removidos com sucesso',
     };
     return responseMessages[request.method] || 'Operação realizada com sucesso';

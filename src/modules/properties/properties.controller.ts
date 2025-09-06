@@ -33,6 +33,7 @@ import { PropertyResponseDto } from './dto/response-property.dto';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { SearchPropertyDto } from './dto/search-property.dto';
 import { Public } from 'src/common/decorator/public.decorator';
+import { DeletePropertyDto } from './dto/delete-property.dto';
 
 @ApiTags('Properties')
 @Controller('properties')
@@ -178,14 +179,18 @@ export class PropertiesController {
     return this.propertiesService.update(id, updatePropertyDto, currentUser);
   }
 
-  @Delete(':id')
+  @Post(':id/delete')
   @Roles(ROLES.ADMIN, ROLES.LOCADOR)
-  @ApiOperation({ summary: 'Delete a property' })
-  @ApiResponse({ status: 204, description: 'Property deleted' })
+  @ApiOperation({
+    summary: 'Delete a property (requires verification for landlords)',
+  })
+  @ApiResponse({ status: 200, description: 'Property deleted successfully' })
+  @ApiBody({ type: DeletePropertyDto })
   remove(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() currentUser: JwtPayload,
+    @Body() deletePropertyDto: DeletePropertyDto,
   ) {
-    return this.propertiesService.remove(id, currentUser);
+    return this.propertiesService.remove(id, currentUser, deletePropertyDto);
   }
 }

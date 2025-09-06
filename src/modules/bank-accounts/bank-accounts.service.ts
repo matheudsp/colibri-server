@@ -14,6 +14,7 @@ import { SubaccountsService } from '../subaccounts/subaccounts.service';
 import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import Redis from 'ioredis';
+import { VerificationContexts } from 'src/common/constants/verification-contexts.constant';
 @Injectable()
 export class BankAccountsService {
   private readonly logger = new Logger(BankAccountsService.name);
@@ -111,7 +112,7 @@ export class BankAccountsService {
     currentUser: JwtPayload,
   ) {
     const { actionToken, ...bankAccountData } = updateBankAccountDto;
-    const context = 'PIX_KEY_UPDATE';
+    const context = VerificationContexts.PIX_KEY_UPDATE;
 
     const actionTokenKey = `action-token:${currentUser.sub}:${context}`;
     const storedToken = await this.redis.get(actionTokenKey);

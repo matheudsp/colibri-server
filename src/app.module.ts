@@ -31,6 +31,7 @@ import { PhotosModule } from './modules/photos/photos.module';
 import { ClicksignModule } from './modules/clicksign/clicksign.module';
 import { TestModule } from './modules/test/test.module';
 import { VerificationModule } from './modules/verification/verification.module';
+import { TwoFactorAuthModule } from './modules/two-factor-auth/two-factor-auth.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { VerificationModule } from './modules/verification/verification.module';
     ClicksignModule,
     TestModule,
     VerificationModule,
+    TwoFactorAuthModule,
   ],
   providers: [
     {

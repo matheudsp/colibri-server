@@ -17,6 +17,10 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { PhotosService } from '../photos/photos.service';
 import { ContractsService } from '../contracts/contracts.service';
+import { DeletePropertyDto } from './dto/delete-property.dto';
+import { InjectRedis } from '@nestjs-modules/ioredis';
+import Redis from 'ioredis';
+import { VerificationContexts } from 'src/common/constants/verification-contexts.constant';
 
 @Injectable()
 export class PropertiesService {
@@ -27,6 +31,7 @@ export class PropertiesService {
     private propertyPhotosService: PhotosService,
     @Inject(forwardRef(() => ContractsService))
     private contractsService: ContractsService,
+    @InjectRedis() private readonly redis: Redis,
     @Inject(CACHE_MANAGER)
     private cacheManager: Cache,
   ) {}
@@ -468,7 +473,11 @@ export class PropertiesService {
     return updatedProperty;
   }
 
-  async remove(id: string, currentUser: { sub: string; role: string }) {
+  async remove(
+    id: string,
+    currentUser: { sub: string; role: string },
+    deleteDto: DeletePropertyDto,
+  ) {
     const property = await this.findOne(id);
     if (
       property.landlordId !== currentUser.sub &&
@@ -477,6 +486,26 @@ export class PropertiesService {
       throw new UnauthorizedException(
         'Você não tem permissão para remover este imóvel.',
       );
+    }
+
+    if (currentUser.role === ROLES.LOCADOR) {
+      if (!deleteDto.actionToken) {
+        throw new ForbiddenException(
+          'Token de verificação é obrigatório para esta ação.',
+        );
+      }
+
+      const context = VerificationContexts.DELETE_PROPERTY;
+      const actionTokenKey = `action-token:${currentUser.sub}:${context}`;
+      const storedToken = await this.redis.get(actionTokenKey);
+
+      if (!storedToken || storedToken !== deleteDto.actionToken) {
+        throw new ForbiddenException(
+          'Ação não autorizada. A verificação é necessária ou o token expirou.',
+        );
+      }
+
+      await this.redis.del(actionTokenKey);
     }
 
     await this.propertyPhotosService.deletePhotosByProperty(id);

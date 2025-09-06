@@ -6,4 +6,6 @@ export interface JwtPayload {
   role: UserRole;
   status: boolean;
   emailVerified: boolean;
+  isTwoFactorEnabled: boolean;
+  isTwoFactorAuthenticated?: boolean;
 }

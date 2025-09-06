@@ -49,7 +49,7 @@ export class PdfsService {
     return { url: signedUrl };
   }
 
-  async requestSignature(pdfId: string, currentUser: JwtPayload) {
+  async requestSignature(pdfId: string, currentUser: { role: string }) {
     if (currentUser.role === ROLES.LOCATARIO) {
       throw new ForbiddenException(
         'Locatários não têm permissão para solicitar assinaturas.',
@@ -145,7 +145,10 @@ export class PdfsService {
     return;
   }
 
-  async initiateSignatureProcess(contractId: string, currentUser: JwtPayload) {
+  async initiateSignatureProcess(
+    contractId: string,
+    currentUser: { role: string; sub: string },
+  ) {
     let pdf = await this.prisma.generatedPdf.findFirst({
       where: { contractId, pdfType: PdfType.CONTRATO_LOCACAO },
       orderBy: { generatedAt: 'desc' },
@@ -187,7 +190,7 @@ export class PdfsService {
   async generatePdf(
     contractId: string,
     pdfType: PdfType,
-    currentUser: { sub: string; role: string },
+    currentUser: { role: string; sub: string },
   ) {
     if (currentUser.role === ROLES.LOCATARIO) {
       throw new ForbiddenException(

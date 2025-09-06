@@ -25,6 +25,7 @@ import { CreateUserDto } from 'src/modules/users/dto/create-user.dto';
 import { CreateLandlordDto } from 'src/modules/users/dto/create-landlord.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { LoginResponse } from 'src/common/interfaces/response.login.interface';
 
 @Controller('auth')
 @ApiTags('Auth')
@@ -75,33 +76,36 @@ export class AuthController {
 
   @Post('login')
   @Public()
+  @HttpCode(HttpStatus.OK)
   async login(
     @Res({ passthrough: true }) res: Response,
     @Body() loginDto: LoginDto,
   ) {
-    const { access_token, refresh_token, user } =
-      await this.authService.login(loginDto);
-    res.cookie('accessToken', access_token, {
-      httpOnly: true,
-      secure: true,
-      // NO MOMENTO NAO PODE SER STRICT, O DOMINIO DA API É DIFERENTE DO CLIENT(FRONTEND)
-      // sameSite: 'strict'
-      sameSite: 'none',
-      path: '/',
-      maxAge: 1000 * 60 * 15, // 15 minutos
-    });
+    const result = await this.authService.login(loginDto);
 
-    res.cookie('refreshToken', refresh_token, {
-      httpOnly: true,
-      secure: true,
-      // NO MOMENTO NAO PODE SER STRICT, O DOMINIO DA API É DIFERENTE DO CLIENT(FRONTEND)
-      // sameSite: 'strict'
-      sameSite: 'none',
-      path: '/',
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias
-    });
+    if ('twoFactorRequired' in result && result.twoFactorRequired) {
+      return result;
+    } else {
+      const loginResponse = result as LoginResponse;
 
-    return { user };
+      res.cookie('accessToken', loginResponse.access_token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none',
+        path: '/',
+        maxAge: 1000 * 60 * 15, // 15 minutos
+      });
+
+      res.cookie('refreshToken', loginResponse.refresh_token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none',
+        path: '/',
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias
+      });
+
+      return { user: loginResponse.user };
+    }
   }
 
   @Post('register')
@@ -140,20 +144,20 @@ export class AuthController {
       resetPasswordDto.newPassword,
     );
   }
-
   @Public()
   @Get('verify-email')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify user email with a token' })
+  @ApiOperation({ summary: 'Verifica o e-mail do usuário com um token' })
   async verifyEmail(@Query('token') token: string) {
     return this.authService.verifyEmail(token);
   }
 
   @Post('resend-verification')
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Resend email verification link' })
-  async resendVerificationEmail(@CurrentUser() CurrentUser: JwtPayload) {
-    return this.authService.resendVerificationEmail(CurrentUser);
+  @ApiOperation({ summary: 'Reenvia o e-mail de verificação' })
+  async resendVerificationEmail(@CurrentUser() currentUser: JwtPayload) {
+    return this.authService.resendVerificationEmail(currentUser);
   }
 }

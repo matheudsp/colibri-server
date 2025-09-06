@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { UserModule } from 'src/modules/users/users.module';
 import { QueueModule } from 'src/queue/queue.module';
+import { VerificationModule } from 'src/modules/verification/verification.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { QueueModule } from 'src/queue/queue.module';
     PrismaModule,
     UserModule,
     QueueModule,
+    VerificationModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],

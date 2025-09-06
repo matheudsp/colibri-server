@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsString } from 'class-validator';
+import { VerificationContext } from 'src/common/constants/verification-contexts.constant';
 
 export class RequestVerificationCodeDto {
   @ApiProperty({
@@ -8,5 +9,5 @@ export class RequestVerificationCodeDto {
   })
   @IsString()
   @IsNotEmpty()
-  context: string;
+  context: VerificationContext;
 }

@@ -17,4 +17,9 @@ export class UserResponseDto {
   @ApiProperty()
   status!: boolean;
 
+  @ApiProperty()
+  emailVerified: boolean;
+
+  @ApiProperty()
+  isTwoFactorEnabled: boolean;
 }

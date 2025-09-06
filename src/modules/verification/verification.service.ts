@@ -3,15 +3,18 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import * as crypto from 'crypto';
 import Redis from 'ioredis';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 import { QueueName } from 'src/queue/jobs/jobs';
 import { EmailJobType } from 'src/queue/jobs/email.job';
+import { VerificationContext } from 'src/common/constants/verification-contexts.constant';
 
 @Injectable()
 export class VerificationService {
@@ -19,6 +22,7 @@ export class VerificationService {
   private readonly OTP_TTL_SECONDS = 300; // 5 minutos
 
   constructor(
+    private readonly prisma: PrismaService,
     @InjectRedis() private readonly redis: Redis,
     @InjectQueue(QueueName.EMAIL) private readonly emailQueue: Queue,
   ) {}
@@ -30,28 +34,30 @@ export class VerificationService {
    * @param email - E-mail do usuário para envio do código.
    */
   async generateAndSendCode(
+    context: VerificationContext,
     userId: string,
-    context: string,
-    email: string,
-    userName: string,
   ): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
     const code = crypto
       .randomInt(0, Math.pow(10, 6))
       .toString()
       .padStart(6, '0');
-    const redisKey = `verification:${userId}:${context}`;
+    const redisKey = `verification:${user.id}:${context}`;
 
     try {
       // Usa um hash rápido para não armazenar o código em plain text
-      const hashedCode = await crypto
-        .createHash('sha256')
-        .update(code)
-        .digest('hex');
+      const hashedCode = crypto.createHash('sha256').update(code).digest('hex');
 
       await this.redis.set(redisKey, hashedCode, 'EX', this.OTP_TTL_SECONDS);
 
       await this.emailQueue.add(EmailJobType.NOTIFICATION, {
-        user: { email, name: userName },
+        user: { email: user.email, name: user.name },
         notification: {
           title: 'Seu Código de Verificação',
           message: `Use o seguinte código para confirmar sua ação: ${code}. Este código é válido por 5 minutos.`,
@@ -59,12 +65,12 @@ export class VerificationService {
       });
 
       this.logger.log(
-        `Código para o contexto '${context}' do usuário ${userId} gerado e enfileirado.`,
+        `Código para o contexto '${context}' do usuário ${user.id} gerado e enfileirado.`,
       );
       return { message: 'Código de verificação enviado para o seu e-mail.' };
     } catch (error) {
       this.logger.error(
-        `Falha ao gerar ou enviar código para o usuário ${userId}`,
+        `Falha ao gerar ou enviar código para o usuário ${user.id}`,
         error,
       );
       throw new InternalServerErrorException(
@@ -83,7 +89,7 @@ export class VerificationService {
     userId: string,
     context: string,
     code: string,
-  ): Promise<{ success: boolean; actionToken: string }> {
+  ): Promise<{ actionToken: string }> {
     // Retorna o token
     const redisKey = `verification:${userId}:${context}`;
     const storedHashedCode = await this.redis.get(redisKey);
@@ -113,6 +119,6 @@ export class VerificationService {
       `Token de ação gerado para ${context} do usuário ${userId}.`,
     );
 
-    return { success: true, actionToken };
+    return { actionToken };
   }
 }
