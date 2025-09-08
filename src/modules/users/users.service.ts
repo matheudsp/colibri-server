@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -19,12 +20,17 @@ import { CreateLandlordDto } from './dto/create-landlord.dto';
 import { PasswordUtil } from 'src/common/utils/hash.utils';
 import { QueueName } from 'src/queue/jobs/jobs';
 
+import { maskString } from 'src/common/utils/mask-string.util';
+import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
+import { VerificationService } from '../verification/verification.service';
+import { VerificationContexts } from 'src/common/constants/verification-contexts.constant';
+
 @Injectable()
 export class UserService {
   constructor(
     private prisma: PrismaService,
     private logHelper: LogHelperService,
-
+    private verificationService: VerificationService,
     @InjectQueue(QueueName.EMAIL) private readonly emailQueue: Queue,
   ) {}
 
@@ -153,11 +159,57 @@ export class UserService {
 
     return newUser;
   }
+  async findMe(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        status: true,
+        cpfCnpj: true,
+        phone: true,
+        incomeValue: true,
+        companyType: true,
+        birthDate: true,
+        street: true,
+        number: true,
+        complement: true,
+        province: true,
+        city: true,
+        state: true,
+        cep: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado');
+    }
+
+    // Aplica a máscara nos dados sensíveis antes de retornar
+    return {
+      ...user,
+      phone: maskString(user.phone, 4), // Revela os últimos 4
+    };
+  }
 
   async findOne(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      select: this.userSafeFields(),
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        status: true,
+        cpfCnpj: true,
+        companyType: true,
+        phone: true,
+        birthDate: true,
+      },
     });
 
     if (!user) {
@@ -167,32 +219,44 @@ export class UserService {
     return user;
   }
 
-  // async testEmail(id: string) {
-  //   const user = await this.prisma.user.findUnique({
-  //     where: { id },
-  //     select: this.userSafeFields(),
-  //   });
+  async update(
+    id: string,
+    updateUserDto: UpdateUserDto,
+    currentUser: JwtPayload,
+  ) {
+    const { actionToken, ...updateData } = updateUserDto;
 
-  //   if (!user) {
-  //     throw new NotFoundException('Usuário não encontrado');
-  //   }
-  //   const jobPayload: NewAccountJob = {
-  //     user: { email: user.email, name: user.name },
-  //     temporaryPassword: 'senha-provisoria-123',
-  //   };
-  //   await this.emailQueue.add(EmailJobType.NEW_ACCOUNT, jobPayload);
-  //   return user;
-  // }
+    if (currentUser.role !== ROLES.ADMIN) {
+      if (!actionToken) {
+        throw new BadRequestException(
+          'O token de verificação (actionToken) é obrigatório para esta ação.',
+        );
+      }
 
-  async update(id: string, updateUserDto: UpdateUserDto) {
+      await this.verificationService.consumeActionToken(
+        actionToken,
+        VerificationContexts.UPDATE_USER_PROFILE,
+        currentUser.sub,
+      );
+    }
+
+    if (currentUser.role !== ROLES.ADMIN && currentUser.sub !== id) {
+      throw new ForbiddenException(
+        'Você não tem permissão para atualizar este perfil.',
+      );
+    }
+
+    if (updateData.role && currentUser.role !== ROLES.ADMIN) {
+      throw new ForbiddenException(
+        'Apenas administradores podem alterar o papel de um usuário.',
+      );
+    }
+
     await this.validateUserExists(id);
 
     return this.prisma.user.update({
       where: { id },
-      data: {
-        ...updateUserDto,
-        ...(updateUserDto.role && { role: updateUserDto.role }),
-      },
+      data: updateData,
       select: this.userSafeFields(),
     });
   }

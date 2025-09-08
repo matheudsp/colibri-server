@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   forwardRef,
   Inject,
@@ -21,6 +22,8 @@ import { DeletePropertyDto } from './dto/delete-property.dto';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import Redis from 'ioredis';
 import { VerificationContexts } from 'src/common/constants/verification-contexts.constant';
+import { VerificationService } from '../verification/verification.service';
+import type { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 
 @Injectable()
 export class PropertiesService {
@@ -34,6 +37,7 @@ export class PropertiesService {
     @InjectRedis() private readonly redis: Redis,
     @Inject(CACHE_MANAGER)
     private cacheManager: Cache,
+    private verificationService: VerificationService,
   ) {}
 
   async create(
@@ -475,53 +479,52 @@ export class PropertiesService {
 
   async remove(
     id: string,
-    currentUser: { sub: string; role: string },
+    currentUser: JwtPayload,
     deleteDto: DeletePropertyDto,
   ) {
     const property = await this.findOne(id);
-    if (
-      property.landlordId !== currentUser.sub &&
-      currentUser.role !== ROLES.ADMIN
-    ) {
+
+    const isOwner = property.landlordId === currentUser.sub;
+    const isAdmin = currentUser.role === ROLES.ADMIN;
+
+    if (!isOwner && !isAdmin) {
       throw new UnauthorizedException(
         'Você não tem permissão para remover este imóvel.',
       );
     }
 
     if (currentUser.role === ROLES.LOCADOR) {
+      // Para um LOCADOR, o token é obrigatório.
       if (!deleteDto.actionToken) {
-        throw new ForbiddenException(
-          'Token de verificação é obrigatório para esta ação.',
+        throw new BadRequestException(
+          'O token de verificação (actionToken) é obrigatório para esta ação.',
         );
       }
-
-      const context = VerificationContexts.DELETE_PROPERTY;
-      const actionTokenKey = `action-token:${currentUser.sub}:${context}`;
-      const storedToken = await this.redis.get(actionTokenKey);
-
-      if (!storedToken || storedToken !== deleteDto.actionToken) {
-        throw new ForbiddenException(
-          'Ação não autorizada. A verificação é necessária ou o token expirou.',
-        );
-      }
-
-      await this.redis.del(actionTokenKey);
+      await this.verificationService.consumeActionToken(
+        deleteDto.actionToken,
+        VerificationContexts.DELETE_PROPERTY,
+        currentUser.sub,
+      );
     }
+    // Se for ADMIN, a verificação do token é simplesmente pulada.
 
     await this.propertyPhotosService.deletePhotosByProperty(id);
     await this.contractsService.deleteContractsByProperty(id);
     await this.prisma.property.delete({ where: { id } });
+
     await this.logHelper.createLog(
-      currentUser?.sub,
+      currentUser.sub,
       'DELETE',
       'Property',
       property.id,
     );
+
     return {
       message:
-        'Imóvel e todos os dados e ficheiros associados (fotos, contratos, PDFs) foram removidos com sucesso.',
+        'Imóvel e todos os dados associados foram removidos com sucesso.',
     };
   }
+
   async validatePropertyExists(propertyId: string) {
     const property = await this.prisma.property.findUnique({
       where: { id: propertyId },

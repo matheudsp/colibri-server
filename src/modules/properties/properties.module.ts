@@ -6,12 +6,14 @@ import { LogHelperService } from '../logs/log-helper.service';
 import { AppConfigModule } from 'src/config/config.module';
 import { PhotosModule } from '../photos/photos.module';
 import { ContractsModule } from '../contracts/contracts.module';
+import { VerificationModule } from '../verification/verification.module';
 
 @Module({
   imports: [
     AppConfigModule,
     forwardRef(() => PhotosModule),
     forwardRef(() => ContractsModule),
+    VerificationModule,
   ],
   providers: [PropertiesService, PrismaService, LogHelperService],
   controllers: [PropertiesController],

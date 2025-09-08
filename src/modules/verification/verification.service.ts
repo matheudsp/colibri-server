@@ -121,4 +121,37 @@ export class VerificationService {
 
     return { actionToken };
   }
+
+  /**
+   * Valida e consome um token de ação de uso único.
+   * @param token - O actionToken fornecido pelo cliente.
+   * @param context - O contexto esperado para a ação.
+   * @param userId - O ID do usuário que está realizando a ação.
+   */
+  async consumeActionToken(
+    token: string,
+    context: VerificationContext,
+    userId: string,
+  ): Promise<void> {
+    if (!token) {
+      throw new BadRequestException('Token de ação é obrigatório.');
+    }
+
+    const actionTokenKey = `action-token:${userId}:${context}`;
+    const storedToken = await this.redis.get(actionTokenKey);
+
+    if (!storedToken) {
+      throw new BadRequestException('Token de ação expirado ou inválido.');
+    }
+
+    if (storedToken !== token) {
+      throw new BadRequestException('Token de ação inválido.');
+    }
+
+    await this.redis.del(actionTokenKey);
+
+    this.logger.log(
+      `Token de ação para '${context}' do usuário ${userId} foi consumido com sucesso.`,
+    );
+  }
 }

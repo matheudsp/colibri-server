@@ -1,39 +1,25 @@
-import { ApiProperty } from '@nestjs/swagger';
-import {
-  IsEmail,
-  IsEnum,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-} from 'class-validator';
+import { PartialType, ApiProperty } from '@nestjs/swagger';
+import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { UserRole } from '@prisma/client';
-import { Expose } from 'class-transformer';
+import { CreateUserDto } from './create-user.dto';
+import { ROLES } from 'src/common/constants/roles.constant';
 
-export class UpdateUserDto {
-  @Expose()
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  name?: string;
-
-  @Expose()
-  @ApiProperty()
-  @IsEmail()
-  email?: string;
-
-  @Expose()
-  @ApiProperty({ required: false })
-  @IsString()
+export class UpdateUserDto extends PartialType(CreateUserDto) {
+  @ApiProperty({
+    description: 'Define o novo papel do usuário (Apenas Admins podem alterar)',
+    enum: ROLES,
+    required: false,
+  })
   @IsOptional()
-  password?: string;
-
-  @Expose()
-  @ApiProperty({ enum: UserRole })
-  @IsEnum(UserRole)
+  @IsEnum(ROLES)
   role?: UserRole;
 
-  @Expose()
-  @ApiProperty({ required: false, default: true })
+  @ApiProperty({
+    description: 'Token de ação obrigatório para usuários não-ADMIN.',
+    required: false,
+  })
   @IsOptional()
-  status?: boolean = true;
+  @IsString()
+  @IsNotEmpty()
+  actionToken?: string;
 }

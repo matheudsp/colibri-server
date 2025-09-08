@@ -38,7 +38,7 @@ import { ROLES } from 'src/common/constants/roles.constant';
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @Get()
+  @Get('all')
   @CacheKey('users_list')
   @Roles(ROLES.ADMIN)
   @CacheTTL(30) // 30 seconds
@@ -65,6 +65,18 @@ export class UserController {
     return this.userService.search(searchParams);
   }
 
+  @Get('me')
+  @Roles(ROLES.ADMIN, ROLES.LOCADOR, ROLES.LOCATARIO)
+  @ApiOperation({ summary: 'Get logged in user profile' })
+  @ApiResponse({
+    status: 200,
+    type: UserResponseDto,
+    description: 'User profile',
+  })
+  findMe(@CurrentUser() { sub }: JwtPayload) {
+    return this.userService.findMe(sub);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get user profile' })
   @ApiParam({ name: 'id', description: 'User UUID' })
@@ -77,12 +89,8 @@ export class UserController {
     return this.userService.findOne(id);
   }
 
-  // @Get('test-email/:id')
-  // testEmail(@Param('id', ParseUUIDPipe) id: string) {
-  //   return this.userService.testEmail(id);
-  // }
-
   @Patch(':id')
+  @Roles(ROLES.ADMIN, ROLES.LOCADOR, ROLES.LOCATARIO)
   @ApiOperation({ summary: 'Update user profile' })
   @ApiParam({ name: 'id', description: 'User UUID' })
   @ApiBody({ type: UpdateUserDto })
@@ -94,8 +102,9 @@ export class UserController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateUserDto: UpdateUserDto,
+    @CurrentUser() currentUser: JwtPayload,
   ) {
-    return this.userService.update(id, updateUserDto);
+    return this.userService.update(id, updateUserDto, currentUser);
   }
 
   @Delete(':id')

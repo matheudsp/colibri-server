@@ -30,6 +30,7 @@ import { PasswordUtil } from 'src/common/utils/hash.utils';
 import { CreateLandlordDto } from 'src/modules/users/dto/create-landlord.dto';
 import { VerificationService } from 'src/modules/verification/verification.service';
 import type { Login2FADto } from './dto/login-2fa.dto';
+import { VerificationContexts } from 'src/common/constants/verification-contexts.constant';
 
 @Injectable()
 export class AuthService {
@@ -221,7 +222,11 @@ export class AuthService {
       throw new UnauthorizedException('Token parcial inválido ou expirado.');
     }
 
-    await this.verificationService.verifyCode(payload.sub, 'LOGIN_2FA', code);
+    await this.verificationService.verifyCode(
+      payload.sub,
+      VerificationContexts.LOGIN_2FA,
+      code,
+    );
 
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
@@ -263,7 +268,7 @@ export class AuthService {
     return {
       access_token: this.jwtService.sign(payload, { expiresIn: '15m' }),
       refresh_token: this.jwtService.sign(payload, { expiresIn: '7d' }),
-      user: payload,
+      // user: payload,
     };
   }
   /**

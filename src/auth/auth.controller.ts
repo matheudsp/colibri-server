@@ -26,6 +26,7 @@ import { CreateLandlordDto } from 'src/modules/users/dto/create-landlord.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { LoginResponse } from 'src/common/interfaces/response.login.interface';
+import { Login2FADto } from './dto/login-2fa.dto';
 
 @Controller('auth')
 @ApiTags('Auth')
@@ -71,9 +72,49 @@ export class AuthController {
   logout(@Res({ passthrough: true }) res: Response) {
     res.clearCookie('accessToken');
     res.clearCookie('refreshToken');
+    res.clearCookie('session-status');
     return { message: 'Logout successful' };
   }
 
+  @Post('login/2fa')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Completa o login com o código 2FA' })
+  @ApiBody({ type: Login2FADto })
+  async loginWith2FA(
+    @Res({ passthrough: true }) res: Response,
+    @Body() login2FADto: Login2FADto,
+  ) {
+    const r = await this.authService.loginWith2FA(login2FADto);
+
+    res.cookie('accessToken', r.access_token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      path: '/',
+      maxAge: 1000 * 60 * 15, // 15 minutos
+    });
+
+    res.cookie('refreshToken', r.refresh_token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      path: '/',
+      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias
+    });
+
+    // Indica que a sessão está ativa
+    res.cookie('session-status', 'active', {
+      httpOnly: false,
+      secure: true,
+      sameSite: 'none',
+      path: '/',
+      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias (mesma duração do refresh token)
+    });
+    return {
+      message: 'Autenticação de dois fatores bem-sucedida.',
+    };
+  }
   @Post('login')
   @Public()
   @HttpCode(HttpStatus.OK)
@@ -91,6 +132,8 @@ export class AuthController {
       res.cookie('accessToken', loginResponse.access_token, {
         httpOnly: true,
         secure: true,
+        // NO MOMENTO NAO PODE SER STRICT, O DOMINIO DA API É DIFERENTE DO CLIENT(FRONTEND)
+        // sameSite: 'strict'
         sameSite: 'none',
         path: '/',
         maxAge: 1000 * 60 * 15, // 15 minutos
@@ -99,12 +142,24 @@ export class AuthController {
       res.cookie('refreshToken', loginResponse.refresh_token, {
         httpOnly: true,
         secure: true,
+        // NO MOMENTO NAO PODE SER STRICT, O DOMINIO DA API É DIFERENTE DO CLIENT(FRONTEND)
+        // sameSite: 'strict'
         sameSite: 'none',
         path: '/',
         maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias
       });
 
-      return { user: loginResponse.user };
+      res.cookie('session-status', 'active', {
+        httpOnly: false,
+        secure: true,
+        sameSite: 'none',
+        path: '/',
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias (mesma duração do refresh token)
+      });
+
+      return {
+        message: 'Autenticação bem-sucedida.',
+      };
     }
   }
 

@@ -6,11 +6,12 @@ import { LogHelperService } from '../logs/log-helper.service';
 import { QueueModule } from 'src/queue/queue.module';
 import { PaymentGatewayModule } from 'src/payment-gateway/payment-gateway.module';
 import { MailerModule } from 'src/mailer/mailer.module';
+import { VerificationModule } from '../verification/verification.module';
 
 @Module({
   controllers: [UserController],
   providers: [UserService, PrismaService, LogHelperService],
   exports: [UserService],
-  imports: [QueueModule, PaymentGatewayModule],
+  imports: [QueueModule, PaymentGatewayModule, VerificationModule],
 })
 export class UserModule {}

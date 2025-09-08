@@ -7,6 +7,7 @@ export const VerificationContexts = {
   CANCEL_CONTRACT: 'CANCEL_CONTRACT',
   LOGIN_2FA: 'LOGIN_2FA',
   DISABLE_2FA: 'DISABLE_2FA',
+  UPDATE_USER_PROFILE: 'UPDATE_USER_PROFILE',
 } as const;
 
 export type VerificationContext =
