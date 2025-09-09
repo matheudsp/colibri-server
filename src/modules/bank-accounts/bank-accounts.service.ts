@@ -94,17 +94,45 @@ export class BankAccountsService {
   }
 
   async findMyAccount(currentUser: JwtPayload) {
-    const bankAccount = await this.prisma.bankAccount.findUnique({
-      where: { userId: currentUser.sub },
+    const user = await this.prisma.user.findUnique({
+      where: { id: currentUser.sub },
+      include: {
+        bankAccount: true,
+        subAccount: true,
+      },
     });
 
-    if (!bankAccount) {
-      throw new NotFoundException(
-        'Nenhuma conta bancária encontrada para este usuário.',
-      );
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado.');
     }
 
-    return bankAccount;
+    let balance = null;
+    // Se o usuário tiver uma subconta com apiKey, busca o saldo.
+    if (user.subAccount?.apiKey) {
+      try {
+        balance = await this.paymentGateway.getBalance(user.subAccount.apiKey);
+      } catch (error) {
+        this.logger.error(
+          `Falha ao buscar saldo para o usuário ${currentUser.sub}`,
+          error,
+        );
+        // Em caso de erro, o saldo permanece nulo, mas a requisição não falha.
+      }
+    }
+
+    return {
+      balance,
+      bankAccount: user.bankAccount,
+      subAccount: user.subAccount
+        ? {
+            statusGeneral: user.subAccount.statusGeneral,
+            statusDocumentation: user.subAccount.statusDocumentation,
+            statusCommercialInfo: user.subAccount.statusCommercialInfo,
+            statusBankAccountInfo: user.subAccount.statusBankAccountInfo,
+            onboardingUrl: user.subAccount.onboardingUrl,
+          }
+        : null,
+    };
   }
 
   async update(

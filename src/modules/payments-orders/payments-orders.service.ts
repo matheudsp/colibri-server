@@ -62,6 +62,15 @@ export class PaymentsOrdersService {
     if (filters?.status) {
       whereClause.status = filters.status;
     }
+    if (filters?.tenantId) {
+      whereClause.status = filters.status;
+    }
+    if (filters?.startDate || filters?.endDate) {
+      whereClause.dueDate = {
+        gte: filters.startDate ? new Date(filters.startDate) : undefined,
+        lte: filters.endDate ? new Date(filters.endDate) : undefined,
+      };
+    }
 
     return this.prisma.paymentOrder.findMany({
       where: whereClause,
@@ -69,8 +78,8 @@ export class PaymentsOrdersService {
         bankSlip: true,
         contract: {
           select: {
-            property: { select: { title: true, id: true } },
-            tenant: { select: { name: true } },
+            property: { select: { id: true, title: true } },
+            tenant: { select: { id: true, name: true } },
           },
         },
       },
