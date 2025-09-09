@@ -6,6 +6,7 @@ import { StorageService } from 'src/storage/storage.service';
 import { HttpService } from '@nestjs/axios';
 import { getPdfFileName } from 'src/common/utils/pdf-naming-helper.utils';
 import { firstValueFrom } from 'rxjs';
+import { SubaccountsService } from '../subaccounts/subaccounts.service';
 
 @Injectable()
 export class WebhooksService {
@@ -17,6 +18,7 @@ export class WebhooksService {
     private readonly contractsService: ContractsService,
     private readonly httpService: HttpService,
     private readonly storageService: StorageService,
+    private readonly subaccountsService: SubaccountsService,
   ) {}
 
   async processClicksignEvent(payload: any) {
@@ -99,50 +101,83 @@ export class WebhooksService {
     }
   }
 
-  async processAsaasEvent(payload: { event: string; payment: any }) {
-    const { event, payment } = payload;
+  async processAsaasEvent(payload: {
+    event: string;
+    payment?: any;
+    account?: any;
+    transfer?: any;
+    accountStatus?: any;
+  }) {
+    const { event, payment, account, transfer, accountStatus } = payload;
 
-    if (!event || !payment) {
-      this.logger.warn(
-        '[Webhook] Payload inválido recebido, evento ou pagamento ausente.',
-      );
+    if (!event) {
+      this.logger.warn('[Webhook] Payload inválido recebido, evento ausente.');
       return;
     }
 
-    const asaasChargeId = payment.id;
-    this.logger.log(
-      `[Webhook] Evento '${event}' recebido para a cobrança '${asaasChargeId}'.`,
-    );
+    if (payment) {
+      const asaasChargeId = payment.id;
+      this.logger.log(
+        `[Webhook] Evento de PAGAMENTO '${event}' recebido para a cobrança '${asaasChargeId}'.`,
+      );
 
-    switch (event) {
-      case 'PAYMENT_RECEIVED':
-      case 'PAYMENT_CONFIRMED':
-        const amountPaid = payment.value;
-        const paidAt = new Date(payment.paymentDate);
-        await this.paymentsService.confirmPaymentByChargeId(
-          asaasChargeId,
-          amountPaid,
-          paidAt,
-        );
-        break;
+      switch (event) {
+        case 'PAYMENT_RECEIVED':
+        case 'PAYMENT_CONFIRMED':
+          const amountPaid = payment.value;
+          const netValue = payment.netValue;
+          const paidAt = new Date(payment.paymentDate);
 
-      case 'PAYMENT_OVERDUE':
-        await this.paymentsService.handleOverduePayment(asaasChargeId);
-        break;
+          await this.paymentsService.confirmPaymentByChargeId(
+            asaasChargeId,
+            amountPaid,
+            netValue,
+            paidAt,
+          );
+          break;
+          break;
 
-      case 'PAYMENT_DELETED':
-        await this.paymentsService.handleDeletedPayment(asaasChargeId);
-        break;
+        case 'PAYMENT_OVERDUE':
+          await this.paymentsService.handleOverduePayment(asaasChargeId);
+          break;
 
-      case 'PAYMENT_RESTORED':
-        await this.paymentsService.handleRestoredPayment(asaasChargeId);
-        break;
+        case 'PAYMENT_DELETED':
+          await this.paymentsService.handleDeletedPayment(asaasChargeId);
+          break;
 
-      default:
-        this.logger.log(
-          `[Webhook] Evento '${event}' não requer ação. Ignorando.`,
-        );
-        break;
+        case 'PAYMENT_RESTORED':
+          await this.paymentsService.handleRestoredPayment(asaasChargeId);
+          break;
+
+        default:
+          this.logger.log(
+            `[Webhook] Evento '${event}' não requer ação. Ignorando.`,
+          );
+          break;
+      }
+    } else if (accountStatus) {
+      const asaasAccountId = accountStatus.id;
+      this.logger.log(
+        `[Webhook] Evento de CONTA '${event}' recebido para a conta '${asaasAccountId}'.`,
+      );
+
+      if (event.startsWith('ACCOUNT_STATUS_')) {
+        await this.subaccountsService.handleAccountStatusUpdate(accountStatus);
+      }
+    } else if (account) {
+      const asaasAccountId = account.id;
+      this.logger.log(
+        `[Webhook] Evento de CONTA '${event}' recebido para a conta '${asaasAccountId}'.`,
+      );
+      if (event === 'ACCOUNT_UPDATED') {
+        await this.subaccountsService.handleAccountStatusUpdate(account);
+      }
+    } else if (transfer) {
+      // Lógica de transferência
+    } else {
+      this.logger.warn(
+        `[Webhook] Evento '${event}' recebido sem um payload de 'payment' ou 'account'. Ignorando.`,
+      );
     }
   }
 }

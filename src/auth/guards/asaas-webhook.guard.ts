@@ -8,6 +8,7 @@ import {
 import { Request } from 'express';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as crypto from 'crypto';
+import { SubAccount } from '@prisma/client';
 
 @Injectable()
 export class AsaasWebhookGuard implements CanActivate {
@@ -17,36 +18,61 @@ export class AsaasWebhookGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request: Request = context.switchToHttp().getRequest();
+    this.logger.log(
+      `[ASAAS WEBHOOK PAYLOAD RECEBIDO]: ${JSON.stringify(request.body, null, 2)}`,
+    );
     const tokenFromHeader = request.header('asaas-access-token');
 
-    const asaasCustomerId = request.body?.payment?.customer;
-
-    if (!tokenFromHeader || !asaasCustomerId) {
+    if (!tokenFromHeader) {
       this.logger.warn(
-        'Webhook recebido sem asaas-access-token ou payment.customer.',
+        'Webhook do Asaas recebido sem o cabeçalho asaas-access-token.',
+      );
+      throw new UnauthorizedException('Token de acesso ausente.');
+    }
+
+    const asaasCustomerId = request.body?.payment?.customer;
+    const asaasAccountIdFromAccount = request.body?.account?.id;
+    const asaasAccountIdFromTransfer = request.body?.transfer?.account?.id;
+    const asaasAccountIdFromStatus = request.body?.accountStatus?.id; // <- O CAMPO QUE FALTAVA
+
+    const finalAsaasAccountId =
+      asaasAccountIdFromAccount ||
+      asaasAccountIdFromTransfer ||
+      asaasAccountIdFromStatus;
+
+    if (!asaasCustomerId && !finalAsaasAccountId) {
+      this.logger.warn(
+        `Webhook do Asaas sem ID válido. Nenhum dos campos esperados foi encontrado.`,
       );
       throw new UnauthorizedException(
-        'Token de acesso ou ID de cliente ausente.',
+        'Identificador do cliente ou da conta ausente no payload.',
       );
     }
 
-    const asaasCustomer = await this.prisma.asaasCustomer.findFirst({
-      where: { asaasCustomerId: asaasCustomerId },
-      include: {
-        subAccount: true,
-      },
-    });
+    let subAccount: SubAccount | null = null;
 
-    if (!asaasCustomer || !asaasCustomer.subAccount?.asaasWebhookToken) {
+    if (asaasCustomerId) {
+      const asaasCustomer = await this.prisma.asaasCustomer.findFirst({
+        where: { asaasCustomerId: asaasCustomerId },
+        include: { subAccount: true },
+      });
+      subAccount = asaasCustomer?.subAccount ?? null;
+    } else if (finalAsaasAccountId) {
+      subAccount = await this.prisma.subAccount.findUnique({
+        where: { asaasAccountId: finalAsaasAccountId },
+      });
+    }
+
+    if (!subAccount || !subAccount.asaasWebhookToken) {
       this.logger.warn(
-        `Nenhuma subconta ou token de webhook encontrado para o Asaas Customer ID: ${asaasCustomerId}`,
+        `Nenhuma subconta ou token de webhook encontrado para os identificadores recebidos (Customer: ${asaasCustomerId}, Account: ${finalAsaasAccountId}).`,
       );
       throw new UnauthorizedException(
         'Subconta ou token de webhook não encontrado.',
       );
     }
 
-    const storedToken = asaasCustomer.subAccount.asaasWebhookToken;
+    const storedToken = subAccount.asaasWebhookToken;
     const storedTokenBuffer = Buffer.from(storedToken);
     const receivedTokenBuffer = Buffer.from(tokenFromHeader);
 

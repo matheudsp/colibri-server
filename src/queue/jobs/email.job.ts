@@ -14,7 +14,8 @@ export interface RecoveryPasswordJob {
 
 export interface NotificationAction {
   text: string;
-  path: string;
+  path?: string;
+  url?: string;
 }
 export interface NotificationJob {
   user: {

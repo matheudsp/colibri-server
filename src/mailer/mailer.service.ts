@@ -132,7 +132,7 @@ export class MailerService {
     const buildUrlAction = action
       ? {
           text: action.text,
-          url: `${this.appUrl}${action.path}`,
+          url: action.url || `${this.appUrl}${action.path}`,
         }
       : undefined;
 

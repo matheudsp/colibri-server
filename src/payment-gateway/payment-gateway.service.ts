@@ -127,6 +127,10 @@ export class PaymentGatewayService {
             'PAYMENT_RECEIVED', // Pagamento recebido (creditado na conta)
             // 'PAYMENT_DELETED',
             // 'PAYMENT_REFUNDED',
+
+            'ACCOUNT_STATUS_GENERAL_APPROVAL_APPROVED',
+            'ACCOUNT_STATUS_GENERAL_APPROVAL_REJECTED',
+            'ACCOUNT_STATUS_DOCUMENT_REJECTED',
           ],
         },
       ],
@@ -289,13 +293,20 @@ export class PaymentGatewayService {
         `Iniciando solicitação de transferência PIX para a chave: ${transferData.pixAddressKey}`,
       );
 
-      // O payload agora segue exatamente o que a API do Asaas espera para PIX
       const payload = {
+        operationType: 'PIX',
         value: transferData.value,
         pixAddressKey: transferData.pixAddressKey,
         pixAddressKeyType: transferData.pixAddressKeyType,
         description: transferData.description,
       };
+
+      this.logger.debug(
+        `[DEBUG] API Key utilizada para transferência: ${apiKey.substring(0, 15)}...`,
+      );
+      this.logger.debug(
+        `[DEBUG] Payload enviado para Asaas /transfers: ${JSON.stringify(payload, null, 2)}`,
+      );
 
       const response = await firstValueFrom(
         this.httpService.post(endpoint, payload, {
@@ -359,6 +370,30 @@ export class PaymentGatewayService {
       }
       throw new InternalServerErrorException(
         'Ocorreu um erro ao se comunicar com o gateway de pagamento para criar a transferência.',
+      );
+    }
+  }
+
+  /**
+   * Busca os documentos necessários e os links de onboarding.
+   */
+  async getRequiredDocuments(apiKey: string): Promise<any> {
+    const endpoint = `${this.asaasApiUrl}/myAccount/documents`;
+    try {
+      this.logger.log(`Buscando documentos necessários para a conta...`);
+      const response = await firstValueFrom(
+        this.httpService.get(endpoint, {
+          headers: { 'Content-Type': 'application/json', access_token: apiKey },
+        }),
+      );
+      return response.data;
+    } catch (error) {
+      this.logger.error(
+        'Falha ao buscar documentos no Asaas',
+        error.response?.data,
+      );
+      throw new InternalServerErrorException(
+        'Falha ao consultar a documentação necessária no gateway de pagamento.',
       );
     }
   }

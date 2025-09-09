@@ -154,6 +154,7 @@ export class PaymentsOrdersService {
   async confirmPaymentByChargeId(
     asaasChargeId: string,
     amountPaid: number,
+    netValue: number,
     paidAt: Date,
   ) {
     const bankSlip = await this.prisma.bankSlip.findUnique({
@@ -179,6 +180,7 @@ export class PaymentsOrdersService {
       data: {
         status: PaymentStatus.PAGO,
         amountPaid,
+        netValue,
         paidAt,
       },
       include: {
@@ -220,37 +222,50 @@ export class PaymentsOrdersService {
     const { contract } = paymentOrder;
     const { landlord } = contract;
 
-    if (!landlord.bankAccount) {
+    if (!landlord.bankAccount || !landlord.subAccount?.apiKey) {
       this.logger.warn(
-        `[Repasse Automático] Locador ${landlord.id} do contrato ${contract.id} não possui conta bancária cadastrada. Repasse ignorado.`,
-      );
-      return;
-    }
-
-    if (!landlord.subAccount?.apiKey) {
-      this.logger.warn(
-        `[Repasse Automático] Locador ${landlord.id} não possui uma subconta Asaas configurada. Repasse ignorado.`,
+        `[Repasse Automático] Locador ${landlord.id} não possui conta bancária ou subconta configurada. Repasse ignorado.`,
       );
       return;
     }
 
     if (
       paymentOrder.amountPaid === null ||
-      paymentOrder.amountPaid === undefined
+      paymentOrder.netValue === null || // Adicionada verificação para netValue
+      paymentOrder.amountPaid === undefined ||
+      paymentOrder.netValue === undefined
     ) {
       this.logger.error(
-        `[Repasse Automático] Falha ao solicitar transferência para o locador ${landlord.id}. O valor pago (amountPaid) é nulo.`,
+        `[Repasse Automático] Falha ao solicitar transferência para o locador ${landlord.id}. O valor pago (amountPaid) ou líquido (netValue) é nulo.`,
       );
       return;
     }
 
     try {
+      const platformFeePercentage = 0.05; // 5% de comissão da plataforma
+      const grossAmount = paymentOrder.amountPaid.toNumber();
+      const netAmountFromAsaas = paymentOrder.netValue.toNumber();
+
+      // Calcula a comissão da plataforma baseada no valor BRUTO
+      const platformCommission = grossAmount * platformFeePercentage;
+
+      // O valor final a ser transferido é o valor líquido (após taxa Asaas) MENOS a comissão da plataforma
+      const finalTransferAmount = netAmountFromAsaas - platformCommission;
+
+      if (finalTransferAmount <= 0) {
+        this.logger.warn(
+          `[Repasse Automático] Valor final para transferência para o locador ${landlord.id} é zero ou negativo (${finalTransferAmount}). Repasse ignorado.`,
+        );
+        return;
+      }
+
       const transferPayload: CreateAsaasPixTransferDto = {
-        value: paymentOrder.amountPaid.toNumber(),
+        operationType: 'PIX',
+        value: finalTransferAmount, // <-- USAR O VALOR FINAL CALCULADO
         pixAddressKey: landlord.bankAccount.pixAddressKey,
         pixAddressKeyType: landlord.bankAccount
           .pixAddressKeyType as PixAddressKeyType,
-        description: `Repasse automático aluguel do ${contract.tenant.name} - Data do alugel ${paymentOrder.dueDate}`,
+        description: `Repasse aluguel ${contract.property.title} - Inquilino: ${contract.tenant.name}`,
       };
 
       await this.paymentGatewayService.createPixTransfer(
@@ -264,7 +279,7 @@ export class PaymentsOrdersService {
       });
 
       this.logger.log(
-        `[Repasse Automático] Transferência PIX para o locador ${landlord.id} solicitada e status atualizado para RECEBIDO.`,
+        `[Repasse Automático] Transferência PIX de R$ ${finalTransferAmount.toFixed(2)} para o locador ${landlord.id} solicitada com sucesso.`,
       );
     } catch (error) {
       this.logger.error(

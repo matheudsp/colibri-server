@@ -6,9 +6,16 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { ContractsModule } from '../contracts/contracts.module';
 import { HttpModule } from '@nestjs/axios';
 import { StorageModule } from 'src/storage/storage.module';
+import { SubaccountsModule } from '../subaccounts/subaccounts.module';
 
 @Module({
-  imports: [PaymentsOrdersModule, ContractsModule, HttpModule, StorageModule],
+  imports: [
+    PaymentsOrdersModule,
+    ContractsModule,
+    HttpModule,
+    StorageModule,
+    SubaccountsModule,
+  ],
   controllers: [WebhooksController],
   providers: [WebhooksService, PrismaService],
 })

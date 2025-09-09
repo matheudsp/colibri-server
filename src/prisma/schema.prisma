@@ -145,13 +145,20 @@ model SubAccount {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id])
 
-  asaasWalletId     String?         @unique
-  asaasAccountId    String          @unique
+  asaasWalletId     String? @unique
+  asaasAccountId    String  @unique
   apiKey            String
-  asaasWebhookToken String?         @unique
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  AsaasCustomer     AsaasCustomer[]
+  asaasWebhookToken String? @unique
+
+  onboardingUrl         String?
+  statusGeneral         String? // 'APPROVED', 'PENDING'
+  statusDocumentation   String?
+  statusCommercialInfo  String?
+  statusBankAccountInfo String?
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  AsaasCustomer AsaasCustomer[]
 }
 
 model AsaasCustomer {
@@ -308,6 +315,7 @@ model PaymentOrder {
   contractId   String
   amountDue    Decimal
   amountPaid   Decimal?
+  netValue     Decimal?
   dueDate      DateTime       @default(now()) @db.Date
   paidAt       DateTime?      @db.Date
   status       PaymentStatus  @default(PENDENTE)

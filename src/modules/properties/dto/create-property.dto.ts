@@ -34,12 +34,7 @@ export class CreatePropertyDto {
   @Expose() @ApiProperty() @IsString() @IsOptional() complement?: string;
   @Expose() @ApiProperty() @IsString() @IsNotEmpty() district: string;
   @Expose() @ApiProperty() @IsString() @IsNotEmpty() city: string;
-  @Expose()
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  @Length(2, 2)
-  state: string;
+  @Expose() @ApiProperty() @IsString() @IsNotEmpty() state: string;
   @Expose() @ApiProperty() @IsNumber() @Min(1) areaInM2: number;
   @Expose() @ApiProperty() @IsNumber() @Min(0) numRooms: number;
   @Expose() @ApiProperty() @IsNumber() @Min(0) numBathrooms: number;

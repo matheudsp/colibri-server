@@ -96,6 +96,7 @@ export interface CreateAsaasTransferDto {
   };
 }
 export interface CreateAsaasPixTransferDto {
+  operationType: 'PIX' | 'TED';
   value: number;
   pixAddressKey: string;
   pixAddressKeyType: 'CPF' | 'CNPJ' | 'EMAIL' | 'PHONE' | 'EVP';
