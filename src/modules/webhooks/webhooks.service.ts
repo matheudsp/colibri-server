@@ -7,6 +7,7 @@ import { HttpService } from '@nestjs/axios';
 import { getPdfFileName } from 'src/common/utils/pdf-naming-helper.utils';
 import { firstValueFrom } from 'rxjs';
 import { SubaccountsService } from '../subaccounts/subaccounts.service';
+import { TransfersService } from '../transfers/transfers.service';
 
 @Injectable()
 export class WebhooksService {
@@ -19,6 +20,7 @@ export class WebhooksService {
     private readonly httpService: HttpService,
     private readonly storageService: StorageService,
     private readonly subaccountsService: SubaccountsService,
+    private readonly transfersService: TransfersService,
   ) {}
 
   async processClicksignEvent(payload: any) {
@@ -135,7 +137,6 @@ export class WebhooksService {
             paidAt,
           );
           break;
-          break;
 
         case 'PAYMENT_OVERDUE':
           await this.paymentsService.handleOverduePayment(asaasChargeId);
@@ -173,7 +174,7 @@ export class WebhooksService {
         await this.subaccountsService.handleAccountStatusUpdate(account);
       }
     } else if (transfer) {
-      // Lógica de transferência
+      await this.transfersService.handleTransferStatusUpdate(transfer);
     } else {
       this.logger.warn(
         `[Webhook] Evento '${event}' recebido sem um payload de 'payment' ou 'account'. Ignorando.`,

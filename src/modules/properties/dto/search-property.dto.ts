@@ -22,13 +22,6 @@ export class SearchPropertyDto {
   @IsString()
   q?: string;
 
-  // @Expose()
-  // @ApiProperty({ required: false })
-  // @IsOptional()
-  // @IsString()
-  // @Length(1, 100, { message: 'Nome deve ter entre 1 e 100 caracteres' })
-  // title?: string;
-
   @Expose()
   @ApiProperty({ enum: PropertyType, required: false })
   @IsEnum(PropertyType)
@@ -72,20 +65,17 @@ export class SearchPropertyDto {
   @Expose()
   @ApiProperty({
     required: false,
-    description: 'Campo para ordenação',
-    enum: ['createdAt', 'rentValue'],
+    description: 'Critério de ordenação dos resultados.',
+    enum: [
+      'createdAt:desc',
+      'price:asc',
+      'price:desc',
+      'size:asc',
+      'size:desc',
+    ],
+    default: 'createdAt:desc',
   })
   @IsOptional()
-  @IsIn(['createdAt', 'rentValue'])
-  sortBy?: 'createdAt' | 'rentValue';
-
-  @Expose()
-  @ApiProperty({
-    required: false,
-    description: 'Ordem da ordenação',
-    enum: ['asc', 'desc'],
-  })
-  @IsOptional()
-  @IsIn(['asc', 'desc'])
-  sortOrder?: 'asc' | 'desc';
+  @IsIn(['createdAt:desc', 'price:asc', 'price:desc', 'size:asc', 'size:desc'])
+  sort?: string;
 }

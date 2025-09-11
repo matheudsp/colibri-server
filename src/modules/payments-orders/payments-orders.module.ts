@@ -9,6 +9,7 @@ import { AsaasCustomersModule } from '../asaas-customers/asaas-customers.module'
 import { BankSlipsModule } from '../bank-slips/bank-slips.module';
 import { QueueModule } from 'src/queue/queue.module';
 import { UserModule } from '../users/users.module';
+import { TransfersService } from '../transfers/transfers.service';
 
 @Module({
   imports: [
@@ -18,7 +19,12 @@ import { UserModule } from '../users/users.module';
     forwardRef(() => QueueModule),
     forwardRef(() => UserModule),
   ],
-  providers: [PaymentsOrdersService, PrismaService, LogHelperService],
+  providers: [
+    PaymentsOrdersService,
+    PrismaService,
+    LogHelperService,
+    TransfersService,
+  ],
   controllers: [PaymentsOrdersController],
   exports: [PaymentsOrdersService],
 })

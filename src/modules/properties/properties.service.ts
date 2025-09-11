@@ -222,128 +222,77 @@ export class PropertiesService {
       propertyType,
       page = 1,
       limit = 10,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
+      sort = 'createdAt:desc',
     } = params;
 
     const skip = (page - 1) * limit;
 
-    if (q) {
-      const normalizedQ = q.replace(/-/g, ' ').trim();
-
-      // Primeiro: buscar apenas os IDs que casam
-      const propertyIds = await this.prisma.$queryRawUnsafe<{ id: string }[]>(`
-          SELECT p.id
-          FROM "Property" p
-          WHERE p."isAvailable" = true
-          ${transactionType ? `AND p."transactionType" = '${transactionType}'` : ''}
-          ${propertyType ? `AND p."propertyType" = '${propertyType}'` : ''}
-          AND (
-            unaccent(lower(p."title")) LIKE unaccent(lower('%${normalizedQ}%'))
-            OR unaccent(lower(p."street")) LIKE unaccent(lower('%${normalizedQ}%'))
-            OR unaccent(lower(p."district")) LIKE unaccent(lower('%${normalizedQ}%'))
-            OR unaccent(lower(p."city")) LIKE unaccent(lower('%${normalizedQ}%'))
-            OR unaccent(lower(p."state")) LIKE unaccent(lower('%${normalizedQ}%'))
-            OR unaccent(lower(p."cep")) LIKE unaccent(lower('%${normalizedQ}%'))
-          )
-          ORDER BY p."${sortBy}" ${sortOrder.toUpperCase()}
-          LIMIT ${limit} OFFSET ${skip};
-      `);
-
-      const ids = propertyIds.map((p) => p.id);
-
-      // Agora usa Prisma normalmente com relations
-      const properties = await this.prisma.property.findMany({
-        where: { id: { in: ids } },
-        include: {
-          landlord: { select: { name: true, email: true, phone: true } },
-          photos: true,
-        },
-      });
-
-      // Busca o total
-      const total = await this.prisma.$queryRawUnsafe<{ count: number }[]>(`
-    SELECT COUNT(*)::int as count
-    FROM "Property" p
-    WHERE p."isAvailable" = true
-    ${transactionType ? `AND p."transactionType" = '${transactionType}'` : ''}
-    ${propertyType ? `AND p."propertyType" = '${propertyType}'` : ''}
-    AND (
-      unaccent(lower(p."title")) LIKE unaccent(lower('%${normalizedQ}%'))
-      OR unaccent(lower(p."street")) LIKE unaccent(lower('%${normalizedQ}%'))
-      OR unaccent(lower(p."district")) LIKE unaccent(lower('%${normalizedQ}%'))
-      OR unaccent(lower(p."city")) LIKE unaccent(lower('%${normalizedQ}%'))
-      OR unaccent(lower(p."state")) LIKE unaccent(lower('%${normalizedQ}%'))
-      OR unaccent(lower(p."cep")) LIKE unaccent(lower('%${normalizedQ}%'))
-    );
-  `);
-      const propertiesWithSignedUrls = await Promise.all(
-        properties.map(async (property) => {
-          const photosWithUrls =
-            await this.propertyPhotosService.getPhotosByProperty(
-              property.id,
-              true,
-            );
-          return { ...property, photos: photosWithUrls };
-        }),
-      );
-      return {
-        properties: propertiesWithSignedUrls,
-        meta: {
-          total: total[0]?.count || 0,
-          page,
-          limit,
-          totalPages: Math.ceil((total[0]?.count || 0) / limit),
-        },
-      };
-    }
-
-    const where: Prisma.PropertyWhereInput = {
-      isAvailable: true,
-      AND: [],
+    // 1. Traduz o parâmetro de ordenação para o formato do Prisma
+    const [sortField, sortDirection] = sort.split(':');
+    const sortMap = {
+      createdAt: 'createdAt',
+      price: 'value',
+      size: 'areaInM2',
     };
+    const dbField = sortMap[sortField];
 
-    if (transactionType) {
-      (where.AND as Prisma.PropertyWhereInput[]).push({
-        transactionType,
-      });
-    }
-
-    if (state) {
-      (where.AND as Prisma.PropertyWhereInput[]).push({
-        state: { equals: state, mode: 'insensitive' },
-      });
-    }
-
-    if (city) {
-      (where.AND as Prisma.PropertyWhereInput[]).push({
-        city: { contains: city, mode: 'insensitive' },
-      });
-    }
-
-    if (propertyType) {
-      (where.AND as Prisma.PropertyWhereInput[]).push({
-        propertyType,
-      });
+    if (!dbField) {
+      throw new BadRequestException('Parâmetro de ordenação inválido.');
     }
 
     const orderBy: Prisma.PropertyOrderByWithRelationInput = {
-      [sortBy]: sortOrder,
+      [dbField]: sortDirection,
     };
 
-    const [properties, total] = await Promise.all([
+    // 2. Constrói uma única e poderosa cláusula 'where' para o Prisma
+    const where: Prisma.PropertyWhereInput = {
+      isAvailable: true,
+    };
+
+    // Adiciona os filtros específicos que sempre são aplicados com 'AND'
+    const andFilters: Prisma.PropertyWhereInput[] = [];
+    if (transactionType) andFilters.push({ transactionType });
+    if (propertyType) andFilters.push({ propertyType });
+    if (state)
+      andFilters.push({ state: { equals: state, mode: 'insensitive' } });
+    if (city)
+      andFilters.push({ city: { contains: city, mode: 'insensitive' } });
+
+    // Se o parâmetro de busca textual 'q' existir, cria um bloco 'OR'
+    if (q) {
+      const normalizedQ = q.replace(/-/g, ' ').trim();
+      andFilters.push({
+        OR: [
+          { title: { contains: normalizedQ, mode: 'insensitive' } },
+          { street: { contains: normalizedQ, mode: 'insensitive' } },
+          { district: { contains: normalizedQ, mode: 'insensitive' } },
+          { city: { contains: normalizedQ, mode: 'insensitive' } },
+          { state: { contains: normalizedQ, mode: 'insensitive' } },
+          { cep: { contains: normalizedQ, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    if (andFilters.length > 0) {
+      where.AND = andFilters;
+    }
+
+    // 3. Executa a busca e a contagem em uma única transação
+    const [properties, total] = await this.prisma.$transaction([
       this.prisma.property.findMany({
         where,
         skip,
         take: limit,
-        orderBy,
+        orderBy, // A ordenação é aplicada aqui na consulta principal
         include: {
           landlord: { select: { name: true, email: true } },
           photos: { where: { isCover: true }, take: 1 },
         },
       }),
-      this.prisma.property.count({ where }),
+      this.prisma.property.count({ where }), // A contagem usa exatamente os mesmos filtros
     ]);
+
+    // 4. Adiciona as URLs assinadas (lógica inalterada)
     const propertiesWithSignedUrls = await Promise.all(
       properties.map(async (property) => {
         const photosWithUrls =
@@ -354,6 +303,7 @@ export class PropertiesService {
         return { ...property, photos: photosWithUrls };
       }),
     );
+
     return {
       properties: propertiesWithSignedUrls,
       meta: {

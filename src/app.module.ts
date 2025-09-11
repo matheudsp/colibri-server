@@ -32,6 +32,7 @@ import { ClicksignModule } from './modules/clicksign/clicksign.module';
 import { TestModule } from './modules/test/test.module';
 import { VerificationModule } from './modules/verification/verification.module';
 import { TwoFactorAuthModule } from './modules/two-factor-auth/two-factor-auth.module';
+import { TransfersModule } from './modules/transfers/transfers.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { TwoFactorAuthModule } from './modules/two-factor-auth/two-factor-auth.m
     TestModule,
     VerificationModule,
     TwoFactorAuthModule,
+    TransfersModule,
   ],
   providers: [
     {
