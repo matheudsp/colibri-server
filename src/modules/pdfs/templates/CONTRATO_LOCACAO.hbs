@@ -108,11 +108,20 @@
             <p>O prazo de locação é de <strong>{{durationInMonths}} meses</strong>, com início em <strong>{{formatDate startDate "dd/MM/yyyy"}}</strong> e término previsto para <strong>{{formatDate endDate "dd/MM/yyyy"}}</strong>. Ao final do prazo, o(a) LOCATÁRIO(A) deverá restituir o imóvel, independentemente de notificação.</p>
         </li>
         
-        <li>
+      <li>
             <strong class='clausula-titulo'>VALOR E PAGAMENTO</strong>
-            <p>O valor mensal do aluguel é de <strong>{{formatCurrency rentAmount}}</strong>, com vencimento no <strong>dia {{formatDate startDate "dd"}}</strong> de cada mês. O pagamento será efetuado via boleto bancário.</p>
-            <p><strong>Parágrafo Primeiro:</strong> O não pagamento até a data de vencimento implicará em multa, juros ao mês e correção monetária sobre o valor devido.</p>
-            <p><strong>Parágrafo Segundo:</strong> Além do aluguel, são de responsabilidade do(a) LOCATÁRIO(A) as despesas de condomínio (se houver), IPTU, e contas de consumo como água, energia e gás.</p>
+            <p>O valor mensal total da locação é de <strong>{{formatCurrency totalAmount}}</strong>, a ser pago até o <strong>dia {{formatDate startDate "dd"}}</strong> de cada mês, composto pelos seguintes valores:</p>
+            <ul style="padding-left: 20px; margin-top: 0; list-style-type: none;">
+                <li>Aluguel: <strong>{{formatCurrency rentAmount}}</strong></li>
+                {{#if condoFee}}
+                <li>(+) Condomínio: <strong>{{formatCurrency condoFee}}</strong></li>
+                {{/if}}
+                {{#if iptuFee}}
+                <li>(+) IPTU: <strong>{{formatCurrency iptuFee}}</strong></li>
+                {{/if}}
+            </ul>
+            <p><strong>Parágrafo Primeiro:</strong> O não pagamento do valor total até a data de vencimento implicará em <strong>multa de 2% (dois por cento)</strong> sobre o montante devido, acrescido de <strong>juros de mora de 1% (um por cento) ao mês</strong>, calculados pro rata die.</p>
+            <p><strong>Parágrafo Segundo:</strong> Além dos valores acima, são de responsabilidade do(a) LOCATÁRIO(A) as contas de consumo como água, energia elétrica, gás e outras que venham a incidir sobre o imóvel.</p>
         </li>
 
         <li>

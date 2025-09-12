@@ -13,6 +13,7 @@ export class PaymentsScheduler {
    * Roda todo dia à 1 da manhã para atualizar o status de pagamentos pendentes para atrasados.
    */
   @Cron(CronExpression.EVERY_DAY_AT_1AM, { name: 'updateOverduePayments' })
+  // @Cron(CronExpression.EVERY_5_MINUTES, { name: 'updateOverduePayments' })
   async handleUpdateOverduePayments() {
     this.logger.log('Iniciando verificação de pagamentos vencidos...');
 
@@ -24,7 +25,7 @@ export class PaymentsScheduler {
       where: {
         status: PaymentStatus.PENDENTE,
         dueDate: {
-          lt: today, // 'lt' - less than
+          lt: today,
         },
       },
       data: {

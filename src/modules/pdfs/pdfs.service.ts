@@ -216,6 +216,10 @@ export class PdfsService {
     if (!Object.values(PdfType).includes(pdfType as PdfType)) {
       throw new Error(`Tipo de PDF inválido: ${pdfType}`);
     }
+    const totalAmount =
+      contract.rentAmount.toNumber() +
+      (contract.condoFee?.toNumber() ?? 0) +
+      (contract.iptuFee?.toNumber() ?? 0);
 
     const templateData: ContractTemplateData = {
       landlord: {
@@ -244,6 +248,7 @@ export class PdfsService {
       rentAmount: contract.rentAmount.toNumber(),
       condoFee: contract.condoFee?.toNumber(),
       iptuFee: contract.iptuFee?.toNumber(),
+      totalAmount: totalAmount,
       guaranteeType: contract.guaranteeType,
       securityDeposit: contract.securityDeposit?.toNumber(),
       now: new Date(),

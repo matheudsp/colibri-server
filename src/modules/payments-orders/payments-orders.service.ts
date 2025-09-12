@@ -281,9 +281,76 @@ export class PaymentsOrdersService {
   }
 
   async handleOverduePayment(asaasChargeId: string) {
-    await this.updatePaymentStatusByChargeId(
-      asaasChargeId,
-      PaymentStatus.ATRASADO,
+    const bankSlip = await this.prisma.bankSlip.findUnique({
+      where: { asaasChargeId },
+      include: {
+        paymentOrder: {
+          include: {
+            contract: {
+              include: {
+                property: { select: { title: true } },
+                tenant: { select: { name: true, email: true } },
+                landlord: { select: { name: true, email: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!bankSlip || !bankSlip.paymentOrder) {
+      this.logger.warn(
+        `[Webhook] Boleto com asaasChargeId ${asaasChargeId} ou ordem de pagamento associada não encontrado. Evento de vencimento ignorado.`,
+      );
+      return;
+    }
+
+    const { paymentOrder } = bankSlip;
+    const { contract } = paymentOrder;
+
+    await this.prisma.paymentOrder.update({
+      where: { id: paymentOrder.id },
+      data: { status: PaymentStatus.ATRASADO },
+    });
+
+    this.logger.log(
+      `[Webhook] Status do pagamento ${paymentOrder.id} atualizado para ATRASADO.`,
+    );
+
+    const tenantJob: NotificationJob = {
+      user: {
+        email: contract.tenant.email,
+        name: contract.tenant.name,
+      },
+      notification: {
+        title: '⚠️ Lembrete: Sua Fatura de Aluguel Venceu',
+        message: `Olá, ${contract.tenant.name}. Identificamos que a fatura do aluguel referente ao imóvel "${contract.property.title}", no valor de ${CurrencyUtils.formatCurrency(paymentOrder.amountDue.toNumber())}, está vencida. Para evitar encargos adicionais, por favor, regularize o pagamento o mais breve possível.`,
+      },
+      action: {
+        text: 'Regularizar Pagamento',
+        path: `/pagamentos`,
+      },
+    };
+    await this.emailQueue.add(EmailJobType.NOTIFICATION, tenantJob);
+
+    const landlordJob: NotificationJob = {
+      user: {
+        email: contract.landlord.email,
+        name: contract.landlord.name,
+      },
+      notification: {
+        title: 'Aviso: Fatura em Atraso',
+        message: `Olá, ${contract.landlord.name}. A fatura de aluguel do imóvel "${contract.property.title}", com vencimento em ${DateUtils.formatDate(paymentOrder.dueDate)}, ainda não foi paga pelo inquilino ${contract.tenant.name}.`,
+      },
+      action: {
+        text: 'Ver Detalhes',
+        path: `/pagamentos`,
+      },
+    };
+    await this.emailQueue.add(EmailJobType.NOTIFICATION, landlordJob);
+
+    this.logger.log(
+      `Notificações de fatura vencida enfileiradas para a ordem de pagamento ${paymentOrder.id}.`,
     );
   }
 
@@ -320,7 +387,7 @@ export class PaymentsOrdersService {
       },
       action: {
         text: 'Ver Meus Pagamentos',
-        path: `/contracts/${contract.id}/payments`,
+        path: `/pagamentos`,
       },
     };
     await this.emailQueue.add(EmailJobType.NOTIFICATION, tenantJob);
@@ -337,7 +404,7 @@ export class PaymentsOrdersService {
       },
       action: {
         text: 'Ver Extrato de Pagamentos',
-        path: `/contracts/${contract.id}/payments`,
+        path: `/contrato/${contract.id}`,
       },
     };
     await this.emailQueue.add(EmailJobType.NOTIFICATION, landlordJob);

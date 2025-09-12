@@ -1,12 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { startOfDay, endOfDay, addDays } from 'date-fns';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { BankSlipJobType } from 'src/queue/jobs/bank-slip';
 import { QueueName } from 'src/queue/jobs/jobs';
-
+import { startOfToday } from 'date-fns';
+import { PaymentStatus } from '@prisma/client';
 @Injectable()
 export class BankSlipsScheduler {
   private readonly logger = new Logger(BankSlipsScheduler.name);
@@ -22,15 +22,15 @@ export class BankSlipsScheduler {
    */
   @Cron(CronExpression.EVERY_DAY_AT_6AM, { name: 'generateMonthlyBankSlips' })
   async handleCron() {
-    const now = new Date();
-    const startDate = startOfDay(now);
-    const endDate = endOfDay(addDays(now, 7));
+    const today = startOfToday();
 
     const pendingPaymentOrders = await this.prisma.paymentOrder.findMany({
       where: {
-        status: 'PENDENTE',
+        status: PaymentStatus.PENDENTE,
         bankSlip: null,
-        dueDate: { gte: startDate, lte: endDate },
+        dueDate: {
+          gte: today, // Garante que não pegamos faturas já vencidas
+        },
       },
       select: { id: true },
     });

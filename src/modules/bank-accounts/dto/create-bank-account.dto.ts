@@ -47,4 +47,12 @@ export class CreateBankAccountDto {
     message: 'A chave aleatória (EVP) deve ter o formato de um UUID.',
   })
   pixAddressKey: string;
+
+  @ApiProperty({
+    description:
+      'Token de verificação recebido após a confirmação do código OTP.',
+  })
+  @IsString()
+  @IsNotEmpty()
+  actionToken: string;
 }

@@ -2,6 +2,7 @@
  * Define os contextos para ações críticas que exigem verificação por OTP.
  */
 export const VerificationContexts = {
+  CREATE_BANK_ACCOUNT: 'CREATE_BANK_ACCOUNT',
   PIX_KEY_UPDATE: 'PIX_KEY_UPDATE',
   DELETE_PROPERTY: 'DELETE_PROPERTY',
   CANCEL_CONTRACT: 'CANCEL_CONTRACT',

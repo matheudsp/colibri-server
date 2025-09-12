@@ -15,6 +15,7 @@ import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import Redis from 'ioredis';
 import { VerificationContexts } from 'src/common/constants/verification-contexts.constant';
+import { VerificationService } from '../verification/verification.service';
 @Injectable()
 export class BankAccountsService {
   private readonly logger = new Logger(BankAccountsService.name);
@@ -23,6 +24,7 @@ export class BankAccountsService {
     private prisma: PrismaService,
     private subaccountService: SubaccountsService,
     private paymentGateway: PaymentGatewayService,
+    private verificationService: VerificationService,
     @InjectRedis() private readonly redis: Redis,
   ) {}
 
@@ -30,6 +32,12 @@ export class BankAccountsService {
     createBankAccountDto: CreateBankAccountDto,
     currentUser: JwtPayload,
   ) {
+    const { actionToken } = createBankAccountDto;
+    await this.verificationService.consumeActionToken(
+      actionToken,
+      VerificationContexts.CREATE_BANK_ACCOUNT,
+      currentUser.sub,
+    );
     const user = await this.prisma.user.findUnique({
       where: { id: currentUser.sub },
       include: {
@@ -106,22 +114,22 @@ export class BankAccountsService {
       throw new NotFoundException('Usuário não encontrado.');
     }
 
-    let balance = null;
-    // Se o usuário tiver uma subconta com apiKey, busca o saldo.
-    if (user.subAccount?.apiKey) {
-      try {
-        balance = await this.paymentGateway.getBalance(user.subAccount.apiKey);
-      } catch (error) {
-        this.logger.error(
-          `Falha ao buscar saldo para o usuário ${currentUser.sub}`,
-          error,
-        );
-        // Em caso de erro, o saldo permanece nulo, mas a requisição não falha.
-      }
-    }
+    // let balance = null;
+    // // Se o usuário tiver uma subconta com apiKey, busca o saldo.
+    // if (user.subAccount?.apiKey) {
+    //   try {
+    //     balance = await this.paymentGateway.getBalance(user.subAccount.apiKey);
+    //   } catch (error) {
+    //     this.logger.error(
+    //       `Falha ao buscar saldo para o usuário ${currentUser.sub}`,
+    //       error,
+    //     );
+    //     // Em caso de erro, o saldo permanece nulo, mas a requisição não falha.
+    //   }
+    // }
 
     return {
-      balance,
+      // balance,
       bankAccount: user.bankAccount,
       subAccount: user.subAccount
         ? {
@@ -140,18 +148,12 @@ export class BankAccountsService {
     currentUser: JwtPayload,
   ) {
     const { actionToken, ...bankAccountData } = updateBankAccountDto;
-    const context = VerificationContexts.PIX_KEY_UPDATE;
 
-    const actionTokenKey = `action-token:${currentUser.sub}:${context}`;
-    const storedToken = await this.redis.get(actionTokenKey);
-
-    if (!storedToken || storedToken !== actionToken) {
-      throw new ForbiddenException(
-        'Ação não autorizada. A verificação é necessária ou o token expirou.',
-      );
-    }
-
-    await this.redis.del(actionTokenKey);
+    await this.verificationService.consumeActionToken(
+      actionToken,
+      VerificationContexts.PIX_KEY_UPDATE,
+      currentUser.sub,
+    );
 
     const existingAccount = await this.prisma.bankAccount.findUnique({
       where: { userId: currentUser.sub },

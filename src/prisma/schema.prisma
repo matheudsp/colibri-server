@@ -141,11 +141,12 @@ model User {
   contractsAsLandlord Contract[]         @relation("LandlordContracts")
   contractsAsTenant   Contract[]         @relation("TenantContracts")
   logs                Log[]
-  webhooks            Webhook[]
+  // webhooks            Webhook[]
   bankAccount         BankAccount?
   subAccount          SubAccount?
   asaasCustomers      AsaasCustomer[]    @relation("TenantAsaasCustomers")
   signatureRequests   SignatureRequest[]
+  transfers           Transfer[]
 }
 
 model SubAccount {
@@ -196,19 +197,19 @@ model BankAccount {
   updatedAt DateTime @updatedAt
 }
 
-model Webhook {
-  id         String   @id @default(uuid())
-  name       String
-  url        String
-  email      String
-  sendType   String
-  apiVersion Int      @default(3)
-  authToken  String?
-  enabled    Boolean  @default(true)
-  events     String[]
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
-}
+// model Webhook {
+//   id         String   @id @default(uuid())
+//   name       String
+//   url        String
+//   email      String
+//   sendType   String
+//   apiVersion Int      @default(3)
+//   authToken  String?
+//   enabled    Boolean  @default(true)
+//   events     String[]
+//   userId     String
+//   user       User     @relation(fields: [userId], references: [id])
+// }
 
 model Condominium {
   id   String @id @default(uuid())
@@ -335,15 +336,18 @@ model PaymentOrder {
 
 model Transfer {
   id              String         @id @default(uuid())
-  asaasTransferId String         @unique
-  paymentOrderId  String         @unique
-  paymentOrder    PaymentOrder   @relation(fields: [paymentOrderId], references: [id], onDelete: Cascade)
+  asaasTransferId String?        @unique
+  paymentOrderId  String?        @unique
+  paymentOrder    PaymentOrder?  @relation(fields: [paymentOrderId], references: [id], onDelete: Cascade)
   status          TransferStatus @default(PENDING)
   value           Decimal
   effectiveDate   DateTime?
   failReason      String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 }
 
 model PaymentSplit {
@@ -360,6 +364,7 @@ model BankSlip {
   id             String       @id @default(uuid())
   paymentOrderId String       @unique
   asaasChargeId  String       @unique
+  dueDate        DateTime     @db.Date
   bankSlipUrl    String
   invoiceUrl     String
   nossoNumero    String

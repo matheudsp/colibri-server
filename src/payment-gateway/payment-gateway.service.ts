@@ -4,9 +4,11 @@ import {
   InternalServerErrorException,
   Logger,
   BadRequestException,
+  GatewayTimeoutException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, throwError } from 'rxjs';
+import { catchError, delay, retry } from 'rxjs/operators';
 import {
   CreateAsaasChargeDto,
   CreateAsaasCustomerDto,
@@ -42,27 +44,63 @@ export class PaymentGatewayService {
   ): Promise<T> {
     try {
       const response = await firstValueFrom(
-        this.httpService.request<T>({
-          method,
-          url: endpoint,
-          data,
-          headers: {
-            'Content-Type': 'application/json',
-            access_token: apiKey,
-          },
-        }),
+        this.httpService
+          .request<T>({
+            method,
+            url: endpoint,
+            data,
+            headers: {
+              'Content-Type': 'application/json',
+              access_token: apiKey,
+            },
+          })
+          .pipe(
+            retry({
+              count: 3,
+              delay: (error, retryCount) => {
+                this.logger.warn(
+                  `Tentativa ${retryCount} falhou para ${endpoint}. Retentando...`,
+                  error.message,
+                );
+                return throwError(() => error).pipe(
+                  delay(1000 * Math.pow(2, retryCount - 1)),
+                );
+              },
+            }),
+          ),
       );
       return response.data;
     } catch (error) {
-      this.handleError(error, `Erro ao chamar ${endpoint}`);
+      this.handleError(
+        error,
+        `Erro ao chamar ${endpoint} após múltiplas tentativas`,
+      );
     }
   }
 
   private handleError(error: any, defaultMessage: string): never {
-    this.logger.error(defaultMessage, error.response?.data);
-    if (error.response?.data) {
-      throw new BadRequestException(error.response.data);
+    this.logger.error(defaultMessage, error.response?.data || error.message);
+
+    if (error.code === 'ECONNABORTED') {
+      throw new GatewayTimeoutException(
+        'A comunicação com o gateway de pagamentos excedeu o tempo limite. Por favor, tente novamente em alguns instantes.',
+      );
     }
+
+    if (
+      error.response?.data?.errors &&
+      Array.isArray(error.response.data.errors) &&
+      error.response.data.errors.length > 0
+    ) {
+      const firstError = error.response.data.errors[0];
+      const errorMessage =
+        firstError.description ||
+        'Ocorreu um erro ao processar sua solicitação com o gateway de pagamento.';
+
+      throw new BadRequestException(errorMessage);
+    }
+
+    // Fallback para outros tipos de erros
     throw new InternalServerErrorException(defaultMessage);
   }
 
@@ -157,6 +195,12 @@ export class PaymentGatewayService {
     const removeReason = `Conta excluída da plataforma`;
     const endpoint = `${this.asaasApiUrl}/myAccount/?${removeReason}`;
     this.logger.log(`Remover subconta: ${asaasSubAccountId}`);
+    return this.request('delete', endpoint, apiKey);
+  }
+
+  async cancelCharge(apiKey: string, chargeId: string) {
+    const endpoint = `${this.asaasApiUrl}/payments/${chargeId}`;
+    this.logger.log(`Solicitando cancelamento para a cobrança: ${chargeId}`);
     return this.request('delete', endpoint, apiKey);
   }
 

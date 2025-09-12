@@ -58,6 +58,7 @@ export interface ContractTemplateData {
    * Valor da taxa de IPTU (opcional).
    */
   iptuFee?: number | null;
+  totalAmount: number;
   /**
    * O tipo de garantia (ex: "DEPOSITO_CAUCAO", "FIADOR").
    * É um enum do Prisma, mas aqui pode ser tratado como string.

@@ -80,6 +80,14 @@ export interface CreateAsaasChargeDto {
     fixedValue?: number;
     percentualValue?: number;
   }[];
+  daysAfterDueDateToRegistrationCancellation?: number;
+  fine?: {
+    value: number;
+    type?: 'FIXED' | 'PERCENTAGE';
+  };
+  interest?: {
+    value: number;
+  };
 }
 
 export interface CreateAsaasTransferDto {
@@ -101,6 +109,7 @@ export interface CreateAsaasPixTransferDto {
   pixAddressKey: string;
   pixAddressKeyType: 'CPF' | 'CNPJ' | 'EMAIL' | 'PHONE' | 'EVP';
   description?: string;
+  // externalReference?: string;
 }
 export interface WebhookEvent {
   id: 'evt_d26e303b238e509335ac9ba210e51b0f&9922354';
