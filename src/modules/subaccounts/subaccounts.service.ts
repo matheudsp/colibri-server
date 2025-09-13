@@ -11,6 +11,7 @@ import {
   CreateAsaasSubAccountDto,
   CreateAsaasSubAccountResponse,
 } from 'src/common/interfaces/payment-gateway.interface';
+import { formatZipCode } from 'src/common/utils/zip-code.util';
 import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { EmailJobType, type NotificationJob } from 'src/queue/jobs/email.job';
@@ -126,16 +127,16 @@ export class SubaccountsService {
       email: user.email.trim(),
       cpfCnpj: user.cpfCnpj.replace(/\D/g, ''),
       mobilePhone: user.phone!.trim(),
+      incomeValue: user.incomeValue?.toNumber() || 5000,
       address: user.street!.trim(),
       addressNumber: user.number!.trim(),
       province: user.province!.trim(),
-      postalCode: user.cep!.replace(/\D/g, '').substring(0, 8),
-      incomeValue: user.incomeValue?.toNumber() || 5000,
+      postalCode: formatZipCode(user.cep!),
       ...(user.companyType
         ? { companyType: user.companyType }
         : { birthDate: user.birthDate!.toISOString().split('T')[0] }),
     };
-    // console.log(subaccountDto);
+    console.log(subaccountDto);
     const asaasAccount =
       await this.paymentGatewayService.createWhitelabelSubAccount(
         subaccountDto,

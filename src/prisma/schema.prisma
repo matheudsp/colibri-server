@@ -295,20 +295,20 @@ model Contract {
 }
 
 model GeneratedPdf {
-  id                   String             @id @default(uuid())
-  filePath             String
-  pdfType              PdfType
-  generatedAt          DateTime
-  signedFilePath       String?
-  clicksignDocumentKey String?            @unique
-  contractId           String
-  contract             Contract           @relation(fields: [contractId], references: [id])
-  signatureRequests    SignatureRequest[]
+  id                  String             @id @default(uuid())
+  filePath            String
+  pdfType             PdfType
+  generatedAt         DateTime
+  signedFilePath      String?
+  clicksignEnvelopeId String?            @unique
+  contractId          String
+  contract            Contract           @relation(fields: [contractId], references: [id])
+  signatureRequests   SignatureRequest[]
 }
 
 model SignatureRequest {
-  id                  String @id @default(uuid())
-  requestSignatureKey String @unique
+  id                String @id @default(uuid())
+  clicksignSignerId String @unique
 
   generatedPdfId String
   generatedPdf   GeneratedPdf @relation(fields: [generatedPdfId], references: [id], onDelete: Cascade)

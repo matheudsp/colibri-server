@@ -27,13 +27,17 @@ export class WebhooksService {
     const eventName = payload?.event?.name;
     const document = payload?.document;
 
-    if (!eventName || !document) {
-      this.logger.warn(`[Webhook Clicksign] Payload inválido recebido.`);
+    if (!eventName || !document || !document.envelope_key) {
+      this.logger.warn(
+        `[Webhook Clicksign] Payload inválido ou sem envelope_key recebido.`,
+      );
       return;
     }
 
+    const envelopeId = document.envelope_key;
+
     this.logger.log(
-      `[Webhook Clicksign] Evento '${eventName}' recebido para o documento ${document.key}.`,
+      `[Webhook Clicksign] Evento '${eventName}' recebido para o envelope ${envelopeId}.`,
     );
 
     if (
@@ -41,16 +45,14 @@ export class WebhooksService {
       eventName === 'auto_close' ||
       eventName === 'document_closed'
     ) {
-      const documentKey = document.key;
-
       const pdf = await this.prisma.generatedPdf.findUnique({
-        where: { clicksignDocumentKey: documentKey },
+        where: { clicksignEnvelopeId: envelopeId },
         include: { contract: true },
       });
 
       if (!pdf?.contractId) {
         this.logger.warn(
-          `Nenhum PDF no banco de dados encontrado para a Clicksign Document Key: ${documentKey}`,
+          `Nenhum PDF no banco de dados encontrado para o Clicksign Envelope ID: ${envelopeId}`,
         );
         return;
       }
@@ -84,12 +86,12 @@ export class WebhooksService {
           );
         } else {
           this.logger.warn(
-            `[Webhook Clicksign] URL do ficheiro assinado não encontrada no payload para o documento ${documentKey}. O contrato será ativado sem o anexo.`,
+            `[Webhook Clicksign] URL do ficheiro assinado não encontrada no payload para o envelope ${envelopeId}. O contrato será ativado sem o anexo.`,
           );
         }
       } catch (error) {
         this.logger.error(
-          `[Webhook Clicksign] Falha crítica ao guardar o ficheiro assinado para o documento ${documentKey}. O contrato ainda será ativado.`,
+          `[Webhook Clicksign] Falha crítica ao guardar o ficheiro assinado para o envelope ${envelopeId}. O contrato ainda será ativado.`,
           error,
         );
       }

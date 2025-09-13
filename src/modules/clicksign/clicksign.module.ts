@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ClicksignController } from './clicksign.controller';
+// import { ClicksignController } from './clicksign.controller';
 import { ClicksignService } from './clicksign.service';
 import { HttpModule } from '@nestjs/axios';
 import { StorageModule } from 'src/storage/storage.module';
@@ -14,7 +14,7 @@ import { StorageModule } from 'src/storage/storage.module';
     }),
     StorageModule,
   ],
-  controllers: [ClicksignController],
+  // controllers: [ClicksignController],
   providers: [ClicksignService],
   exports: [ClicksignService],
 })

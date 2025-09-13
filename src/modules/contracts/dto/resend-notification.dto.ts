@@ -9,11 +9,11 @@ export class ResendNotificationDto {
   @IsNotEmpty()
   signerId: string;
 
-  @ApiProperty({
-    enum: ['email', 'whatsapp'],
-    description: 'Método de notificação.',
-  })
-  @IsEnum(['email', 'whatsapp'])
-  @IsNotEmpty()
-  method: 'email' | 'whatsapp';
+  // @ApiProperty({
+  //   enum: ['email', 'whatsapp'],
+  //   description: 'Método de notificação.',
+  // })
+  // @IsEnum(['email', 'whatsapp'])
+  // @IsNotEmpty()
+  // method: 'email' | 'whatsapp';
 }

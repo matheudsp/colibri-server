@@ -66,83 +66,76 @@ export class PdfsService {
     const { contract } = pdf;
 
     if (!contract.landlord.phone || !contract.tenant.phone) {
-      this.logger.error(
-        `Tentativa de assinatura falhou: Dados do signatário incompletos para o contrato ${contract.id}.`,
-        {
-          landlordPhone: contract.landlord.phone,
-          tenantPhone: contract.tenant.phone,
-        },
-      );
       throw new BadRequestException(
-        'Não é possível iniciar o processo de assinatura. O locador e o locatário devem ter um número de telefone cadastrado.',
+        'O locador e o locatário devem ter um número de telefone cadastrado.',
       );
     }
 
     const originalFileName = getPdfFileName(pdf.pdfType, contract.id);
-    const clicksignDocument = await this.clicksignService.createDocument(
+    const envelope = await this.clicksignService.createEnvelopeWithDocument(
       pdf.filePath,
       originalFileName,
     );
-    const documentKey = clicksignDocument.document.key;
+    const envelopeId = envelope.id;
 
     await this.prisma.generatedPdf.update({
       where: { id: pdfId },
-      data: { clicksignDocumentKey: documentKey },
+      data: { clicksignEnvelopeId: envelopeId },
     });
-
-    const landlordSigner = await this.clicksignService.createSigner({
-      email: contract.landlord.email,
+    const isLandlordPF = contract.landlord.cpfCnpj.length === 11;
+    const landlordSignerData = {
       name: contract.landlord.name,
-      phone: contract.landlord.phone,
-    });
-    const tenantSigner = await this.clicksignService.createSigner({
-      email: contract.tenant.email,
+      email: contract.landlord.email,
+      phone_number: contract.landlord.phone,
+      // Envia documentação e aniversário apenas se for Pessoa Física
+      documentation: isLandlordPF
+        ? contract.landlord.cpfCnpj.replace(
+            /(\d{3})(\d{3})(\d{3})(\d{2})/,
+            '$1.$2.$3-$4',
+          )
+        : undefined,
+      birthday: isLandlordPF
+        ? contract.landlord.birthDate?.toISOString().split('T')[0]
+        : undefined,
+    };
+    const landlordSigner = await this.clicksignService.addSignerToEnvelope(
+      envelopeId,
+      landlordSignerData,
+    );
+
+    const tenantSignerData = {
       name: contract.tenant.name,
-      phone: contract.tenant.phone,
-    });
-
-    const notificationMessage = `Você foi convidado para assinar o contrato de aluguel referente ao imóvel "${contract.property.title}".\n\nPor favor, clique no link para assinar o documento.`;
-
-    const landlordRequest = await this.clicksignService.addSignerToDocumentList(
-      documentKey,
-      landlordSigner.signer.key,
-      'lessor',
-      notificationMessage,
-      1,
+      email: contract.tenant.email,
+      phone_number: contract.tenant.phone,
+      documentation: contract.tenant.cpfCnpj.replace(
+        /(\d{3})(\d{3})(\d{3})(\d{2})/,
+        '$1.$2.$3-$4',
+      ),
+      birthday: contract.tenant.birthDate?.toISOString().split('T')[0],
+    };
+    const tenantSigner = await this.clicksignService.addSignerToEnvelope(
+      envelopeId,
+      tenantSignerData,
     );
-    const tenantRequest = await this.clicksignService.addSignerToDocumentList(
-      documentKey,
-      tenantSigner.signer.key,
-      'lessee',
-      notificationMessage,
-      1,
-    );
-
-    // const landlordRequestKey = landlordRequest.list.request_signature_key;
-    // const tenantRequestKey = tenantRequest.list.request_signature_key;
-
-    // await this.clicksignService.notifyByEmail(landlordRequestKey);
-    // await this.clicksignService.notifyByWhatsapp(landlordRequestKey);
-
-    // await this.clicksignService.notifyByEmail(tenantRequestKey);
-    // await this.clicksignService.notifyByWhatsapp(tenantRequestKey);
 
     await this.prisma.signatureRequest.createMany({
       data: [
         {
           generatedPdfId: pdf.id,
           signerId: contract.landlordId,
-          requestSignatureKey: landlordRequest.list.request_signature_key,
+          clicksignSignerId: landlordSigner.id,
         },
         {
           generatedPdfId: pdf.id,
           signerId: contract.tenantId,
-          requestSignatureKey: tenantRequest.list.request_signature_key,
+          clicksignSignerId: tenantSigner.id,
         },
       ],
     });
 
-    return;
+    await this.clicksignService.notifyAllSigners(envelopeId);
+
+    return { message: 'Processo de assinatura iniciado com sucesso.' };
   }
 
   async initiateSignatureProcess(
@@ -162,21 +155,22 @@ export class PdfsService {
       );
     }
 
-    if (pdf.clicksignDocumentKey) {
+    if (pdf.clicksignEnvelopeId) {
       this.logger.log(
-        `Verificando status do documento existente na Clicksign: ${pdf.clicksignDocumentKey}`,
+        `Verificando status do envelope existente na Clicksign: ${pdf.clicksignEnvelopeId}`,
       );
-      const clicksignDoc = await this.clicksignService.getDocument(
-        pdf.clicksignDocumentKey,
+      const envelope = await this.clicksignService.getEnvelope(
+        pdf.clicksignEnvelopeId,
       );
 
-      if (clicksignDoc && clicksignDoc.document.status === 'running') {
+      // Na API v3, o status "em andamento" é 'in_progress'
+      if (envelope && envelope.data.attributes.status === 'in_progress') {
         this.logger.warn(
-          `O documento ${pdf.clicksignDocumentKey} já está em processo de assinatura.`,
+          `O envelope ${pdf.clicksignEnvelopeId} já está em processo de assinatura.`,
         );
 
         throw new BadRequestException(
-          'Este contrato já possui um processo de assinatura em andamento. Re-envie notificações para assinar o contrato.',
+          'Este contrato já possui um processo de assinatura em andamento. Para notificar os signatários novamente, use a função de reenviar notificações.',
         );
       }
     }

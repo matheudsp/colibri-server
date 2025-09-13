@@ -64,7 +64,6 @@ export class ContractsService {
   async resendNotification(
     contractId: string,
     signerId: string,
-    method: 'email' | 'whatsapp',
     currentUser: JwtPayload,
   ) {
     if (
@@ -81,9 +80,9 @@ export class ContractsService {
       orderBy: { generatedAt: 'desc' },
     });
 
-    if (!pdf) {
+    if (!pdf || !pdf.clicksignEnvelopeId) {
       throw new NotFoundException(
-        'Nenhum PDF de contrato encontrado para esta solicitação.',
+        'Nenhum processo de assinatura ativo (envelope) encontrado para este contrato.',
       );
     }
 
@@ -94,33 +93,20 @@ export class ContractsService {
       },
     });
 
-    if (!signatureRequest) {
+    if (!signatureRequest || !signatureRequest.clicksignSignerId) {
       throw new NotFoundException(
-        'Solicitação de assinatura não encontrada para este usuário e documento.',
+        'Solicitação de assinatura não encontrada para este usuário no documento.',
       );
     }
 
-    if (method === 'email') {
-      await this.clicksignService.notifyByEmail(
-        signatureRequest.requestSignatureKey,
-      );
-    } else if (method === 'whatsapp') {
-      const signerUser = await this.prisma.user.findUnique({
-        where: { id: signerId },
-      });
-      if (!signerUser?.phone) {
-        throw new BadRequestException(
-          'Este signatário não possui um número de telefone cadastrado para notificações via WhatsApp.',
-        );
-      }
-      await this.clicksignService.notifyByWhatsapp(
-        signatureRequest.requestSignatureKey,
-      );
-    } else {
-      throw new BadRequestException('Método de notificação inválido.');
-    }
+    await this.clicksignService.notifySigner(
+      pdf.clicksignEnvelopeId,
+      signatureRequest.clicksignSignerId,
+    );
 
-    return { message: `Notificação por ${method} enviada com sucesso.` };
+    return {
+      message: `Solicitação de notificação para o signatário foi enviada com sucesso.`,
+    };
   }
 
   async requestSignature(contractId: string, currentUser: JwtPayload) {

@@ -74,13 +74,8 @@ export class ContractsController {
     @Body() resendNotificationDto: ResendNotificationDto,
     @CurrentUser() currentUser: JwtPayload,
   ) {
-    const { signerId, method } = resendNotificationDto;
-    return this.contractsService.resendNotification(
-      id,
-      signerId,
-      method,
-      currentUser,
-    );
+    const { signerId } = resendNotificationDto;
+    return this.contractsService.resendNotification(id, signerId, currentUser);
   }
 
   @Post()

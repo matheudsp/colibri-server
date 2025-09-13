@@ -12,8 +12,6 @@ import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.service';
 import { SubaccountsService } from '../subaccounts/subaccounts.service';
 import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
-import { InjectRedis } from '@nestjs-modules/ioredis';
-import Redis from 'ioredis';
 import { VerificationContexts } from 'src/common/constants/verification-contexts.constant';
 import { VerificationService } from '../verification/verification.service';
 @Injectable()
@@ -25,7 +23,6 @@ export class BankAccountsService {
     private subaccountService: SubaccountsService,
     private paymentGateway: PaymentGatewayService,
     private verificationService: VerificationService,
-    @InjectRedis() private readonly redis: Redis,
   ) {}
 
   async create(
@@ -94,7 +91,7 @@ export class BankAccountsService {
     }
     if (!user.subAccount?.apiKey) {
       throw new NotFoundException(
-        'Nenhuma subconta do gateway de pagamento encontrada para este usuário.',
+        'Nenhuma conta de pagamento encontrada para este usuário. Cadastre sua Chave PIX para iniciar criação da conta de pagamentos',
       );
     }
 
