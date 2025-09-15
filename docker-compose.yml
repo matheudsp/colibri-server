@@ -85,6 +85,12 @@ services:
     volumes:
       - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml
       - alertmanager_data:/alertmanager
+    environment:
+      - SMTP_HOST=${MAIL_HOST}
+      - SMTP_PORT=${MAIL_PORT}
+      - SMTP_FROM=${MAIL_FROM_ADDRESS}
+      - SMTP_USER=${MAIL_USER}
+      - SMTP_PASSWORD=${MAIL_PASSWORD}
 
   grafana:
     image: grafana/grafana

@@ -23,43 +23,53 @@ export class WebhooksService {
     private readonly transfersService: TransfersService,
   ) {}
 
-  async processClicksignEvent(payload: any) {
+  async processClicksignEvent(payload: any): Promise<void> {
     const eventName = payload?.event?.name;
-    const document = payload?.document;
+    const documentKey = payload?.document?.key;
 
-    if (!eventName || !document || !document.envelope_key) {
+    if (!eventName || !documentKey) {
       this.logger.warn(
-        `[Webhook Clicksign] Payload inválido ou sem envelope_key recebido.`,
+        `[Webhook Clicksign] Payload inválido ou sem document.key recebido.`,
+        payload,
       );
       return;
     }
-
-    const envelopeId = document.envelope_key;
-
-    this.logger.log(
-      `[Webhook Clicksign] Evento '${eventName}' recebido para o envelope ${envelopeId}.`,
-    );
 
     if (
       eventName === 'close' ||
       eventName === 'auto_close' ||
       eventName === 'document_closed'
     ) {
-      const pdf = await this.prisma.generatedPdf.findUnique({
-        where: { clicksignEnvelopeId: envelopeId },
-        include: { contract: true },
+      this.logger.log(
+        `Evento de finalização '${eventName}' recebido para o documento ${documentKey}.`,
+      );
+
+      const signatureRequest = await this.prisma.signatureRequest.findFirst({
+        where: { clicksignDocumentId: documentKey },
       });
 
-      if (!pdf?.contractId) {
+      if (!signatureRequest) {
         this.logger.warn(
-          `Nenhum PDF no banco de dados encontrado para o Clicksign Envelope ID: ${envelopeId}`,
+          `Nenhuma SignatureRequest encontrada para o documentKey: ${documentKey}`,
+        );
+        return;
+      }
+      const { generatedPdfId, clicksignEnvelopeId } = signatureRequest;
+
+      const pdf = await this.prisma.generatedPdf.findUnique({
+        where: { id: generatedPdfId },
+      });
+
+      if (!pdf) {
+        this.logger.warn(
+          `Nenhum PDF encontrado para a SignatureRequest: ${signatureRequest.id}`,
         );
         return;
       }
 
-      try {
-        const signedUrl = document.downloads?.signed_file_url;
-        if (signedUrl) {
+      const signedUrl = payload?.document?.downloads?.signed_file_url;
+      if (signedUrl) {
+        try {
           this.logger.log(
             `Iniciando download do documento assinado para o contrato ${pdf.contractId}.`,
           );
@@ -67,7 +77,6 @@ export class WebhooksService {
             this.httpService.get(signedUrl, { responseType: 'arraybuffer' }),
           );
           const fileBuffer = Buffer.from(response.data);
-
           const signedFileName = `assinado-${getPdfFileName(pdf.pdfType, pdf.contractId)}`;
           const { key } = await this.storageService.uploadFile({
             buffer: fileBuffer,
@@ -82,17 +91,17 @@ export class WebhooksService {
           });
 
           this.logger.log(
-            `Documento assinado para o contrato ${pdf.contractId} guardado com sucesso em: ${key}.`,
+            `Documento assinado para o contrato ${pdf.contractId} salvo em: ${key}.`,
           );
-        } else {
-          this.logger.warn(
-            `[Webhook Clicksign] URL do ficheiro assinado não encontrada no payload para o envelope ${envelopeId}. O contrato será ativado sem o anexo.`,
+        } catch (error) {
+          this.logger.error(
+            `Falha ao guardar o arquivo assinado do envelope ${clicksignEnvelopeId}.`,
+            error,
           );
         }
-      } catch (error) {
-        this.logger.error(
-          `[Webhook Clicksign] Falha crítica ao guardar o ficheiro assinado para o envelope ${envelopeId}. O contrato ainda será ativado.`,
-          error,
+      } else {
+        this.logger.warn(
+          `URL do arquivo assinado não encontrada no payload para o documento ${documentKey}.`,
         );
       }
 
@@ -101,6 +110,10 @@ export class WebhooksService {
       );
       await this.contractsService.activateContractAfterSignature(
         pdf.contractId,
+      );
+    } else {
+      this.logger.log(
+        `[Webhook Clicksign] Evento '${eventName}' recebido e ignorado conforme a regra.`,
       );
     }
   }
@@ -131,12 +144,13 @@ export class WebhooksService {
           const amountPaid = payment.value;
           const netValue = payment.netValue;
           const paidAt = new Date(payment.paymentDate);
-
+          const transactionReceiptUrl = payment.transactionReceiptUrl;
           await this.paymentsService.confirmPaymentByChargeId(
             asaasChargeId,
             amountPaid,
             netValue,
             paidAt,
+            transactionReceiptUrl,
           );
           break;
 

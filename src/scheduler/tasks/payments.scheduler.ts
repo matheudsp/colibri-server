@@ -1,36 +1,28 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { PaymentStatus } from '@prisma/client';
+import { PaymentsOrdersService } from 'src/modules/payments-orders/payments-orders.service';
 
 @Injectable()
 export class PaymentsScheduler {
   private readonly logger = new Logger(PaymentsScheduler.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly paymentsService: PaymentsOrdersService) {}
 
   /**
-   * Roda todo dia à 1 da manhã para atualizar o status de pagamentos pendentes para atrasados.
+   * Roda todo dia para garantir que o status de pagamentos pendentes seja atualizado para atrasado.
+   * Atua como um fallback caso o webhook do Asaas falhe.
    */
-  @Cron(CronExpression.EVERY_DAY_AT_1AM, { name: 'updateOverduePayments' })
-  // @Cron(CronExpression.EVERY_5_MINUTES, { name: 'updateOverduePayments' })
+  @Cron(CronExpression.EVERY_DAY_AT_5AM, { name: 'updateOverduePayments' })
   async handleUpdateOverduePayments() {
     this.logger.log('Iniciando verificação de pagamentos vencidos...');
 
-    const now = new Date();
-    // Pega apenas a data, zerando as horas, para comparar com o campo `dueDate`
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-    await this.prisma.paymentOrder.updateMany({
-      where: {
-        status: PaymentStatus.PENDENTE,
-        dueDate: {
-          lt: today,
-        },
-      },
-      data: {
-        status: PaymentStatus.ATRASADO,
-      },
-    });
+    try {
+      await this.paymentsService.processScheduledOverduePayments();
+    } catch (error) {
+      this.logger.error(
+        'Falha ao executar a rotina de verificação de pagamentos vencidos.',
+        error,
+      );
+    }
   }
 }

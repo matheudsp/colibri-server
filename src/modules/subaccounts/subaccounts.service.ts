@@ -4,9 +4,11 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { User, type SubAccount } from '@prisma/client';
 import type { Queue } from 'bull';
+import type { AsaasDocumentType } from 'src/common/constants/asaas.constants';
 import {
   CreateAsaasSubAccountDto,
   CreateAsaasSubAccountResponse,
@@ -261,5 +263,140 @@ export class SubaccountsService {
         "É necessário fornecer o 'tipo de empresa' (companyType) para PJ ou a 'data de nascimento' (birthDate) para PF.",
       );
     }
+  }
+  /**
+   * Consulta e retorna os documentos pendentes para a subconta de um usuário.
+   * Filtra para retornar apenas os que precisam de upload via API.
+   */
+  async getPendingDocuments(userId: string): Promise<any> {
+    const subAccount = await this.prisma.subAccount.findUnique({
+      where: { userId },
+    });
+
+    if (!subAccount?.apiKey) {
+      throw new NotFoundException(
+        'Conta de pagamentos não encontrada ou não configurada para este usuário.',
+      );
+    }
+
+    const requiredDocs = await this.paymentGatewayService.getRequiredDocuments(
+      subAccount.apiKey,
+    );
+
+    // Filtra para retornar apenas os documentos que precisam ser enviados via API
+    const documentsForUpload = requiredDocs.data.filter(
+      (doc: any) => doc.status === 'NOT_SENT' && doc.onboardingUrl === null,
+    );
+
+    return documentsForUpload.map((doc: any) => ({
+      type: doc.type,
+      title: doc.title,
+      description: doc.description,
+    }));
+  }
+
+  /**
+   * Processa o upload de um documento para a Asaas.
+   */
+  async processDocumentUpload(
+    userId: string,
+    documentType: AsaasDocumentType,
+    file: Express.Multer.File,
+  ) {
+    const subAccount = await this.prisma.subAccount.findUnique({
+      where: { userId },
+    });
+
+    if (!subAccount) {
+      throw new NotFoundException('Subconta não encontrada para este usuário.');
+    }
+
+    const requiredDocs = await this.paymentGatewayService.getRequiredDocuments(
+      subAccount.apiKey,
+    );
+    const docGroup = requiredDocs.data.find(
+      (doc: any) => doc.type === documentType && doc.onboardingUrl === null,
+    );
+
+    if (!docGroup) {
+      throw new BadRequestException(
+        `O tipo de documento '${documentType}' não é necessário, já foi enviado ou deve ser enviado via link de onboarding.`,
+      );
+    }
+
+    const result = await this.paymentGatewayService.uploadDocumentForSubAccount(
+      subAccount.apiKey,
+      docGroup.id,
+      documentType, // Passa o tipo do documento para o gateway
+      file,
+    );
+
+    this.logger.log(
+      `Documento '${documentType}' enviado com sucesso para a subconta ${subAccount.id}.`,
+    );
+
+    // Notifica o usuário que o documento foi enviado para análise
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (user) {
+      const job: NotificationJob = {
+        user: { name: user.name, email: user.email },
+        notification: {
+          title: 'Documento Enviado para Análise',
+          message: `O documento "${docGroup.title}" foi enviado com sucesso e agora está em análise pela nossa equipe. Avisaremos assim que o processo for concluído.`,
+        },
+      };
+      await this.emailQueue.add(EmailJobType.NOTIFICATION, job);
+    }
+
+    return {
+      message: 'Documento enviado para análise com sucesso.',
+      data: result,
+    };
+  }
+
+  async resendOnboardingEmail(userId: string): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { subAccount: true },
+    });
+
+    if (!user || !user.subAccount) {
+      throw new NotFoundException('Subconta não encontrada para este usuário.');
+    }
+
+    if (!user.subAccount.onboardingUrl) {
+      throw new BadRequestException(
+        'Nenhum link de onboarding disponível para ser reenviado.',
+      );
+    }
+
+    // Evita o reenvio se a conta já estiver aprovada
+    if (user.subAccount.statusGeneral === 'APPROVED') {
+      return {
+        message:
+          'Sua conta já foi aprovada e não requer mais o envio de documentos.',
+      };
+    }
+
+    const job: NotificationJob = {
+      user: { name: user.name, email: user.email },
+      notification: {
+        title: 'Seu Link para Envio de Documentos',
+        message: `Olá, ${user.name}. Conforme solicitado, aqui está o seu link para completar o cadastro e enviar os documentos necessários para a ativação da sua conta de recebimentos.`,
+      },
+      action: {
+        text: 'Enviar Documentos',
+        url: user.subAccount.onboardingUrl,
+      },
+    };
+    await this.emailQueue.add(EmailJobType.NOTIFICATION, job);
+
+    this.logger.log(
+      `Reenvio do e-mail de onboarding solicitado pelo usuário ${userId}.`,
+    );
+
+    return {
+      message: 'O e-mail com o link de onboarding foi reenviado com sucesso.',
+    };
   }
 }

@@ -18,7 +18,7 @@ import {
   CreateAsaasTransferDto,
 } from 'src/common/interfaces/payment-gateway.interface';
 import * as crypto from 'crypto';
-
+import FormData from 'form-data';
 @Injectable()
 export class PaymentGatewayService {
   private readonly logger = new Logger(PaymentGatewayService.name);
@@ -245,5 +245,47 @@ export class PaymentGatewayService {
       `${this.asaasApiUrl}/myAccount/documents`,
       apiKey,
     );
+  }
+
+  /**
+   * Envia um arquivo de documento para um grupo de documentos específico da subconta.
+   * @param apiKey - A chave da API da subconta.
+   * @param documentGroupId - O ID do grupo de documentos (ex: "38aeb2d1-c646-4aee-999a-2c56dc68abbe").
+   * @param documentType - O tipo do documento (ex: "SOCIAL_CONTRACT").
+   * @param file - O arquivo a ser enviado.
+   */
+  async uploadDocumentForSubAccount(
+    apiKey: string,
+    documentGroupId: string,
+    documentType: string,
+    file: Express.Multer.File,
+  ) {
+    const endpoint = `${this.asaasApiUrl}/myAccount/documents/${documentGroupId}`;
+    this.logger.log(
+      `Enviando documento do tipo '${documentType}' para o grupo: ${documentGroupId}`,
+    );
+
+    const form = new FormData();
+
+    form.append('type', documentType);
+
+    form.append('documentFile', file.buffer, file.originalname);
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(endpoint, form, {
+          headers: {
+            ...(form as any).getHeaders(),
+            access_token: apiKey,
+          },
+        }),
+      );
+      return response.data;
+    } catch (error) {
+      this.handleError(
+        error,
+        `Erro ao enviar documento para o grupo ${documentGroupId}`,
+      );
+    }
   }
 }

@@ -38,68 +38,59 @@ export class ClicksignService {
   }
 
   private getHeaders() {
-    // Headers da API v3
     return {
       'Content-Type': 'application/vnd.api+json',
       Accept: 'application/vnd.api+json',
-      'X-Clicksign-Api-Key': this.accessToken,
+      Authorization: this.accessToken,
     };
   }
 
-  async createEnvelopeWithDocument(
-    filePath: string,
-    originalFileName: string,
-  ): Promise<any> {
-    // Criar o Envelope
-    const envelopeUrl = `${this.apiUrl}/api/v3/envelopes`;
-    const envelopePayload = {
+  async createEnvelope(originalFileName: string): Promise<any> {
+    const url = `${this.apiUrl}/api/v3/envelopes`;
+    const payload = {
       data: {
         type: 'envelopes',
         attributes: {
           name: `Contrato de Locação - ${originalFileName}`,
-          remind_interval: 14, // Lembretes a cada 14 dias
-
+          remind_interval: 14,
           locale: 'pt-BR',
-          auto_close: false,
-          defaultl_subject: 'Quase lá, falta pouco para inicar sua locação!',
+          auto_close: true,
+          default_subject: 'Quase lá, falta pouco para iniciar sua locação!',
           default_message:
             'Por favor, assine o documento abaixo digitalmente para prosseguir.',
         },
       },
     };
-    const envelopeResponse = await firstValueFrom(
-      this.httpService.post(envelopeUrl, envelopePayload, {
-        headers: this.getHeaders(),
-      }),
+    this.logger.log('PASSO 1: Criando Envelope');
+    const response = await firstValueFrom(
+      this.httpService.post(url, payload, { headers: this.getHeaders() }),
     );
-    const envelopeId = envelopeResponse.data.data.id;
-    this.logger.log(`Envelope ${envelopeId} criado com sucesso.`);
+    return response.data.data;
+  }
 
-    //  Adicionar o Documento ao Envelope
-    const documentUrl = `${this.apiUrl}/api/v3/envelopes/${envelopeId}/documents`;
+  async addDocumentToEnvelope(
+    envelopeId: string,
+    filePath: string,
+    originalFileName: string,
+  ): Promise<any> {
+    const url = `${this.apiUrl}/api/v3/envelopes/${envelopeId}/documents`;
     const { buffer: fileBuffer } =
       await this.storageService.getFileBuffer(filePath);
     const fileBase64 = fileBuffer.toString('base64');
-
-    const documentPayload = {
+    const payload = {
       data: {
         type: 'documents',
         attributes: {
-          file_base64: `data:application/pdf;base64,${fileBase64}`,
-          name: originalFileName,
+          filename: originalFileName,
+          content_base64: `data:application/pdf;base64,${fileBase64}`,
         },
       },
     };
-    await firstValueFrom(
-      this.httpService.post(documentUrl, documentPayload, {
-        headers: this.getHeaders(),
-      }),
+    this.logger.log(`PASSO 2: Adicionando Documento ao Envelope ${envelopeId}`);
+    const response = await firstValueFrom(
+      this.httpService.post(url, payload, { headers: this.getHeaders() }),
     );
-    this.logger.log(
-      `Documento ${originalFileName} adicionado ao envelope ${envelopeId}.`,
-    );
-
-    return envelopeResponse.data.data;
+    return response.data.data;
   }
 
   async addSignerToEnvelope(
@@ -107,29 +98,73 @@ export class ClicksignService {
     signer: ClicksignSignerInput,
   ): Promise<any> {
     const url = `${this.apiUrl}/api/v3/envelopes/${envelopeId}/signers`;
-
-    const signerPayload = {
+    const payload = {
       data: {
         type: 'signers',
         attributes: {
           ...signer,
           has_documentation: !!signer.documentation,
           communicate_events: {
-            signature_request: 'whatsapp' as const,
-            signature_reminder: 'email' as const,
-            document_signed: 'whatsapp' as const,
+            signature_request: 'whatsapp',
+            signature_reminder: 'email',
+            document_signed: 'whatsapp',
           },
         },
       },
     };
-
     this.logger.log(
-      `Adicionando signatário ${signer.email} ao envelope ${envelopeId}`,
+      `PASSO 3: Adicionando Signatário ${signer.email} ao Envelope ${envelopeId}`,
     );
     const response = await firstValueFrom(
-      this.httpService.post(url, signerPayload, { headers: this.getHeaders() }),
+      this.httpService.post(url, payload, { headers: this.getHeaders() }),
     );
     return response.data.data;
+  }
+  async addRequirementsToSigner(
+    envelopeId: string,
+    documentId: string,
+    signerId: string,
+    role: 'lessor' | 'lessee',
+  ): Promise<void> {
+    const url = `${this.apiUrl}/api/v3/envelopes/${envelopeId}/requirements`;
+    const commonRelationships = {
+      document: { data: { type: 'documents', id: documentId } },
+      signer: { data: { type: 'signers', id: signerId } },
+    };
+
+    // Requisito 1: Qualificação (Papel)
+    const qualificationPayload = {
+      data: {
+        type: 'requirements',
+        attributes: { action: 'agree', role },
+        relationships: commonRelationships,
+      },
+    };
+    this.logger.log(
+      `PASSO 4a: Adicionando Requisito de QUALIFICAÇÃO ('${role}') para o signatário ${signerId}.`,
+    );
+    await firstValueFrom(
+      this.httpService.post(url, qualificationPayload, {
+        headers: this.getHeaders(),
+      }),
+    );
+
+    // Requisito 2: Autenticação
+    const authenticationPayload = {
+      data: {
+        type: 'requirements',
+        attributes: { action: 'provide_evidence', auth: 'whatsapp' as const },
+        relationships: commonRelationships,
+      },
+    };
+    this.logger.log(
+      `PASSO 4b: Adicionando Requisito de AUTENTICAÇÃO ('whatsapp') para o signatário ${signerId}.`,
+    );
+    await firstValueFrom(
+      this.httpService.post(url, authenticationPayload, {
+        headers: this.getHeaders(),
+      }),
+    );
   }
 
   async notifyAllSigners(envelopeId: string): Promise<void> {
@@ -137,17 +172,24 @@ export class ClicksignService {
     const payload = {
       data: {
         type: 'notifications',
-        attributes: {
-          message: 'Você recebeu um documento para assinar.',
-        },
+        attributes: { message: 'Você recebeu um documento para assinar.' },
       },
     };
-    this.logger.log(
-      `Enviando notificações para todos os signatários do envelope ${envelopeId}`,
-    );
-    await firstValueFrom(
-      this.httpService.post(url, payload, { headers: this.getHeaders() }),
-    );
+    this.logger.log(`Enviando notificações para o envelope ${envelopeId}`);
+    try {
+      await firstValueFrom(
+        this.httpService.post(url, payload, { headers: this.getHeaders() }),
+      );
+    } catch (error) {
+      this.logger.error(
+        `ERRO AO NOTIFICAR SIGNATÁRIOS (STATUS ${error.response?.status})`,
+      );
+      this.logger.error(
+        'RESPOSTA DE ERRO DA CLICKSIGN:',
+        JSON.stringify(error.response?.data, null, 2),
+      );
+      throw error;
+    }
   }
 
   /**
@@ -205,6 +247,21 @@ export class ClicksignService {
     );
     await firstValueFrom(
       this.httpService.post(url, payload, { headers: this.getHeaders() }),
+    );
+  }
+
+  async activateEnvelope(envelopeId: string): Promise<void> {
+    const url = `${this.apiUrl}/api/v3/envelopes/${envelopeId}`;
+    const payload = {
+      data: {
+        type: 'envelopes',
+        id: envelopeId,
+        attributes: { status: 'running' },
+      },
+    };
+    this.logger.log(`PASSO 5: Ativando Envelope ${envelopeId}...`);
+    await firstValueFrom(
+      this.httpService.patch(url, payload, { headers: this.getHeaders() }),
     );
   }
 }

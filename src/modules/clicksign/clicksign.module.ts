@@ -8,7 +8,7 @@ import { StorageModule } from 'src/storage/storage.module';
   imports: [
     HttpModule.registerAsync({
       useFactory: () => ({
-        timeout: 5000,
+        timeout: 15000,
         maxRedirects: 5,
       }),
     }),

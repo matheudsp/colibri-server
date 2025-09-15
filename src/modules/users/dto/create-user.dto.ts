@@ -6,6 +6,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   MinLength,
 } from 'class-validator';
 
@@ -17,6 +18,9 @@ export class CreateUserDto {
   })
   @IsString({ message: 'O nome deve ser uma string' })
   @IsNotEmpty({ message: 'O nome não pode estar vazio' })
+  @Matches(/^[a-zA-Z\u00C0-\u017F\s]+$/, {
+    message: 'O nome deve conter apenas letras e espaços.',
+  })
   name!: string;
 
   @ApiProperty({

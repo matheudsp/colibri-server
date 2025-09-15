@@ -163,6 +163,7 @@ export class PaymentsOrdersService {
     amountPaid: number,
     netValue: number,
     paidAt: Date,
+    transactionReceiptUrl?: string,
   ) {
     const bankSlip = await this.prisma.bankSlip.findUnique({
       where: { asaasChargeId },
@@ -205,6 +206,12 @@ export class PaymentsOrdersService {
         },
       },
     });
+    if (transactionReceiptUrl) {
+      await this.prisma.bankSlip.update({
+        where: { id: bankSlip.id },
+        data: { transactionReceiptUrl },
+      });
+    }
     await this.notifyUsersOfPayment(updatedPaymentOrder);
 
     await this.transfersService.initiateAutomaticTransfer(updatedPaymentOrder);
@@ -280,6 +287,9 @@ export class PaymentsOrdersService {
     );
   }
 
+  /**
+   * Chamado pelo webhook da Asaas quando um pagamento é marcado como vencido.
+   */
   async handleOverduePayment(asaasChargeId: string) {
     const bankSlip = await this.prisma.bankSlip.findUnique({
       where: { asaasChargeId },
@@ -300,13 +310,73 @@ export class PaymentsOrdersService {
 
     if (!bankSlip || !bankSlip.paymentOrder) {
       this.logger.warn(
-        `[Webhook] Boleto com asaasChargeId ${asaasChargeId} ou ordem de pagamento associada não encontrado. Evento de vencimento ignorado.`,
+        `[Webhook] Boleto com asaasChargeId ${asaasChargeId} ou ordem de pagamento associada não encontrado. Evento ignorado.`,
       );
       return;
     }
 
-    const { paymentOrder } = bankSlip;
-    const { contract } = paymentOrder;
+    await this.processOverduePayment(bankSlip.paymentOrder);
+  }
+
+  /**
+   * Chamado pelo Scheduler para verificar e atualizar pagamentos vencidos.
+   * Funciona como um fallback para garantir a consistência do sistema.
+   */
+  async processScheduledOverduePayments(): Promise<void> {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const overduePayments = await this.prisma.paymentOrder.findMany({
+      where: {
+        status: PaymentStatus.PENDENTE,
+        dueDate: {
+          lt: today,
+        },
+      },
+      include: {
+        contract: {
+          include: {
+            property: { select: { title: true } },
+            tenant: { select: { name: true, email: true } },
+            landlord: { select: { name: true, email: true } },
+          },
+        },
+      },
+    });
+
+    if (overduePayments.length === 0) {
+      this.logger.log(
+        'Nenhum pagamento pendente vencido encontrado pelo scheduler.',
+      );
+      return;
+    }
+
+    this.logger.log(
+      `Scheduler encontrou ${overduePayments.length} pagamentos vencidos. Processando...`,
+    );
+
+    for (const payment of overduePayments) {
+      await this.processOverduePayment(payment);
+    }
+  }
+  /**
+   * Lógica centralizada para processar uma ordem de pagamento como ATRASADA.
+   */
+  private async processOverduePayment(
+    paymentOrder: PaymentOrder & {
+      contract: Contract & {
+        property: Pick<Property, 'title'>;
+        tenant: Pick<User, 'name' | 'email'>;
+        landlord: Pick<User, 'name' | 'email'>;
+      };
+    },
+  ) {
+    if (paymentOrder.status === PaymentStatus.ATRASADO) {
+      this.logger.log(
+        `Pagamento ${paymentOrder.id} já está com status ATRASADO. Nenhuma ação necessária.`,
+      );
+      return;
+    }
 
     await this.prisma.paymentOrder.update({
       where: { id: paymentOrder.id },
@@ -314,8 +384,10 @@ export class PaymentsOrdersService {
     });
 
     this.logger.log(
-      `[Webhook] Status do pagamento ${paymentOrder.id} atualizado para ATRASADO.`,
+      `Status do pagamento ${paymentOrder.id} atualizado para ATRASADO.`,
     );
+
+    const { contract } = paymentOrder;
 
     const tenantJob: NotificationJob = {
       user: {
@@ -353,7 +425,6 @@ export class PaymentsOrdersService {
       `Notificações de fatura vencida enfileiradas para a ordem de pagamento ${paymentOrder.id}.`,
     );
   }
-
   async handleDeletedPayment(asaasChargeId: string) {
     await this.updatePaymentStatusByChargeId(
       asaasChargeId,

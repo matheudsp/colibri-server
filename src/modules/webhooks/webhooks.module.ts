@@ -9,8 +9,9 @@ import { StorageModule } from 'src/storage/storage.module';
 import { SubaccountsModule } from '../subaccounts/subaccounts.module';
 import { UserModule } from '../users/users.module';
 import { QueueModule } from 'src/queue/queue.module';
-import { TransfersService } from '../transfers/transfers.service';
+
 import { TransfersModule } from '../transfers/transfers.module';
+import { ClicksignModule } from '../clicksign/clicksign.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { TransfersModule } from '../transfers/transfers.module';
     UserModule,
     QueueModule,
     TransfersModule,
+    ClicksignModule,
   ],
   controllers: [WebhooksController],
   providers: [WebhooksService, PrismaService],

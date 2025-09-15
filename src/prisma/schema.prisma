@@ -100,6 +100,15 @@ enum TransferStatus {
   CANCELLED
 }
 
+enum SignatureStatus {
+  PENDING
+  STARTED
+  SIGNED
+  CLOSED
+  REFUSED
+  UPLOADED
+}
+
 // --- MODELS ---
 
 model User {
@@ -304,11 +313,20 @@ model GeneratedPdf {
   contractId          String
   contract            Contract           @relation(fields: [contractId], references: [id])
   signatureRequests   SignatureRequest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model SignatureRequest {
-  id                String @id @default(uuid())
-  clicksignSignerId String @unique
+  id                  String          @id @default(uuid())
+  clicksignSignerId   String          @unique
+  clicksignDocumentId String?
+  clicksignEnvelopeId String?
+  status              SignatureStatus @default(PENDING)
+  signedAt            DateTime?
+  closedAt            DateTime?
+  finalPdfUrl         String?
 
   generatedPdfId String
   generatedPdf   GeneratedPdf @relation(fields: [generatedPdfId], references: [id], onDelete: Cascade)
@@ -317,6 +335,10 @@ model SignatureRequest {
   user     User   @relation(fields: [signerId], references: [id])
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clicksignDocumentId])
+  @@index([clicksignEnvelopeId])
 }
 
 model PaymentOrder {
@@ -361,16 +383,17 @@ model PaymentSplit {
 }
 
 model BankSlip {
-  id             String       @id @default(uuid())
-  paymentOrderId String       @unique
-  asaasChargeId  String       @unique
-  dueDate        DateTime     @db.Date
-  bankSlipUrl    String
-  invoiceUrl     String
-  nossoNumero    String
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  paymentOrder   PaymentOrder @relation(fields: [paymentOrderId], references: [id], onDelete: Cascade)
+  id                    String       @id @default(uuid())
+  paymentOrderId        String       @unique
+  asaasChargeId         String       @unique
+  dueDate               DateTime     @db.Date
+  bankSlipUrl           String
+  transactionReceiptUrl String?
+  invoiceUrl            String
+  nossoNumero           String
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  paymentOrder          PaymentOrder @relation(fields: [paymentOrderId], references: [id], onDelete: Cascade)
 }
 
 model Photo {

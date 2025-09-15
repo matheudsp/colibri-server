@@ -71,71 +71,116 @@ export class PdfsService {
       );
     }
 
-    const originalFileName = getPdfFileName(pdf.pdfType, contract.id);
-    const envelope = await this.clicksignService.createEnvelopeWithDocument(
-      pdf.filePath,
-      originalFileName,
-    );
-    const envelopeId = envelope.id;
+    try {
+      const originalFileName = getPdfFileName(pdf.pdfType, contract.id);
 
-    await this.prisma.generatedPdf.update({
-      where: { id: pdfId },
-      data: { clicksignEnvelopeId: envelopeId },
-    });
-    const isLandlordPF = contract.landlord.cpfCnpj.length === 11;
-    const landlordSignerData = {
-      name: contract.landlord.name,
-      email: contract.landlord.email,
-      phone_number: contract.landlord.phone,
-      // Envia documentação e aniversário apenas se for Pessoa Física
-      documentation: isLandlordPF
-        ? contract.landlord.cpfCnpj.replace(
-            /(\d{3})(\d{3})(\d{3})(\d{2})/,
-            '$1.$2.$3-$4',
-          )
-        : undefined,
-      birthday: isLandlordPF
-        ? contract.landlord.birthDate?.toISOString().split('T')[0]
-        : undefined,
-    };
-    const landlordSigner = await this.clicksignService.addSignerToEnvelope(
-      envelopeId,
-      landlordSignerData,
-    );
+      // PASSO 1: Criar Envelope
+      const envelope =
+        await this.clicksignService.createEnvelope(originalFileName);
 
-    const tenantSignerData = {
-      name: contract.tenant.name,
-      email: contract.tenant.email,
-      phone_number: contract.tenant.phone,
-      documentation: contract.tenant.cpfCnpj.replace(
-        /(\d{3})(\d{3})(\d{3})(\d{2})/,
-        '$1.$2.$3-$4',
-      ),
-      birthday: contract.tenant.birthDate?.toISOString().split('T')[0],
-    };
-    const tenantSigner = await this.clicksignService.addSignerToEnvelope(
-      envelopeId,
-      tenantSignerData,
-    );
+      // PASSO 2: Adicionar Documento
+      const document = await this.clicksignService.addDocumentToEnvelope(
+        envelope.id,
+        pdf.filePath,
+        originalFileName,
+      );
+      await this.prisma.generatedPdf.update({
+        where: { id: pdfId },
+        data: { clicksignEnvelopeId: envelope.id },
+      });
+      const isLandlordPF = contract.landlord.cpfCnpj.length === 11;
+      const isTenantPF = contract.tenant.cpfCnpj.length === 11;
+      const landlordSignerData = {
+        name: contract.landlord.name,
+        email: contract.landlord.email,
+        phone_number: contract.landlord.phone,
+        // Envia documentação e aniversário ape/nas se for Pessoa Física
+        has_documentation: isLandlordPF ? true : false,
+        documentation: isLandlordPF
+          ? contract.landlord.cpfCnpj.replace(
+              /(\d{3})(\d{3})(\d{3})(\d{2})/,
+              '$1.$2.$3-$4',
+            )
+          : undefined,
+        birthday: isLandlordPF
+          ? contract.landlord.birthDate?.toISOString().split('T')[0]
+          : undefined,
+      };
+      const landlordSigner = await this.clicksignService.addSignerToEnvelope(
+        envelope.id,
+        landlordSignerData,
+      );
+      await this.clicksignService.addRequirementsToSigner(
+        envelope.id,
+        document.id,
+        landlordSigner.id,
+        'lessor',
+      );
 
-    await this.prisma.signatureRequest.createMany({
-      data: [
+      const tenantSignerData = {
+        name: contract.tenant.name,
+        email: contract.tenant.email,
+        phone_number: contract.tenant.phone,
+        has_documentation: isTenantPF ? true : false,
+        documentation: isTenantPF
+          ? contract.tenant.cpfCnpj.replace(
+              /(\d{3})(\d{3})(\d{3})(\d{2})/,
+              '$1.$2.$3-$4',
+            )
+          : undefined,
+        birthday: contract.tenant.birthDate?.toISOString().split('T')[0],
+      };
+      const tenantSigner = await this.clicksignService.addSignerToEnvelope(
+        envelope.id,
+        tenantSignerData,
+      );
+      await this.clicksignService.addRequirementsToSigner(
+        envelope.id,
+        document.id,
+        tenantSigner.id,
+        'lessee',
+      );
+
+      await this.prisma.signatureRequest.createMany({
+        data: [
+          {
+            generatedPdfId: pdf.id,
+            signerId: contract.landlordId,
+            clicksignSignerId: landlordSigner.id,
+            clicksignDocumentId: document.id,
+            clicksignEnvelopeId: envelope.id,
+          },
+          {
+            generatedPdfId: pdf.id,
+            signerId: contract.tenantId,
+            clicksignSignerId: tenantSigner.id,
+            clicksignDocumentId: document.id,
+            clicksignEnvelopeId: envelope.id,
+          },
+        ],
+      });
+
+      await this.clicksignService.activateEnvelope(envelope.id);
+      this.logger.log(
+        `Disparando notificação inicial para o envelope ${envelope.id}`,
+      );
+      await this.clicksignService.notifyAllSigners(envelope.id);
+
+      return {
+        message:
+          'Processo de assinatura iniciado e notificações enviadas com sucesso.',
+      };
+    } catch (error) {
+      this.logger.error(
+        'Falha crítica ao iniciar o processo de assinatura na Clicksign.',
         {
-          generatedPdfId: pdf.id,
-          signerId: contract.landlordId,
-          clicksignSignerId: landlordSigner.id,
+          error: error.response?.data || error.message,
         },
-        {
-          generatedPdfId: pdf.id,
-          signerId: contract.tenantId,
-          clicksignSignerId: tenantSigner.id,
-        },
-      ],
-    });
-
-    await this.clicksignService.notifyAllSigners(envelopeId);
-
-    return { message: 'Processo de assinatura iniciado com sucesso.' };
+      );
+      throw new InternalServerErrorException(
+        'Não foi possível iniciar o processo de assinatura. Verifique os logs.',
+      );
+    }
   }
 
   async initiateSignatureProcess(

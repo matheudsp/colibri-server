@@ -5,9 +5,15 @@ import { QueueModule } from 'src/queue/queue.module';
 import { BankSlipsScheduler } from './tasks/bank-slips.scheduler';
 import { PaymentsScheduler } from './tasks/payments.scheduler';
 import { RemindersScheduler } from './tasks/reminders.scheduler';
+import { PaymentsOrdersModule } from 'src/modules/payments-orders/payments-orders.module';
 
 @Module({
-  imports: [ScheduleModule.forRoot(), PrismaModule, QueueModule],
+  imports: [
+    ScheduleModule.forRoot(),
+    PrismaModule,
+    QueueModule,
+    PaymentsOrdersModule,
+  ],
   providers: [BankSlipsScheduler, PaymentsScheduler, RemindersScheduler],
 })
 export class SchedulerModule {}

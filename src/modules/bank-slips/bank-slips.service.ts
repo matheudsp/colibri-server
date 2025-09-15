@@ -91,9 +91,9 @@ export class BankSlipsService {
           // { walletId: landlord.subAccount.asaasWalletId, percentualValue: 97 },
           { walletId: this.platformWalletId, percentualValue: 5 },
         ],
-        daysAfterDueDateToRegistrationCancellation: 30,
+        daysAfterDueDateToRegistrationCancellation: 60,
         fine: {
-          value: 2, // Define uma multa de 2% sobre o valor do boleto em caso de atraso.
+          value: 1, // Define uma multa de 2% sobre o valor do boleto em caso de atraso.
           type: 'PERCENTAGE',
         },
         interest: {
@@ -117,124 +117,6 @@ export class BankSlipsService {
       },
       include: { bankSlip: true },
     });
-  }
-
-  /**
-   * Gera um NOVO boleto para uma ordem de pagamento ATRASADA,
-   * cancelando o anterior e recalculando os valores.
-   */
-  async regenerateOverdueBankSlip(paymentOrderId: string) {
-    const paymentOrder = await this.prisma.paymentOrder.findUnique({
-      where: { id: paymentOrderId },
-      include: {
-        bankSlip: true,
-        contract: {
-          include: {
-            tenant: true,
-            landlord: { include: { subAccount: true } },
-            property: true,
-          },
-        },
-      },
-    });
-
-    if (!paymentOrder) {
-      throw new NotFoundException('Ordem de pagamento não encontrada.');
-    }
-    if (paymentOrder.status !== PaymentStatus.ATRASADO) {
-      throw new BadRequestException(
-        `Esta função é apenas para faturas atrasadas. Status atual: "${paymentOrder.status}".`,
-      );
-    }
-    if (paymentOrder.contract.status !== 'ATIVO') {
-      throw new BadRequestException('O contrato não está ativo.');
-    }
-
-    const { contract, bankSlip: oldBankSlip } = paymentOrder;
-    const { landlord, tenant, property } = contract;
-
-    if (!landlord.subAccount?.apiKey) {
-      throw new BadRequestException(
-        'O locador não possui a conta configurada para recebimento. Consulte o suporte para mais informações.',
-      );
-    }
-
-    if (oldBankSlip) {
-      try {
-        this.logger.log(
-          `Cancelando cobrança anterior no Asaas: ${oldBankSlip.asaasChargeId}`,
-        );
-        await this.paymentGateway.cancelCharge(
-          oldBankSlip.asaasChargeId,
-          landlord.subAccount.apiKey,
-        );
-
-        await this.prisma.bankSlip.delete({ where: { id: oldBankSlip.id } });
-        this.logger.log(
-          `Registro do boleto antigo ${oldBankSlip.id} removido.`,
-        );
-      } catch (error) {
-        this.logger.error(
-          `Falha ao cancelar cobrança anterior ${oldBankSlip.asaasChargeId}.`,
-          error,
-        );
-        // Mesmo que a API do Asaas falhe, continuamos para não bloquear o usuário.
-      }
-    }
-
-    // Cálculo de Juros e Multa
-    const originalValue = paymentOrder.amountDue.toNumber();
-    const daysOverdue = differenceInDays(new Date(), paymentOrder.dueDate);
-
-    // Multa de 2% (fixa após o vencimento)
-    const fineValue = originalValue * 0.02;
-    // Juros de 1% ao mês, pro-rata (0.0333% ao dia)
-    const interestValue = ((originalValue * 0.01) / 30) * daysOverdue;
-
-    const finalValue = parseFloat(
-      (originalValue + fineValue + interestValue).toFixed(2),
-    );
-
-    // Geração da Nova Cobrança
-    const newDueDate = new Date(); // Vencimento para hoje
-    const newDueDateFormatted = newDueDate.toISOString().split('T')[0];
-    const customerId = await this.asaasCustomerService.getOrCreate(
-      tenant.id,
-      landlord.subAccount.id,
-    );
-
-    const charge = await this.paymentGateway.createChargeWithSplitOnSubAccount(
-      landlord.subAccount.apiKey,
-      {
-        customer: customerId,
-        billingType: 'BOLETO',
-        dueDate: newDueDateFormatted,
-        value: finalValue,
-        description: `Aluguel ${property.title} - Venc. ${DateUtils.formatDate(paymentOrder.dueDate)} `,
-        split: [{ walletId: this.platformWalletId, percentualValue: 5 }],
-      },
-    );
-
-    const updatedPaymentOrder = await this.prisma.paymentOrder.update({
-      where: { id: paymentOrderId },
-      data: {
-        bankSlip: {
-          create: {
-            asaasChargeId: charge.id,
-            bankSlipUrl: charge.bankSlipUrl,
-            invoiceUrl: charge.invoiceUrl,
-            nossoNumero: charge.nossoNumero,
-            dueDate: newDueDate,
-          },
-        },
-      },
-      include: { bankSlip: true },
-    });
-
-    this.logger.log(
-      `Boleto atualizado ${charge.id} gerado para a ordem ${paymentOrderId}.`,
-    );
-    return updatedPaymentOrder;
   }
 
   // async generateMonthlyBoleto({ contractId, dueDate }: GenerateBoletoDto) {

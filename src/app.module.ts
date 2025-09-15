@@ -33,9 +33,15 @@ import { TestModule } from './modules/test/test.module';
 import { VerificationModule } from './modules/verification/verification.module';
 import { TwoFactorAuthModule } from './modules/two-factor-auth/two-factor-auth.module';
 import { TransfersModule } from './modules/transfers/transfers.module';
+import { PrometheusModule } from 'nestjs-prometheus';
+import { MetricsController } from './modules/metrics/metrics.controller';
+import { MetricsModule } from './modules/metrics/metrics.module';
 
 @Module({
   imports: [
+    PrometheusModule.register({
+      controller: MetricsController,
+    }),
     AppConfigModule,
     PrismaModule,
     RateLimitModule,
@@ -64,6 +70,8 @@ import { TransfersModule } from './modules/transfers/transfers.module';
     VerificationModule,
     TwoFactorAuthModule,
     TransfersModule,
+    MetricsModule,
+    TestModule,
   ],
   providers: [
     {

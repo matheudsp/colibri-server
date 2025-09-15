@@ -111,29 +111,28 @@ export class BankAccountsService {
       throw new NotFoundException('Usuário não encontrado.');
     }
 
-    // let balance = null;
-    // // Se o usuário tiver uma subconta com apiKey, busca o saldo.
-    // if (user.subAccount?.apiKey) {
-    //   try {
-    //     balance = await this.paymentGateway.getBalance(user.subAccount.apiKey);
-    //   } catch (error) {
-    //     this.logger.error(
-    //       `Falha ao buscar saldo para o usuário ${currentUser.sub}`,
-    //       error,
-    //     );
-    //     // Em caso de erro, o saldo permanece nulo, mas a requisição não falha.
-    //   }
-    // }
+    let balance = null;
+    // Se o usuário tiver uma subconta com apiKey, busca o saldo em tempo real.
+    if (user.subAccount?.apiKey) {
+      try {
+        balance = await this.paymentGateway.getBalance(user.subAccount.apiKey);
+      } catch (error) {
+        this.logger.error(
+          `Falha ao buscar saldo para o usuário ${currentUser.sub}`,
+          error,
+        );
+        // Em caso de erro, o saldo permanece nulo, mas a requisição não falha.
+      }
+    }
 
     return {
       // balance,
       bankAccount: user.bankAccount,
       subAccount: user.subAccount
         ? {
+            // Adicionamos os status para o frontend saber o que fazer
             statusGeneral: user.subAccount.statusGeneral,
             statusDocumentation: user.subAccount.statusDocumentation,
-            statusCommercialInfo: user.subAccount.statusCommercialInfo,
-            statusBankAccountInfo: user.subAccount.statusBankAccountInfo,
             onboardingUrl: user.subAccount.onboardingUrl,
           }
         : null,

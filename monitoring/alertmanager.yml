@@ -1,8 +1,63 @@
-# Por enquanto, teremos uma configuração mínima para evitar erros.
-# A rota principal não faz nada, mas está pronta para ser configurada
-# com recetores de e-mail, Slack, etc.
+global:
+  smtp_smarthost: '${SMTP_HOST}:${SMTP_PORT}'
+  smtp_from: '${SMTP_FROM}'
+  smtp_auth_username: '${SMTP_USER}'
+  smtp_auth_password: '${SMTP_PASSWORD}'
+  smtp_require_tls: true
+
 route:
-  receiver: 'null'
+  # Rota principal (default)
+  receiver: 'email-avisos'
+  group_by: ['alertname', 'job']
+  
+  # Agrupamento de alertas para evitar spam
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 2h # Envia novamente um alerta ativo a cada 2 horas
+
+  # --- ROTEAMENTO POR SEVERIDADE ---
+  # Aqui definimos as rotas filhas. O Alertmanager vai testá-las em ordem.
+  routes:
+    # Se a etiqueta 'severity' for 'critical', envia para o receiver 'email-criticos'.
+    - receiver: 'email-criticos'
+      match:
+        severity: 'critical'
+      continue: false # Para a avaliação aqui se der match
+
+    # Se a etiqueta 'severity' for 'warning', envia para o receiver 'email-avisos'.
+    - receiver: 'email-avisos'
+      match:
+        severity: 'warning'
 
 receivers:
-  - name: 'null'
+- name: 'email-criticos'
+  email_configs:
+    - to: 'atendimentoaocliente.valedosol@gmail.com'
+      send_resolved: true
+      headers:
+        subject: '🔴 ALERTA CRÍTICO: {{ .GroupLabels.alertname }}'
+      html: |
+        {{ define "email.critical.html" }}
+        <h1>🔴 Alerta Crítico: {{ .GroupLabels.alertname }}</h1>
+        {{ range .Alerts }}
+          <p><strong>Descrição:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Severidade:</strong> {{ .Labels.severity }}</p>
+          <hr>
+        {{ end }}
+        {{ end }}
+
+- name: 'email-avisos'
+  email_configs:
+    - to: 'atendimentoaocliente.valedosol@gmail.com'
+      send_resolved: true
+      headers:
+        subject: '🟡 Aviso: {{ .GroupLabels.alertname }}'
+      html: |
+        {{ define "email.warning.html" }}
+        <h2>🟡 Aviso: {{ .GroupLabels.alertname }}</h2>
+        {{ range .Alerts }}
+          <p><strong>Descrição:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Severidade:</strong> {{ .Labels.severity }}</p>
+          <hr>
+        {{ end }}
+        {{ end }}

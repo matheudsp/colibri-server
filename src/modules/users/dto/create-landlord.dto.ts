@@ -10,12 +10,16 @@ import {
   IsDateString,
   IsNumber,
   ValidateIf,
+  Matches,
 } from 'class-validator';
 
 export class CreateLandlordDto {
   @ApiProperty({ example: 'João da Silva Locador' })
   @IsString()
   @IsNotEmpty()
+  @Matches(/^[a-zA-Z\u00C0-\u017F\s]+$/, {
+    message: 'O nome deve conter apenas letras e espaços.',
+  })
   name!: string;
 
   @ApiProperty({ example: 'landlord@colibri.com' })

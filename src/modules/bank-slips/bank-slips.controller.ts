@@ -22,16 +22,4 @@ export class BankSlipsController {
       generateDto.paymentOrderId,
     );
   }
-  @Post(':paymentOrderId/regenerate')
-  @Roles(ROLES.LOCADOR, ROLES.ADMIN, ROLES.LOCATARIO)
-  @ApiOperation({
-    summary: 'Gerar um novo boleto atualizado para uma fatura ATRASADA',
-  })
-  async regenerateOverdueBankSlip(
-    @Body() regenerateDto: RegenerateBankSlipDto,
-  ) {
-    return this.bankSlipsService.regenerateOverdueBankSlip(
-      regenerateDto.paymentOrderId,
-    );
-  }
 }
