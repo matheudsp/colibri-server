@@ -10,13 +10,15 @@ services:
       - '--entrypoints.web.address=:80'
       - '--entrypoints.websecure.address=:443'
       - '--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json'
+      - '--certificatesresolvers.letsencrypt.acme.httpchallenge=true'
       - '--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web'
+      - '--certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL}'
     ports:
       - '80:80'
       - '443:443'
     volumes:
       - '/var/run/docker.sock:/var/run/docker.sock:ro'
-      - './traefik/traefik.yml:/etc/traefik/traefik.yml'
+      # - './traefik/traefik.yml:/etc/traefik/traefik.yml'
       - './traefik/acme.json:/letsencrypt/acme.json'
     depends_on:
       - api
@@ -53,7 +55,7 @@ services:
     image: postgres:16-alpine
     container_name: colibri_db
     restart: always
-    ports: 
+    ports:
       - '5433:5432'
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
