@@ -8,7 +8,8 @@ export const loggerConfig = (configService: ConfigService): Params => ({
     transport:
       configService.get('NODE_ENV') !== 'production'
         ? { target: 'pino-pretty' }
-        : undefined, 
+        : undefined,
+
     serializers: {
       req: (req: Request) => ({
         method: req.method,

@@ -1,17 +1,13 @@
-// src/modules/metrics/metrics.module.ts
-
 import { Module } from '@nestjs/common';
-import { APP_INTERCEPTOR } from '@nestjs/core';
-import { MetricsInterceptor } from './metrics.interceptor';
-import { MetricsProviderModule } from './metrics-provider.module';
+import { PrometheusModule } from 'nestjs-prometheus';
+import { MetricsController } from './metrics.controller';
 
 @Module({
-  imports: [MetricsProviderModule], // Garante que as métricas sejam criadas primeiro
-  providers: [
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: MetricsInterceptor,
-    },
+  imports: [
+    PrometheusModule.register({
+      controller: MetricsController,
+    }),
   ],
+  controllers: [MetricsController],
 })
 export class MetricsModule {}

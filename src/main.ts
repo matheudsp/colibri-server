@@ -22,7 +22,7 @@ async function bootstrap() {
     }),
   );
 
-  app.setGlobalPrefix('api/v1', { exclude: ['/metrics'] });
+  app.setGlobalPrefix('api/v1');
   setupSwagger(app);
   app.useGlobalInterceptors(new TransformInterceptor());
   prismaService.enableShutdownHooks(app);
