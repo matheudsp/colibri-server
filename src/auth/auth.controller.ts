@@ -80,9 +80,24 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Logs out the user by clearing cookies' })
   logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie('accessToken', this.cookieOptions);
-    res.clearCookie('refreshToken', this.cookieOptions);
-    res.clearCookie('session-status', this.cookieOptions);
+    const httpOnlyCookieOptions = {
+      domain: '.valedosol.space',
+      path: '/',
+      secure: true,
+      sameSite: 'none' as const, // 'lax' para produção, 'none' para dev entre domínios diferentes
+      httpOnly: true,
+    };
+
+    // Opções para o cookie acessível pelo cliente (session-status)
+    const clientCookieOptions = {
+      ...httpOnlyCookieOptions,
+      httpOnly: false,
+    };
+
+    res.clearCookie('accessToken', httpOnlyCookieOptions);
+    res.clearCookie('refreshToken', httpOnlyCookieOptions);
+    res.clearCookie('session-status', clientCookieOptions);
+
     return { message: 'Logout successful' };
   }
 
