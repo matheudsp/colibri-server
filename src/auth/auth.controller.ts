@@ -71,9 +71,11 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Logs out the user by clearing cookies' })
   logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie('accessToken');
-    res.clearCookie('refreshToken');
-    res.clearCookie('session-status');
+    const cookieOptions = { domain: '.valedosol.space', path: '/' };
+
+    res.clearCookie('accessToken', cookieOptions);
+    res.clearCookie('refreshToken', cookieOptions);
+    res.clearCookie('session-status', cookieOptions);
     return { message: 'Logout successful' };
   }
 
