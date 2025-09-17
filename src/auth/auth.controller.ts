@@ -60,6 +60,7 @@ export class AuthController {
       // sameSite: 'strict'
       sameSite: 'none',
       path: '/',
+      domain: '.valedosol.space',
       maxAge: 1000 * 60 * 15, // 15 minutos
     });
 
@@ -92,6 +93,7 @@ export class AuthController {
       secure: true,
       sameSite: 'none',
       path: '/',
+      domain: '.valedosol.space',
       maxAge: 1000 * 60 * 15, // 15 minutos
     });
 
@@ -100,6 +102,7 @@ export class AuthController {
       secure: true,
       sameSite: 'none',
       path: '/',
+      domain: '.valedosol.space',
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias
     });
 
@@ -109,6 +112,7 @@ export class AuthController {
       secure: true,
       sameSite: 'none',
       path: '/',
+      domain: '.valedosol.space',
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias (mesma duração do refresh token)
     });
     return {
@@ -136,6 +140,7 @@ export class AuthController {
         // sameSite: 'strict'
         sameSite: 'none',
         path: '/',
+        domain: '.valedosol.space',
         maxAge: 1000 * 60 * 15, // 15 minutos
       });
 
@@ -146,6 +151,7 @@ export class AuthController {
         // sameSite: 'strict'
         sameSite: 'none',
         path: '/',
+        domain: '.valedosol.space',
         maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias
       });
 
@@ -154,6 +160,7 @@ export class AuthController {
         secure: true,
         sameSite: 'none',
         path: '/',
+        domain: '.valedosol.space',
         maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias (mesma duração do refresh token)
       });
 
