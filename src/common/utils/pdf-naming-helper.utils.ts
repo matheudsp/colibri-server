@@ -6,7 +6,7 @@ export const getPdfFileName = (
 ): string => {
   switch (pdfType) {
     case 'CONTRATO_LOCACAO':
-      return `contrato-${contractId}.pdf`;
+      return `${pdfType}.pdf`;
     default:
       return `documento-${contractId}.pdf`;
   }

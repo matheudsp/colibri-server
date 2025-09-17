@@ -19,6 +19,10 @@ export class StorageService {
   ) {
     this.bucketName = this.config.getOrThrow<string>('SUPABASE_STORAGE_BUCKET');
   }
+  getPublicUrl(filePath: string): string {
+    const supabaseUrl = this.config.getOrThrow<string>('SUPABASE_URL');
+    return `${supabaseUrl}/storage/v1/object/public/${this.bucketName}/${filePath}`;
+  }
 
   async uploadFile(
     file: FileUpload,

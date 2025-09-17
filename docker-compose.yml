@@ -43,6 +43,8 @@ services:
     image: postgres:16-alpine
     container_name: colibri_db
     restart: always
+    ports:
+      - 5433:5432
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}

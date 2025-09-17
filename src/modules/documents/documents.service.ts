@@ -66,7 +66,7 @@ export class DocumentsService {
     }
 
     const { key } = await this.storageService.uploadFile(file, {
-      folder: 'documents',
+      folder: `documents/${currentUser.sub}`,
     });
 
     const document = await this.prisma.document.create({

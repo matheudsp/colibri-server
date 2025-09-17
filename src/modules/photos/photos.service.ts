@@ -90,7 +90,8 @@ export class PhotosService {
     return photo;
   }
 
-  async getPhotosByProperty(propertyId: string, includeSignedUrl = false) {
+  async getPhotosByProperty(propertyId: string, includePublicUrl = false) {
+    // O parâmetro foi renomeado para maior clareza
     const photos = await this.prisma.photo.findMany({
       where: { propertyId },
       include: {
@@ -103,26 +104,14 @@ export class PhotosService {
       },
     });
 
-    if (includeSignedUrl) {
-      return Promise.all(
-        photos.map(async (photo) => {
-          try {
-            return {
-              ...photo,
-              signedUrl: await this.storageService.getSignedUrl(photo.filePath),
-            };
-          } catch (error) {
-            this.logger.error(
-              `Falha ao obter URL assinada para a foto ${photo.id}`,
-              error.stack,
-            );
-            return {
-              ...photo,
-              signedUrl: '',
-            };
-          }
-        }),
-      );
+    if (includePublicUrl) {
+      return photos.map((photo) => {
+        return {
+          ...photo,
+
+          url: this.storageService.getPublicUrl(photo.filePath),
+        };
+      });
     }
 
     return photos;

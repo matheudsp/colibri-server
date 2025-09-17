@@ -273,6 +273,7 @@ model Property {
   updatedAt DateTime @updatedAt
 
   @@index([title, street, district, city, state, cep], name: "property_search_idx")
+  @@index([landlordId])
 }
 
 model Contract {

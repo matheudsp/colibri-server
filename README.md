@@ -1,98 +1,90 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Colibri API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Backend da aplicação imobiliária Colibri, desenvolvido com **NestJS**, **Prisma** e **PostgreSQL**.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## 🚀 Início Rápido
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+### Modo de Desenvolvimento (Backend Local + Serviços no Docker)
 
-## Project setup
+Neste modo, o banco de dados (**PostgreSQL**) e o **Redis** rodarão em contêineres **Docker**, enquanto a aplicação **NestJS** rodará diretamente na sua máquina, permitindo o _hot-reloading_.
+
+#### ⚙️ Configuração do Ambiente
+
+Copie o arquivo de exemplo `.env.development` para um novo arquivo chamado `.env`:
 
 ```bash
-$ pnpm install
+cp .env.development .env
+Abra o arquivo .env e verifique as variáveis DATABASE_URL e REDIS_URL.
+Elas devem apontar para localhost e para as portas expostas no arquivo docker-compose.dev.yml (5433 para o PostgreSQL).
+
+▶️ Iniciar Serviços
+Suba os contêineres do PostgreSQL e Redis com o arquivo de desenvolvimento:
+
+bash
+Copy code
+docker-compose -f docker-compose.dev.yml up -d
+📦 Instalar Dependências
+bash
+Copy code
+pnpm install
+🗄️ Executar Migrations
+Aplique as migrações do Prisma para criar as tabelas no banco de dados:
+
+bash
+Copy code
+pnpm prisma migrate deploy
+🚀 Iniciar a Aplicação
+Execute o script para iniciar em modo de desenvolvimento com watch-mode:
+
+bash
+Copy code
+pnpm run start:dev
+A API estará disponível em:
+👉 http://localhost:3000
+
+Modo de Produção (Tudo no Docker)
+Neste modo, todos os serviços, incluindo a API, serão orquestrados pelo Docker Compose, simulando um ambiente de produção real.
+
+⚙️ Configuração do Ambiente
+Copie o arquivo de exemplo .env para um novo arquivo com o mesmo nome (se ainda não o fez):
+
+bash
+Copy code
+cp .env .env
+Abra o arquivo .env e verifique as variáveis de ambiente.
+Note que DATABASE_URL e REDIS_URL devem usar os nomes dos serviços definidos no docker-compose.yml (ex: db e redis), não localhost.
+
+▶️ Construir e Iniciar os Contêineres
+Use o arquivo docker-compose.yml principal para construir as imagens e iniciar todos os serviços em segundo plano:
+
+bash
+Copy code
+docker-compose -f docker-compose.yml up -d --build
+O entrypoint.sh do contêiner da API se encarregará de rodar as migrations e o seed automaticamente antes de iniciar a aplicação.
+A API estará disponível conforme configurado no seu proxy reverso (Traefik).
+
+📜 Scripts Disponíveis
+Aqui estão os principais scripts disponíveis no package.json:
+
+pnpm run build: Compila o código TypeScript para JavaScript.
+
+pnpm run format: Formata todo o código-fonte usando o Prettier.
+
+pnpm run start: Inicia a aplicação a partir do código já compilado.
+
+pnpm run start:dev: Inicia a aplicação em modo de desenvolvimento com hot-reload.
+
+pnpm run start:prod: Inicia a aplicação em modo de produção.
+
+pnpm run lint: Executa o ESLint para encontrar e corrigir problemas no código.
+
+pnpm run test: Roda os testes unitários.
+
+pnpm run test:watch: Roda os testes unitários em modo de observação.
+
+pnpm run test:cov: Roda os testes e gera um relatório de cobertura.
+
+pnpm run test:e2e: Roda os testes end-to-end.
 ```
-
-## Compile and run the project
-
-```bash
-# development
-$ pnpm run start
-
-# watch mode
-$ pnpm run start:dev
-
-# production mode
-$ pnpm run start:prod
-```
-
-## Run tests
-
-```bash
-# unit tests
-$ pnpm run test
-
-# e2e tests
-$ pnpm run test:e2e
-
-# test coverage
-$ pnpm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).

@@ -78,12 +78,15 @@ export class WebhooksService {
           );
           const fileBuffer = Buffer.from(response.data);
           const signedFileName = `assinado-${getPdfFileName(pdf.pdfType, pdf.contractId)}`;
-          const { key } = await this.storageService.uploadFile({
-            buffer: fileBuffer,
-            originalname: signedFileName,
-            mimetype: 'application/pdf',
-            size: fileBuffer.length,
-          });
+          const { key } = await this.storageService.uploadFile(
+            {
+              buffer: fileBuffer,
+              originalname: signedFileName,
+              mimetype: 'application/pdf',
+              size: fileBuffer.length,
+            },
+            { folder: `contracts/${pdf.contractId}` },
+          );
 
           await this.prisma.generatedPdf.update({
             where: { id: pdf.id },

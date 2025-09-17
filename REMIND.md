@@ -1,3 +1,12 @@
+Bucket Policies Config
+CREATE POLICY "Public read access for properties folder"
+ON storage.objects FOR SELECT
+TO anon, authenticated
+USING (
+bucket_id = 'default'
+AND name LIKE 'properties/%'
+);
+
 Utilizar extensão unnacent para buscas!
 CREATE EXTENSION IF NOT EXISTS unaccent;
 
