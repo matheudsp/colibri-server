@@ -1,5 +1,4 @@
 services:
-  # --- Proxy Reverso ---
   traefik:
     image: traefik:v2.11
     container_name: colibri_traefik
@@ -18,10 +17,7 @@ services:
       - '443:443'
     volumes:
       - '/var/run/docker.sock:/var/run/docker.sock:ro'
-      # - './traefik/traefik.yml:/etc/traefik/traefik.yml'
       - './traefik/acme.json:/letsencrypt/acme.json'
-    depends_on:
-      - api
     networks:
       - web
 
@@ -30,8 +26,6 @@ services:
     container_name: colibri_api
     restart: always
     env_file: .env
-    ports:
-      - '${PORT:-3000}:3000'
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.routers.api.rule=Host(`${TRAEFIK_DOMAIN}`)'
@@ -39,11 +33,6 @@ services:
       - 'traefik.http.routers.api.tls.certresolver=letsencrypt'
       - 'traefik.http.services.api.loadbalancer.server.port=3000'
       - 'traefik.docker.network=web'
-    logging:
-      driver: 'json-file'
-      options:
-        max-size: '10m'
-        max-file: '3'
     depends_on:
       - db
       - redis
@@ -54,8 +43,6 @@ services:
     image: postgres:16-alpine
     container_name: colibri_db
     restart: always
-    ports:
-      - '5433:5432'
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -72,6 +59,8 @@ services:
     command: ['redis-server', '--requirepass', '${REDIS_PASSWORD}']
     volumes:
       - redis_data:/data
+    networks:
+      - web
 
   uptime-kuma:
     image: louislam/uptime-kuma:1
@@ -81,7 +70,7 @@ services:
       - '3001:3001'
     volumes:
       - uptime_kuma_data:/app/data
-    labels: # Labels para o Traefik descobrir e rotear o tráfego para o Uptime Kuma
+    labels:
       - 'traefik.enable=true'
       - 'traefik.http.routers.uptime-kuma.rule=Host(`${UPTIME_KUMA_DOMAIN}`)'
       - 'traefik.http.routers.uptime-kuma.entrypoints=websecure'
