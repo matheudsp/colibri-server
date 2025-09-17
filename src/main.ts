@@ -30,7 +30,7 @@ async function bootstrap() {
     origin: [
       'http://localhost:8080',
       'http://localhost:3001',
-      'https://colibri-client.vercel.app',
+      'https://www.valedosol.space',
     ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
