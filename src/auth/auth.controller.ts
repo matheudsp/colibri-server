@@ -27,11 +27,27 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { LoginResponse } from 'src/common/interfaces/response.login.interface';
 import { Login2FADto } from './dto/login-2fa.dto';
+import { ConfigService } from '@nestjs/config';
 
 @Controller('auth')
 @ApiTags('Auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  private readonly isProduction: boolean;
+  private readonly cookieOptions: any;
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {
+    this.isProduction = this.configService.get('NODE_ENV') === 'production';
+
+    this.cookieOptions = {
+      httpOnly: true,
+      secure: true,
+      sameSite: this.isProduction ? 'lax' : 'none',
+      path: '/',
+      domain: this.isProduction ? '.valedosol.space' : undefined,
+    };
+  }
 
   @Get('me')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -54,28 +70,19 @@ export class AuthController {
     const { access_token } = await this.authService.refreshToken(refreshToken);
 
     res.cookie('accessToken', access_token, {
-      httpOnly: true,
-      secure: true,
-      // NO MOMENTO NAO PODE SER STRICT, O DOMINIO DA API É DIFERENTE DO CLIENT(FRONTEND)
-      // sameSite: 'strict'
-      sameSite: 'none',
-      path: '/',
-      domain: '.valedosol.space',
+      ...this.cookieOptions,
       maxAge: 1000 * 60 * 15, // 15 minutos
     });
 
     return { message: 'Token refreshed successfully' };
   }
-
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Logs out the user by clearing cookies' })
   logout(@Res({ passthrough: true }) res: Response) {
-    const cookieOptions = { domain: '.valedosol.space', path: '/' };
-
-    res.clearCookie('accessToken', cookieOptions);
-    res.clearCookie('refreshToken', cookieOptions);
-    res.clearCookie('session-status', cookieOptions);
+    res.clearCookie('accessToken', this.cookieOptions);
+    res.clearCookie('refreshToken', this.cookieOptions);
+    res.clearCookie('session-status', this.cookieOptions);
     return { message: 'Logout successful' };
   }
 
@@ -91,32 +98,21 @@ export class AuthController {
     const r = await this.authService.loginWith2FA(login2FADto);
 
     res.cookie('accessToken', r.access_token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none',
-      path: '/',
-      domain: '.valedosol.space',
+      ...this.cookieOptions,
       maxAge: 1000 * 60 * 15, // 15 minutos
     });
 
     res.cookie('refreshToken', r.refresh_token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none',
-      path: '/',
-      domain: '.valedosol.space',
+      ...this.cookieOptions,
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias
     });
 
-    // Indica que a sessão está ativa
     res.cookie('session-status', 'active', {
+      ...this.cookieOptions,
       httpOnly: false,
-      secure: true,
-      sameSite: 'none',
-      path: '/',
-      domain: '.valedosol.space',
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias (mesma duração do refresh token)
+      maxAge: 1000 * 60 * 60 * 24 * 7,
     });
+
     return {
       message: 'Autenticação de dois fatores bem-sucedida.',
     };
@@ -136,34 +132,19 @@ export class AuthController {
       const loginResponse = result as LoginResponse;
 
       res.cookie('accessToken', loginResponse.access_token, {
-        httpOnly: true,
-        secure: true,
-        // NO MOMENTO NAO PODE SER STRICT, O DOMINIO DA API É DIFERENTE DO CLIENT(FRONTEND)
-        // sameSite: 'strict'
-        sameSite: 'none',
-        path: '/',
-        domain: '.valedosol.space',
+        ...this.cookieOptions,
         maxAge: 1000 * 60 * 15, // 15 minutos
       });
 
       res.cookie('refreshToken', loginResponse.refresh_token, {
-        httpOnly: true,
-        secure: true,
-        // NO MOMENTO NAO PODE SER STRICT, O DOMINIO DA API É DIFERENTE DO CLIENT(FRONTEND)
-        // sameSite: 'strict'
-        sameSite: 'none',
-        path: '/',
-        domain: '.valedosol.space',
+        ...this.cookieOptions,
         maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias
       });
 
       res.cookie('session-status', 'active', {
+        ...this.cookieOptions,
         httpOnly: false,
-        secure: true,
-        sameSite: 'none',
-        path: '/',
-        domain: '.valedosol.space',
-        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias (mesma duração do refresh token)
+        maxAge: 1000 * 60 * 60 * 24 * 7,
       });
 
       return {
