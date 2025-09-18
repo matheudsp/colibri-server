@@ -93,18 +93,6 @@ export class PropertiesService {
   }
 
   async findAvailable({ page, limit }: { page: number; limit: number }) {
-    const cacheKey = `properties_available_page:${page}_limit:${limit}`;
-
-    const cachedData = await this.cacheManager.get(cacheKey);
-    if (cachedData) {
-      console.log(`[CACHE HIT] Servindo dados de '${cacheKey}'`);
-      return cachedData;
-    }
-
-    console.log(
-      `[CACHE MISS] Buscando dados de '${cacheKey}' no banco de dados.`,
-    );
-
     const skip = (page - 1) * limit;
     const where: Prisma.PropertyWhereInput = { isAvailable: true };
 
@@ -141,7 +129,7 @@ export class PropertiesService {
         totalPages: Math.ceil(total / limit),
       },
     };
-    await this.cacheManager.set(cacheKey, result, 300);
+    return result;
   }
 
   async findUserProperties(

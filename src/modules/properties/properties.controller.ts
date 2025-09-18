@@ -9,6 +9,7 @@ import {
   UseGuards,
   Query,
   ParseUUIDPipe,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -19,6 +20,7 @@ import {
   ApiParam,
   ApiBody,
 } from '@nestjs/swagger';
+import { CacheInterceptor } from '@nestjs/cache-manager';
 import { PropertiesService } from './properties.service';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
@@ -59,6 +61,8 @@ export class PropertiesController {
   }
 
   @Get('public')
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(60 * 5)
   @Public()
   @CacheKey('properties_public_all')
   @CacheTTL(60)
