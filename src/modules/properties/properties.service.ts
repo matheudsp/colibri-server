@@ -4,6 +4,7 @@ import {
   forwardRef,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -14,19 +15,18 @@ import { ROLES } from 'src/common/constants/roles.constant';
 import { LogHelperService } from '../logs/log-helper.service';
 import { SearchPropertyDto } from './dto/search-property.dto';
 import { ContractStatus, type Prisma } from '@prisma/client';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
 import { PhotosService } from '../photos/photos.service';
 import { ContractsService } from '../contracts/contracts.service';
 import { DeletePropertyDto } from './dto/delete-property.dto';
-import { InjectRedis } from '@nestjs-modules/ioredis';
-import Redis from 'ioredis';
 import { VerificationContexts } from 'src/common/constants/verification-contexts.constant';
 import { VerificationService } from '../verification/verification.service';
 import type { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
+import { CacheService } from 'cache/cache.service';
 
 @Injectable()
 export class PropertiesService {
+  private readonly logger = new Logger(PropertiesService.name);
+
   constructor(
     private prisma: PrismaService,
     private logHelper: LogHelperService,
@@ -34,30 +34,17 @@ export class PropertiesService {
     private propertyPhotosService: PhotosService,
     @Inject(forwardRef(() => ContractsService))
     private contractsService: ContractsService,
-    @InjectRedis() private readonly redis: Redis,
-    @Inject(CACHE_MANAGER)
-    private cacheManager: Cache,
+    private readonly cacheService: CacheService,
     private verificationService: VerificationService,
   ) {}
 
   private async clearPropertiesCache() {
-    // Busca todas as chaves que começam com 'properties_available_'
-    const availableKeys = await this.redis.keys('properties_available_*');
-    if (availableKeys.length > 0) {
-      await this.redis.del(availableKeys);
-    }
-
-    // Busca todas as chaves que começam com 'user_properties_'
-    const userKeys = await this.redis.keys('user_properties_*');
-    if (userKeys.length > 0) {
-      await this.redis.del(userKeys);
-    }
+    this.logger.log('Limpando chaves de cache de propriedades...');
+    await this.cacheService.delByPattern('properties_available_*');
+    await this.cacheService.delByPattern('user_properties_*');
   }
 
   async create(
-    // createPropertyDto: Omit<CreatePropertyDto, 'photos'> & {
-    //   photos?: Express.Multer.File[];
-    // },
     createPropertyDto: CreatePropertyDto,
     currentUser: { sub: string; role: string },
   ) {
@@ -69,18 +56,12 @@ export class PropertiesService {
         'Apenas locadores e administradores podem criar imóveis.',
       );
     }
-    // const { photos, ...propertyData } = createPropertyDto;
     const property = await this.prisma.property.create({
       data: {
-        // ...propertyData,
         ...createPropertyDto,
         landlordId: currentUser.sub,
       },
     });
-
-    // if (photos?.length) {
-    //   await this.propertyPhotosService.uploadPhotos(photos, property.id);
-    // }
 
     await this.logHelper.createLog(
       currentUser?.sub,
@@ -93,6 +74,18 @@ export class PropertiesService {
   }
 
   async findAvailable({ page, limit }: { page: number; limit: number }) {
+    const cacheKey = `properties_available_page:${page}_limit:${limit}`;
+    const cachedData = await this.cacheService.get(cacheKey);
+
+    if (cachedData) {
+      this.logger.log(`[CACHE HIT] Servindo dados de '${cacheKey}' do Redis.`);
+      return cachedData;
+    }
+
+    this.logger.log(
+      `[CACHE MISS] Buscando dados de '${cacheKey}' no banco de dados.`,
+    );
+
     const skip = (page - 1) * limit;
     const where: Prisma.PropertyWhereInput = { isAvailable: true };
 
@@ -103,7 +96,7 @@ export class PropertiesService {
         where,
         include: {
           landlord: { select: { name: true, email: true, phone: true } },
-          photos: { take: 1 },
+          photos: { where: { isCover: true }, take: 1 },
         },
       }),
       this.prisma.property.count({ where }),
@@ -129,6 +122,9 @@ export class PropertiesService {
         totalPages: Math.ceil(total / limit),
       },
     };
+
+    await this.cacheService.set(cacheKey, result, 300); // 300 segundos
+
     return result;
   }
 
@@ -137,10 +133,16 @@ export class PropertiesService {
     currentUser: { sub: string; role: string },
   ) {
     const cacheKey = `user_properties:${currentUser.sub}_page:${page}_limit:${limit}`;
-    const cachedData = await this.cacheManager.get(cacheKey);
+
+    const cachedData = await this.cacheService.get(cacheKey);
+
     if (cachedData) {
+      this.logger.log(`[CACHE HIT] Servindo dados de '${cacheKey}' do Redis.`);
       return cachedData;
     }
+    this.logger.log(
+      `[CACHE MISS] Buscando dados de '${cacheKey}' no banco de dados.`,
+    );
 
     const skip = (page - 1) * limit;
     let where: Prisma.PropertyWhereInput = {};
@@ -169,7 +171,7 @@ export class PropertiesService {
       );
     }
 
-    const [properties, total] = await this.prisma.$transaction([
+    const [propertiesFromDb, total] = await this.prisma.$transaction([
       this.prisma.property.findMany({
         skip,
         take: limit,
@@ -181,6 +183,11 @@ export class PropertiesService {
       }),
       this.prisma.property.count({ where }),
     ]);
+
+    const properties = propertiesFromDb.map((p) => ({
+      ...p,
+      value: p.value.toNumber(),
+    }));
 
     const propertiesWithSignedUrls = await Promise.all(
       properties.map(async (property) => {
@@ -203,7 +210,7 @@ export class PropertiesService {
       },
     };
 
-    await this.cacheManager.set(cacheKey, result);
+    await this.cacheService.set(cacheKey, result, 300); // 300 segundos
 
     return result;
   }
@@ -225,7 +232,11 @@ export class PropertiesService {
       property.id,
       true,
     );
-    return { ...property, photos: photosWithUrls };
+    return {
+      ...property,
+      photos: photosWithUrls,
+      value: property.value.toNumber(),
+    };
   }
 
   async publicSearch(params: Partial<SearchPropertyDto>) {
@@ -242,9 +253,8 @@ export class PropertiesService {
 
     const skip = (page - 1) * limit;
 
-    // 1. Traduz o parâmetro de ordenação para o formato do Prisma
     const [sortField, sortDirection] = sort.split(':');
-    const sortMap = {
+    const sortMap: Record<string, string> = {
       createdAt: 'createdAt',
       price: 'value',
       size: 'areaInM2',
@@ -256,15 +266,13 @@ export class PropertiesService {
     }
 
     const orderBy: Prisma.PropertyOrderByWithRelationInput = {
-      [dbField]: sortDirection,
+      [dbField]: sortDirection as 'asc' | 'desc',
     };
 
-    // 2. Constrói uma única e poderosa cláusula 'where' para o Prisma
     const where: Prisma.PropertyWhereInput = {
       isAvailable: true,
     };
 
-    // Adiciona os filtros específicos que sempre são aplicados com 'AND'
     const andFilters: Prisma.PropertyWhereInput[] = [];
     if (transactionType) andFilters.push({ transactionType });
     if (propertyType) andFilters.push({ propertyType });
@@ -273,7 +281,6 @@ export class PropertiesService {
     if (city)
       andFilters.push({ city: { contains: city, mode: 'insensitive' } });
 
-    // Se o parâmetro de busca textual 'q' existir, cria um bloco 'OR'
     if (q) {
       const normalizedQ = q.replace(/-/g, ' ').trim();
       andFilters.push({
@@ -292,22 +299,25 @@ export class PropertiesService {
       where.AND = andFilters;
     }
 
-    // 3. Executa a busca e a contagem em uma única transação
-    const [properties, total] = await this.prisma.$transaction([
+    const [propertiesFromDb, total] = await this.prisma.$transaction([
       this.prisma.property.findMany({
         where,
         skip,
         take: limit,
-        orderBy, // A ordenação é aplicada aqui na consulta principal
+        orderBy,
         include: {
           landlord: { select: { name: true, email: true } },
           photos: { where: { isCover: true }, take: 1 },
         },
       }),
-      this.prisma.property.count({ where }), // A contagem usa exatamente os mesmos filtros
+      this.prisma.property.count({ where }),
     ]);
 
-    // 4. Adiciona as URLs assinadas (lógica inalterada)
+    const properties = propertiesFromDb.map((p) => ({
+      ...p,
+      value: p.value.toNumber(),
+    }));
+
     const propertiesWithSignedUrls = await Promise.all(
       properties.map(async (property) => {
         const photosWithUrls =
@@ -377,7 +387,7 @@ export class PropertiesService {
     const where: Prisma.PropertyWhereInput =
       andConditions.length > 0 ? { AND: andConditions } : {};
 
-    const [properties, total] = await Promise.all([
+    const [propertiesFromDb, total] = await Promise.all([
       this.prisma.property.findMany({
         where,
         skip,
@@ -389,6 +399,11 @@ export class PropertiesService {
       }),
       this.prisma.property.count({ where }),
     ]);
+
+    const properties = propertiesFromDb.map((p) => ({
+      ...p,
+      value: p.value.toNumber(),
+    }));
 
     const propertiesWithSignedUrls = await Promise.all(
       properties.map(async (property) => {
@@ -461,7 +476,6 @@ export class PropertiesService {
     }
 
     if (currentUser.role === ROLES.LOCADOR) {
-      // Para um LOCADOR, o token é obrigatório.
       if (!deleteDto.actionToken) {
         throw new BadRequestException(
           'O token de verificação (actionToken) é obrigatório para esta ação.',
@@ -473,7 +487,6 @@ export class PropertiesService {
         currentUser.sub,
       );
     }
-    // Se for ADMIN, a verificação do token é simplesmente pulada.
 
     await this.propertyPhotosService.deletePhotosByProperty(id);
     await this.contractsService.deleteContractsByProperty(id);
@@ -507,15 +520,14 @@ export class PropertiesService {
   }
 
   async findAllPropertiesPaginated(skip: number, take: number) {
-    const [agencies, total] = await Promise.all([
+    const [properties, total] = await Promise.all([
       this.prisma.property.findMany({
         skip,
         take,
-        // orderBy: { : 'desc' },
       }),
       this.prisma.property.count(),
     ]);
 
-    return [agencies, total];
+    return [properties, total];
   }
 }

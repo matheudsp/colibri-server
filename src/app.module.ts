@@ -36,6 +36,7 @@ import { TransfersModule } from './modules/transfers/transfers.module';
 import { HealthModule } from './modules/health/health.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { ThrottlerGuard } from '@nestjs/throttler';
     TestModule,
     HealthModule,
     MetricsModule,
+    AnalyticsModule,
   ],
   providers: [
     {

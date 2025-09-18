@@ -10,7 +10,7 @@ export const redisConfig = (
     host: configService.get<string>('REDIS_HOST'),
     port: configService.get<number>('REDIS_PORT'),
     password: configService.get<string>('REDIS_PASSWORD'),
-    keyPrefix: configService.get<string>('REDIS_PREFIX', 'colibri:'),
+    keyPrefix: configService.get<string>('REDIS_PREFIX', 'locaterra:'),
     tls: configService.get<boolean>('REDIS_TLS') ? {} : undefined,
     // Aumenta o tempo máximo de espera pela resposta do Redis
     commandTimeout: 5000,

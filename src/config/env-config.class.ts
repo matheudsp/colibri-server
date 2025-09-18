@@ -52,7 +52,7 @@ export class EnvConfig {
 
   @IsString()
   @IsOptional()
-  REDIS_PREFIX = 'colibri:';
+  REDIS_PREFIX = 'locaterra:';
 
   @IsBoolean()
   @Transform(({ value }) => value === 'true')

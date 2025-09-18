@@ -11,7 +11,8 @@ import { TerminusModule } from '@nestjs/terminus';
 import { supabaseConfig } from './supabase.config';
 import { SupabaseModule } from 'nestjs-supabase-js';
 import { ScheduleModule } from '@nestjs/schedule';
-
+import { RedisModule } from '../redis/redis.module';
+import { AppCacheModule } from '../../cache/cache.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -29,7 +30,8 @@ import { ScheduleModule } from '@nestjs/schedule';
     }),
     CacheModule.registerAsync({
       inject: [ConfigService],
-      useFactory: cacheConfig,
+      useFactory: async (configService: ConfigService) =>
+        await cacheConfig(configService),
     }),
     SupabaseModule.forRootAsync({
       inject: [ConfigService],
@@ -41,6 +43,8 @@ import { ScheduleModule } from '@nestjs/schedule';
     }),
     TerminusModule,
     ScheduleModule.forRoot(),
+    RedisModule,
+    AppCacheModule,
   ],
   providers: [],
   exports: [

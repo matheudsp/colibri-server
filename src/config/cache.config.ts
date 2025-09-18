@@ -1,11 +1,14 @@
 import { ConfigService } from '@nestjs/config';
-import { CacheModuleOptions } from '@nestjs/cache-manager';
+import type { CacheModuleOptions } from '@nestjs/cache-manager';
+import { redisStore } from 'cache-manager-redis-yet';
 
-export const cacheConfig = (
+export const cacheConfig = async (
   configService: ConfigService,
-): CacheModuleOptions => ({
-  ttl: configService.get<number>('CACHE_TTL', 5),
-  max: configService.get<number>('CACHE_MAX_ITEMS', 100),
-  store: configService.get<string>('CACHE_STORE', 'memory'),
+): Promise<CacheModuleOptions> => ({
+  store: await redisStore({
+    url: configService.get<string>('REDIS_URL'),
+    ttl: configService.get<number>('CACHE_TTL', 5) * 1000, // TTL em milissegundos
+    keyPrefix: configService.get<string>('REDIS_PREFIX', 'colibri:'), // Garante o mesmo prefixo
+  }),
   isGlobal: true,
 });

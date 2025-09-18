@@ -20,7 +20,7 @@ import {
   ApiParam,
   ApiBody,
 } from '@nestjs/swagger';
-import { CacheInterceptor } from '@nestjs/cache-manager';
+
 import { PropertiesService } from './properties.service';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
@@ -30,7 +30,6 @@ import {
 } from 'src/common/decorator/current-user.decorator';
 import { Roles } from 'src/common/decorator/roles.decorator';
 import { ROLES } from 'src/common/constants/roles.constant';
-import { CacheKey, CacheTTL } from '@nestjs/cache-manager';
 import { PropertyResponseDto } from './dto/response-property.dto';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { SearchPropertyDto } from './dto/search-property.dto';
@@ -61,11 +60,9 @@ export class PropertiesController {
   }
 
   @Get('public')
-  @UseInterceptors(CacheInterceptor)
-  @CacheTTL(60 * 5)
+  // @UseInterceptors(CacheInterceptor)
+  // @CacheTTL(60 * 5)
   @Public()
-  @CacheKey('properties_public_all')
-  @CacheTTL(60)
   @ApiOperation({ summary: 'List all available properties for rent' })
   @ApiResponse({
     status: 200,
