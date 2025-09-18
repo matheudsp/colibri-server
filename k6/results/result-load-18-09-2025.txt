@@ -1,0 +1,43 @@
+
+
+  █ THRESHOLDS
+
+    http_req_duration
+    ✗ 'p(95)<500' p(95)=2.45s
+
+    http_req_failed
+    ✗ 'rate<0.01' rate=2.51%
+
+
+  █ TOTAL RESULTS
+
+    checks_total.......: 50393  69.901816/s
+    checks_succeeded...: 97.48% 49126 out of 50393
+    checks_failed......: 2.51%  1267 out of 50393
+
+    ✓ login successful
+    ✓ cookie is present
+    ✗ properties listed successfully
+      ↳  97% — ✓ 49124 / ✗ 1267
+
+    HTTP
+    http_req_duration..............: avg=3.19s min=161.29ms med=1.33s max=1m0s   p(90)=1.98s p(95)=2.45s
+      { expected_response:true }...: avg=1.73s min=161.29ms med=1.31s max=59.98s p(90)=1.91s p(95)=2.1s
+    http_req_failed................: 2.51%  1267 out of 50392
+    http_reqs......................: 50392  69.900429/s
+
+    EXECUTION
+    iteration_duration.............: avg=4.19s min=1.16s    med=2.33s max=1m1s   p(90)=2.99s p(95)=3.47s
+    iterations.....................: 50384  69.889332/s
+    vus............................: 5      min=1             max=500
+    vus_max........................: 500    min=500           max=500
+
+    NETWORK
+    data_received..................: 274 MB 380 kB/s
+    data_sent......................: 4.7 MB 6.5 kB/s
+
+
+
+
+running (12m00.9s), 000/500 VUs, 50384 complete and 59 interrupted iterations
+default ✓ [======================================] 000/500 VUs  12m0s

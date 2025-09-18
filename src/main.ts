@@ -8,12 +8,13 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { json } from 'express';
 import cookieParser from 'cookie-parser';
+import { NestExpressApplication } from '@nestjs/platform-express';
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const prismaService = app.get(PrismaService);
   const logger = new Logger('Bootstrap');
   const port = process.env.PORT || 3000;
-
+  app.set('trust proxy', true);
   app.use(
     json({
       verify: (req: any, res, buf) => {

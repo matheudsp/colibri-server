@@ -28,6 +28,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { LoginResponse } from 'src/common/interfaces/response.login.interface';
 import { Login2FADto } from './dto/login-2fa.dto';
 import { ConfigService } from '@nestjs/config';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('auth')
 @ApiTags('Auth')
@@ -101,6 +102,7 @@ export class AuthController {
     return { message: 'Logout successful' };
   }
 
+  @Throttle({ strict: {} })
   @Post('login/2fa')
   @Public()
   @HttpCode(HttpStatus.OK)
@@ -132,6 +134,7 @@ export class AuthController {
       message: 'Autenticação de dois fatores bem-sucedida.',
     };
   }
+  @Throttle({ strict: {} })
   @Post('login')
   @Public()
   @HttpCode(HttpStatus.OK)
@@ -168,6 +171,7 @@ export class AuthController {
     }
   }
 
+  @Throttle({ strict: {} })
   @Post('register')
   @Public()
   @ApiBody({ type: CreateUserDto })
@@ -176,6 +180,7 @@ export class AuthController {
     return this.authService.registerUser(registerDto);
   }
 
+  @Throttle({ strict: {} })
   @Post('register/landlord')
   @Public()
   @ApiBody({ type: CreateLandlordDto })
@@ -184,6 +189,7 @@ export class AuthController {
     return this.authService.registerLandlord(registerDto);
   }
 
+  @Throttle({ strict: {} })
   @Post('forgot-password')
   @Public()
   @HttpCode(HttpStatus.OK)
@@ -193,6 +199,7 @@ export class AuthController {
     return this.authService.requestPasswordReset(forgotPasswordDto.email);
   }
 
+  @Throttle({ strict: {} })
   @Post('reset-password')
   @Public()
   @HttpCode(HttpStatus.OK)

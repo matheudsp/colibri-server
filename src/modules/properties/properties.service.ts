@@ -40,6 +40,20 @@ export class PropertiesService {
     private verificationService: VerificationService,
   ) {}
 
+  private async clearPropertiesCache() {
+    // Busca todas as chaves que começam com 'properties_available_'
+    const availableKeys = await this.redis.keys('properties_available_*');
+    if (availableKeys.length > 0) {
+      await this.redis.del(availableKeys);
+    }
+
+    // Busca todas as chaves que começam com 'user_properties_'
+    const userKeys = await this.redis.keys('user_properties_*');
+    if (userKeys.length > 0) {
+      await this.redis.del(userKeys);
+    }
+  }
+
   async create(
     // createPropertyDto: Omit<CreatePropertyDto, 'photos'> & {
     //   photos?: Express.Multer.File[];
@@ -74,11 +88,23 @@ export class PropertiesService {
       'Property',
       property.id,
     );
-
+    await this.clearPropertiesCache();
     return property;
   }
 
   async findAvailable({ page, limit }: { page: number; limit: number }) {
+    const cacheKey = `properties_available_page:${page}_limit:${limit}`;
+
+    const cachedData = await this.cacheManager.get(cacheKey);
+    if (cachedData) {
+      console.log(`[CACHE HIT] Servindo dados de '${cacheKey}'`);
+      return cachedData;
+    }
+
+    console.log(
+      `[CACHE MISS] Buscando dados de '${cacheKey}' no banco de dados.`,
+    );
+
     const skip = (page - 1) * limit;
     const where: Prisma.PropertyWhereInput = { isAvailable: true };
 
@@ -95,7 +121,7 @@ export class PropertiesService {
       this.prisma.property.count({ where }),
     ]);
 
-    const propertiesWithSignedUrls = await Promise.all(
+    const propertiesWithPublicUrls = await Promise.all(
       properties.map(async (property) => {
         const photosWithUrls =
           await this.propertyPhotosService.getPhotosByProperty(
@@ -106,8 +132,8 @@ export class PropertiesService {
       }),
     );
 
-    return {
-      properties: propertiesWithSignedUrls,
+    const result = {
+      properties: propertiesWithPublicUrls,
       meta: {
         total,
         page,
@@ -115,6 +141,7 @@ export class PropertiesService {
         totalPages: Math.ceil(total / limit),
       },
     };
+    await this.cacheManager.set(cacheKey, result, 300);
   }
 
   async findUserProperties(
@@ -424,6 +451,8 @@ export class PropertiesService {
       'Property',
       updatedProperty.id,
     );
+    await this.clearPropertiesCache();
+
     return updatedProperty;
   }
 
@@ -468,6 +497,8 @@ export class PropertiesService {
       'Property',
       property.id,
     );
+
+    await this.clearPropertiesCache();
 
     return {
       message:

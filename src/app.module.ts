@@ -35,6 +35,7 @@ import { TwoFactorAuthModule } from './modules/two-factor-auth/two-factor-auth.m
 import { TransfersModule } from './modules/transfers/transfers.module';
 import { HealthModule } from './modules/health/health.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
+import { ThrottlerGuard } from '@nestjs/throttler';
 
 @Module({
   imports: [
@@ -82,6 +83,10 @@ import { MetricsModule } from './modules/metrics/metrics.module';
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
     },
     {
       provide: APP_INTERCEPTOR,
