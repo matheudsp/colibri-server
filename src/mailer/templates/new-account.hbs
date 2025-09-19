@@ -1,5 +1,5 @@
 <div>
-  <h2>Olá {{name}},</h2>
+  <h2>Olá, {{name}}. Portas abertas: conta criada!</h2>
 
   <p>Sua conta no <strong>{{appName}}</strong> foi criada com sucesso! </p>
    {{#if temporaryPassword}}
@@ -13,12 +13,14 @@
     <p>Para acessar, clique no botão abaixo:</p>
     <a
       href="{{action.url}}"
-      style="display: inline-block; padding: 10px 20px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 5px;"
+       style='
+    display: inline-block; padding: 12px 24px; background-color: #97c52a; color: #2d2b2e; text-decoration: none; border-radius: 12px; font-weight: bold; border-style: solid;  border-width: 1px;   border-color: #7da623; border-bottom-width: 4px;
+    '
     >
       {{action.text}}
     </a>
   {{else}}
-    <p>Você pode fazer login diretamente em: <a href="{{loginUrl}}">{{loginUrl}}</a></p>
+    <p>Você pode fazer login diretamente em: <a style="text-decoration:underline;" href="{{loginUrl}}">{{loginUrl}}</a></p>
   {{/if}}
   {{#if temporaryPassword}}
     <p>Recomendamos trocar sua senha após o primeiro acesso.</p>
