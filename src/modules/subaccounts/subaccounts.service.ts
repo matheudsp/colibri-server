@@ -78,7 +78,7 @@ export class SubaccountsService {
         },
         action: {
           text: 'Acessar minha carteira',
-          path: '/dashboard/finances', // Exemplo de path
+          path: '/conta?aba=conta-de-pagamentos',
         },
       };
     } else if (general === 'REJECTED') {
@@ -90,8 +90,8 @@ export class SubaccountsService {
         },
         action: {
           text: 'Verificar Pendências',
-          // O ideal é ter uma página que busque e mostre o onboardingUrl novamente
-          path: '/dashboard/my-account/onboarding',
+
+          path: '/conta?aba=conta-de-pagamentos',
         },
       };
     }

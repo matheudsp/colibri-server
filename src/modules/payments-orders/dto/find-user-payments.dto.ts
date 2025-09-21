@@ -1,7 +1,14 @@
-import { IsDateString, IsEnum, IsOptional, IsUUID } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsUUID,
+  Min,
+} from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { PaymentStatus } from '@prisma/client';
-import { Expose } from 'class-transformer';
+import { Expose, Type } from 'class-transformer';
 
 export class FindUserPaymentsDto {
   @Expose()
@@ -43,4 +50,26 @@ export class FindUserPaymentsDto {
   @IsOptional()
   @IsDateString()
   endDate?: string;
+
+  @Expose()
+  @ApiPropertyOptional({
+    description: 'Número da página para paginação.',
+    default: 1,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  page?: number = 1;
+
+  @Expose()
+  @ApiPropertyOptional({
+    description: 'Número de itens por página.',
+    default: 10,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  limit?: number = 10;
 }

@@ -33,9 +33,6 @@ export class PaymentGatewayService {
     this.asaasApiUrl = this.configService.getOrThrow<string>('ASAAS_API_URL');
   }
 
-  /**
-   * ---------- MÉTODOS GENÉRICOS ----------
-   */
   private async request<T = any>(
     method: 'get' | 'post' | 'delete',
     endpoint: string,
@@ -100,13 +97,9 @@ export class PaymentGatewayService {
       throw new BadRequestException(errorMessage);
     }
 
-    // Fallback para outros tipos de erros
     throw new InternalServerErrorException(defaultMessage);
   }
 
-  /**
-   * ---------- MÉTODOS DE NEGÓCIO ----------
-   */
   async getCustomerDetails(
     asaasCustomerId: string,
     apiKey: string = this.asaasApiKey,

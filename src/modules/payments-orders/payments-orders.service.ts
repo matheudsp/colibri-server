@@ -42,10 +42,12 @@ export class PaymentsOrdersService {
   ) {}
   async findUserPayments(
     currentUser: JwtPayload,
-    filters?: FindUserPaymentsDto,
+    filters: FindUserPaymentsDto,
   ) {
-    const whereClause: Prisma.PaymentOrderWhereInput = {};
+    const { page = 1, limit = 10, ...otherFilters } = filters;
+    const skip = (page - 1) * limit;
 
+    const whereClause: Prisma.PaymentOrderWhereInput = {};
     whereClause.contract = {};
 
     if (currentUser.role === ROLES.LOCATARIO) {
@@ -54,37 +56,54 @@ export class PaymentsOrdersService {
       whereClause.contract.landlordId = currentUser.sub;
     }
 
-    if (filters?.propertyId) {
-      whereClause.contract.propertyId = filters.propertyId;
+    if (otherFilters.propertyId) {
+      whereClause.contract.propertyId = otherFilters.propertyId;
     }
-    if (filters?.status) {
-      whereClause.status = filters.status;
+    if (otherFilters.status) {
+      whereClause.status = otherFilters.status;
     }
-    if (filters?.tenantId) {
-      whereClause.status = filters.status;
+    if (otherFilters.tenantId) {
+      whereClause.contract.tenantId = otherFilters.tenantId;
     }
-    if (filters?.startDate || filters?.endDate) {
+    if (otherFilters.startDate || otherFilters.endDate) {
       whereClause.dueDate = {
-        gte: filters.startDate ? new Date(filters.startDate) : undefined,
-        lte: filters.endDate ? new Date(filters.endDate) : undefined,
+        gte: otherFilters.startDate
+          ? new Date(otherFilters.startDate)
+          : undefined,
+        lte: otherFilters.endDate ? new Date(otherFilters.endDate) : undefined,
       };
     }
 
-    return this.prisma.paymentOrder.findMany({
-      where: whereClause,
-      include: {
-        bankSlip: true,
-        contract: {
-          select: {
-            property: { select: { id: true, title: true } },
-            tenant: { select: { id: true, name: true } },
+    const [payments, total] = await this.prisma.$transaction([
+      this.prisma.paymentOrder.findMany({
+        where: whereClause,
+        skip,
+        take: limit,
+        include: {
+          bankSlip: true,
+          contract: {
+            select: {
+              property: { select: { id: true, title: true } },
+              tenant: { select: { id: true, name: true } },
+            },
           },
         },
+        orderBy: {
+          dueDate: 'asc',
+        },
+      }),
+      this.prisma.paymentOrder.count({ where: whereClause }),
+    ]);
+
+    return {
+      data: payments,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
       },
-      orderBy: {
-        dueDate: 'asc',
-      },
-    });
+    };
   }
 
   async findPaymentsByContract(contractId: string, currentUser: JwtPayload) {

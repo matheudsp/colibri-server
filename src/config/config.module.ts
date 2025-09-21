@@ -12,7 +12,7 @@ import { supabaseConfig } from './supabase.config';
 import { SupabaseModule } from 'nestjs-supabase-js';
 import { ScheduleModule } from '@nestjs/schedule';
 import { RedisModule } from '../redis/redis.module';
-import { AppCacheModule } from '../../cache/cache.module';
+import { AppCacheModule } from '../modules/cache/cache.module';
 @Module({
   imports: [
     ConfigModule.forRoot({

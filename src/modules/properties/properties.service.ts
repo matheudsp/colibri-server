@@ -21,7 +21,7 @@ import { DeletePropertyDto } from './dto/delete-property.dto';
 import { VerificationContexts } from 'src/common/constants/verification-contexts.constant';
 import { VerificationService } from '../verification/verification.service';
 import type { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
-import { CacheService } from 'cache/cache.service';
+import { CacheService } from 'src/modules/cache/cache.service';
 
 @Injectable()
 export class PropertiesService {
@@ -69,7 +69,7 @@ export class PropertiesService {
       'Property',
       property.id,
     );
-    await this.clearPropertiesCache();
+    this.clearPropertiesCache();
     return property;
   }
 
@@ -454,7 +454,7 @@ export class PropertiesService {
       'Property',
       updatedProperty.id,
     );
-    await this.clearPropertiesCache();
+    this.clearPropertiesCache();
 
     return updatedProperty;
   }
@@ -499,7 +499,7 @@ export class PropertiesService {
       property.id,
     );
 
-    await this.clearPropertiesCache();
+    this.clearPropertiesCache();
 
     return {
       message:

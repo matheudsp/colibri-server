@@ -93,7 +93,7 @@ export class BankSlipsService {
         ],
         daysAfterDueDateToRegistrationCancellation: 60,
         fine: {
-          value: 1, // Define uma multa de 2% sobre o valor do boleto em caso de atraso.
+          value: 2, // Define uma multa de 2% sobre o valor do boleto em caso de atraso.
           type: 'PERCENTAGE',
         },
         interest: {

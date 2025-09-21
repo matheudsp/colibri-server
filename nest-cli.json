@@ -4,10 +4,15 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "assets": [
-      "**/*.hbs",
-      "modules/pdfs/assets/**/*"
+      {
+        "include": "src/**/*.hbs",
+        "outDir": "dist/src"
+      },
+      {
+        "include": "src/**/*.png",
+        "outDir": "dist/src"
+      }
     ],
-    "watchAssets": true,
     "deleteOutDir": true
   }
 }

@@ -25,6 +25,7 @@ export interface ContractTemplateData {
    * Dados do Imóvel que está sendo alugado.
    */
   property: {
+    propertyType: string;
     street: string;
     number: string;
     complement?: string; // Opcional

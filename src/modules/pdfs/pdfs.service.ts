@@ -273,6 +273,7 @@ export class PdfsService {
       },
       tenant: contract.tenant,
       property: {
+        propertyType: contract.property.propertyType,
         street: contract.property.street ?? '',
         number: contract.property.number,
         complement: contract.property.complement ?? '',
