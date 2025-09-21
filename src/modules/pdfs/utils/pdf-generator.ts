@@ -6,19 +6,19 @@ import { DateUtils } from 'src/common/utils/date.utils';
 
 export async function generatePdfFromTemplate(templateName: string, data: any) {
   try {
-    // const templatePath = path.join(
-    //   __dirname,
-    //   '../templates',
-    //   `${templateName}.hbs`,
-    // );
     const templatePath = path.join(
-      process.cwd(),
-      'src',
-      'modules',
-      'pdfs',
-      'templates',
+      __dirname,
+      '../templates',
       `${templateName}.hbs`,
     );
+    // const templatePath = path.join(
+    //   process.cwd(),
+    //   'src',
+    //   'modules',
+    //   'pdfs',
+    //   'templates',
+    //   `${templateName}.hbs`,
+    // );
 
     if (!fs.existsSync(templatePath)) {
       throw new Error(`Template file not found: ${templatePath}`);
@@ -27,15 +27,15 @@ export async function generatePdfFromTemplate(templateName: string, data: any) {
     const templateContent = fs.readFileSync(templatePath, 'utf8');
 
     let logoBase64 = '';
-    // const logoPath = path.join(__dirname, '../assets/LogoPDF.png');
-    const logoPath = path.join(
-      process.cwd(),
-      'src',
-      'modules',
-      'pdfs',
-      'assets',
-      'LogoPDF.png',
-    );
+    const logoPath = path.join(__dirname, '../assets/LogoPDF.png');
+    // const logoPath = path.join(
+    //   process.cwd(),
+    //   'src',
+    //   'modules',
+    //   'pdfs',
+    //   'assets',
+    //   'LogoPDF.png',
+    // );
 
     try {
       if (fs.existsSync(logoPath)) {

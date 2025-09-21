@@ -17,10 +17,11 @@ export const mailerConfig = (configService: ConfigService): MailerOptions => ({
     from: `"${configService.get<string>('MAIL_FROM_NAME')}" <${configService.get<string>('MAIL_FROM_ADDRESS')}>`,
   },
   template: {
-    dir:
-      process.env.NODE_ENV === 'development'
-        ? path.join(__dirname, '..', '..', 'mailer', 'templates')
-        : path.join(__dirname, '..', 'mailer', 'templates'),
+    // dir:
+    // process.env.NODE_ENV === 'development'
+    //   ? path.join(__dirname, '..', '..', 'mailer', 'templates')
+    //   : path.join(__dirname, '..', 'mailer', 'templates'),
+    dir: path.join(__dirname, '..', 'mailer', 'templates'),
     adapter: new HandlebarsAdapter(),
     options: {
       strict: true,

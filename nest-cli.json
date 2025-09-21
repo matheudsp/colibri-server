@@ -5,12 +5,12 @@
   "compilerOptions": {
     "assets": [
       {
-        "include": "src/**/*.hbs",
-        "outDir": "dist/src"
+        "include": "**/*.hbs",
+        "watchAssets": true
       },
       {
-        "include": "src/**/*.png",
-        "outDir": "dist/src"
+        "include": "**/*.png",
+        "watchAssets": true
       }
     ],
     "deleteOutDir": true
