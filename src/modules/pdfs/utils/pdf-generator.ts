@@ -8,9 +8,11 @@ export async function generatePdfFromTemplate(templateName: string, data: any) {
   try {
     const templatePath = path.join(
       __dirname,
-      '../templates',
+      '..',
+      'templates',
       `${templateName}.hbs`,
     );
+
     // const templatePath = path.join(
     //   process.cwd(),
     //   'src',
@@ -27,7 +29,7 @@ export async function generatePdfFromTemplate(templateName: string, data: any) {
     const templateContent = fs.readFileSync(templatePath, 'utf8');
 
     let logoBase64 = '';
-    const logoPath = path.join(__dirname, '../assets/LogoPDF.png');
+    const logoPath = path.join(__dirname, '..', 'assets', 'LogoPDF.png');
     // const logoPath = path.join(
     //   process.cwd(),
     //   'src',
