@@ -62,5 +62,5 @@ RUN chmod +x entrypoint.sh
 # Define um usuário não-root por segurança
 USER node
 
-CMD ["node", "dist/src/main.js"]
+CMD ["node", "dist/main.js"]
 ENTRYPOINT ["./entrypoint.sh"]
