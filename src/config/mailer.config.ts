@@ -21,7 +21,7 @@ export const mailerConfig = (configService: ConfigService): MailerOptions => ({
     // process.env.NODE_ENV === 'development'
     //   ? path.join(__dirname, '..', '..', 'mailer', 'templates')
     //   : path.join(__dirname, '..', 'mailer', 'templates'),
-    dir: path.join(__dirname, '..', 'mailer', 'templates'),
+    dir: path.resolve(__dirname, '..', 'mailer', 'templates'),
     adapter: new HandlebarsAdapter(),
     options: {
       strict: true,
