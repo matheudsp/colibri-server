@@ -51,10 +51,10 @@ COPY --from=builder /app/src/prisma ./src/prisma
 COPY --from=builder /usr/local/bin/pnpm /usr/local/bin/pnpm
 COPY package.json ./
 
-# Copia os templates e assets que o Nest build não copia
-COPY --from=builder /app/src/modules/pdfs/templates ./dist/src/modules/pdfs/templates
-COPY --from=builder /app/src/modules/pdfs/assets ./dist/src/modules/pdfs/assets
-COPY --from=builder /app/src/mailer/templates ./dist/src/mailer/templates
+# Copia os templates e assets que o Nest build não copia (resolvido)
+# COPY --from=builder /app/src/modules/pdfs/templates ./dist/src/modules/pdfs/templates
+# COPY --from=builder /app/src/modules/pdfs/assets ./dist/src/modules/pdfs/assets
+# COPY --from=builder /app/src/mailer/templates ./dist/src/mailer/templates
 
 COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh

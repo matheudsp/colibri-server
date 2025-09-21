@@ -1,44 +1,20 @@
-# Git
-.git
-.gitignore
-
-# Docker
-Dockerfile
-Dockerfile.dev
-docker-compose.yml
-.dockerignore
-
-# Node
+# Arquivos de dependência e de sistema
 node_modules
+.git
+.vscode
+.idea
+
+# Arquivos de build locais (não devem ser copiados para a imagem)
 dist
-build
-npm-debug.log*
-pnpm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-
-# Env
-.env
-.env.*
-!.env-example
-
-# OS files
 .DS_Store
 
-# IDEs and editors
-.idea
-.vscode
-*.sublime-workspace
+# Logs e arquivos de ambiente locais
+logs
+*.log
+.env
+.env.*
+!/.env.production
 
-# Tests & Coverage
-/coverage
-/.nyc_output
-/test
-
-# Misc
-README.md
-nest-cli.json
-.prettierrc
-/monitoring
-/nginx
+# Cache e relatórios de teste
+coverage
+.nyc_output
