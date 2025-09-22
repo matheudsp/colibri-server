@@ -19,11 +19,13 @@ import { EmailJobType, type NewAccountJob } from 'src/queue/jobs/email.job';
 import { CreateLandlordDto } from './dto/create-landlord.dto';
 import { PasswordUtil } from 'src/common/utils/hash.utils';
 import { QueueName } from 'src/queue/jobs/jobs';
-
 import { maskString } from 'src/common/utils/mask-string.util';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { VerificationService } from '../verification/verification.service';
 import { VerificationContexts } from 'src/common/constants/verification-contexts.constant';
+import { UpdateUserPreferencesDto } from './dto/update-user-preferences.dto';
+import { UserPreferences } from 'src/common/interfaces/user.preferences.interface';
+import { merge } from 'lodash';
 
 @Injectable()
 export class UserService {
@@ -42,6 +44,31 @@ export class UserService {
       role: true,
       status: true,
     };
+  }
+
+  async updatePreferences(
+    userId: string,
+    newPreferences: UpdateUserPreferencesDto,
+  ) {
+    const user = await this.validateUserExists(userId);
+
+    const currentPreferences = (user.preferences as UserPreferences) || {};
+
+    const updatedPreferences = merge(currentPreferences, newPreferences);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { preferences: updatedPreferences as any },
+    });
+
+    await this.logHelper.createLog(
+      userId,
+      'UPDATE_PREFERENCES',
+      'User',
+      userId,
+    );
+
+    return { message: 'Preferências atualizadas com sucesso.' };
   }
 
   /**

@@ -122,8 +122,8 @@ model User {
   status             Boolean  @default(true)
   emailVerified      Boolean  @default(false)
   isTwoFactorEnabled Boolean  @default(false)
-
-  asaasCustomerId String? @unique
+  preferences        Json?
+  asaasCustomerId    String?  @unique
 
   emailVerificationToken       String?   @unique
   emailVerificationTokenExpiry DateTime?
@@ -173,10 +173,10 @@ model SubAccount {
   statusDocumentation   String?
   statusCommercialInfo  String?
   statusBankAccountInfo String?
-
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  AsaasCustomer AsaasCustomer[]
+  platformFeePercentage Decimal?        @default(5.0)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  AsaasCustomer         AsaasCustomer[]
 }
 
 model AsaasCustomer {

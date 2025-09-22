@@ -210,7 +210,8 @@ export class TransfersService {
     }
 
     try {
-      const platformFeePercentage = 0.05;
+      const platformFeePercentage =
+        (landlord.subAccount?.platformFeePercentage?.toNumber() ?? 5) / 100; // Usa 5% como padrão
       const grossAmount = paymentOrder.amountPaid.toNumber();
       const netAmountFromAsaas = paymentOrder.netValue.toNumber();
       const platformCommission = grossAmount * platformFeePercentage;

@@ -79,6 +79,8 @@ export class BankSlipsService {
         'Não é permitido gerar um boleto com data de vencimento no passado.',
       );
     }
+    const platformFee =
+      landlord.subAccount.platformFeePercentage?.toNumber() || 5; // Usa 5% como padrão
     const charge = await this.paymentGateway.createChargeWithSplitOnSubAccount(
       landlord.subAccount.apiKey,
       {
@@ -88,8 +90,8 @@ export class BankSlipsService {
         value,
         description: `Aluguel ${contract.property.title} - venc. ${DateUtils.formatDate(dueDate)}`,
         split: [
-          // { walletId: landlord.subAccount.asaasWalletId, percentualValue: 97 },
-          { walletId: this.platformWalletId, percentualValue: 5 },
+          // { walletId: landlord.subAccount.asaasWalletId, percentualValue: 5 },
+          { walletId: this.platformWalletId, percentualValue: platformFee },
         ],
         daysAfterDueDateToRegistrationCancellation: 60,
         fine: {
