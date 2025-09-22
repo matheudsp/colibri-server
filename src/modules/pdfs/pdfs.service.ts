@@ -96,7 +96,12 @@ export class PdfsService {
         phone_number: contract.landlord.phone,
         // Envia documentação e aniversário ape/nas se for Pessoa Física
         has_documentation: isLandlordPF ? true : false,
-        documentation: isLandlordPF ? contract.landlord.cpfCnpj : undefined,
+        documentation: isLandlordPF
+          ? contract.landlord.cpfCnpj.replace(
+              /(\d{3})(\d{3})(\d{3})(\d{2})/,
+              '$1.$2.$3-$4',
+            )
+          : undefined,
         birthday: isLandlordPF
           ? contract.landlord.birthDate?.toISOString().split('T')[0]
           : undefined,
@@ -117,7 +122,12 @@ export class PdfsService {
         email: contract.tenant.email,
         phone_number: contract.tenant.phone,
         has_documentation: isTenantPF ? true : false,
-        documentation: isTenantPF ? contract.tenant.cpfCnpj : undefined,
+        documentation: isTenantPF
+          ? contract.tenant.cpfCnpj.replace(
+              /(\d{3})(\d{3})(\d{3})(\d{2})/,
+              '$1.$2.$3-$4',
+            )
+          : undefined,
         birthday: contract.tenant.birthDate?.toISOString().split('T')[0],
       };
       const tenantSigner = await this.clicksignService.addSignerToEnvelope(
