@@ -13,7 +13,7 @@ import { JwtService } from '@nestjs/jwt';
 import { JwtPayload } from '../common/interfaces/jwt.payload.interface';
 import { RegisterResponse } from '../common/interfaces/response.register.interface';
 import { LoginResponse } from '../common/interfaces/response.login.interface';
-import { User } from '@prisma/client';
+import { User, type UserRole } from '@prisma/client';
 import { UserResponseDto } from '../modules/users/dto/response-user.dto';
 import { UserService } from 'src/modules/users/users.service';
 import { ROLES } from 'src/common/constants/roles.constant';
@@ -182,7 +182,9 @@ export class AuthService {
       throw new UnauthorizedException('E-mail e senha são obrigatórios');
     }
 
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
 
     if (!user || !(await PasswordUtil.verify(user.password, password))) {
       throw new UnauthorizedException('Credenciais inválidas');
@@ -252,7 +254,17 @@ export class AuthService {
     return this.generateToken(user);
   }
 
-  private generateToken(user: User, isTwoFactorAuthenticated = false) {
+  private generateToken(
+    user: {
+      id: string;
+      email: string;
+      role: UserRole;
+      status: boolean;
+      emailVerified: boolean;
+      isTwoFactorEnabled: boolean;
+    },
+    isTwoFactorAuthenticated = false,
+  ) {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,

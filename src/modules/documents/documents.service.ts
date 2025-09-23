@@ -213,7 +213,7 @@ export class DocumentsService {
 
     const requiredDocTypes = [
       DocumentType.IDENTIDADE_FRENTE,
-      DocumentType.CPF,
+      DocumentType.IDENTIDADE_VERSO,
       DocumentType.COMPROVANTE_RENDA,
     ];
 

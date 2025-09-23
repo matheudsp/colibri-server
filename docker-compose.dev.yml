@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: colibri_db
+    container_name: locaterra_db
     restart: always
     ports:
       - '5432:5432'
@@ -16,7 +16,7 @@ services:
 
   redis-commander:
     image: rediscommander/redis-commander:latest
-    container_name: colibri_redis_commander
+    container_name: locaterra_redis_commander
     restart: always
     environment:
       - REDIS_HOSTS=local:redis:6379:0:${REDIS_PASSWORD}
@@ -27,7 +27,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: colibri_redis
+    container_name: locaterra_redis
     restart: always
     command: ['redis-server', '--requirepass', '${REDIS_PASSWORD}']
     ports:

@@ -109,6 +109,12 @@ enum SignatureStatus {
   UPLOADED
 }
 
+enum InterestStatus {
+  PENDING // Interessado enviou, aguardando ação do locador
+  CONTACTED // Locador marcou que já entrou em contato
+  DISMISSED // Locador dispensou o interesse
+}
+
 // --- MODELS ---
 
 model User {
@@ -156,6 +162,8 @@ model User {
   asaasCustomers      AsaasCustomer[]    @relation("TenantAsaasCustomers")
   signatureRequests   SignatureRequest[]
   transfers           Transfer[]
+  interestsAsTenant   Interest[]         @relation("InterestsAsTenant")
+  interestsAsLandlord Interest[]         @relation("InterestsAsLandlord")
 }
 
 model SubAccount {
@@ -269,8 +277,9 @@ model Property {
   contracts Contract[]
   photos    Photo[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  Interest  Interest[]
 
   @@index([title, street, district, city, state, cep], name: "property_search_idx")
   @@index([landlordId])
@@ -424,4 +433,25 @@ model Log {
   tableName String
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
+}
+
+model Interest {
+  id              String         @id @default(uuid())
+  message         String?        @db.Text
+  status          InterestStatus @default(PENDING)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  dismissalReason String?        @db.Text
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  tenantId String
+  tenant   User   @relation("InterestsAsTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  landlordId String
+  landlord   User   @relation("InterestsAsLandlord", fields: [landlordId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([landlordId])
 }

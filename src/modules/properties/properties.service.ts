@@ -20,13 +20,14 @@ import { ContractsService } from '../contracts/contracts.service';
 import { DeletePropertyDto } from './dto/delete-property.dto';
 import { VerificationContexts } from 'src/common/constants/verification-contexts.constant';
 import { VerificationService } from '../verification/verification.service';
-import type { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
+import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { CacheService } from 'src/modules/cache/cache.service';
+import { UserPreferences } from 'src/common/interfaces/user.preferences.interface';
 
 @Injectable()
 export class PropertiesService {
   private readonly logger = new Logger(PropertiesService.name);
-
+  private readonly AVAILABLE_PROPERTIES_LIST_KEY = 'list:properties_available';
   constructor(
     private prisma: PrismaService,
     private logHelper: LogHelperService,
@@ -38,10 +39,10 @@ export class PropertiesService {
     private verificationService: VerificationService,
   ) {}
 
-  private async clearPropertiesCache() {
+  private async clearPropertiesCache(landlordId: string) {
     this.logger.log('Limpando chaves de cache de propriedades...');
-    await this.cacheService.delByPattern('properties_available_*');
-    await this.cacheService.delByPattern('user_properties_*');
+    await this.cacheService.delFromList(this.AVAILABLE_PROPERTIES_LIST_KEY);
+    await this.cacheService.delFromList(`list:user_properties:${landlordId}`);
   }
 
   async create(
@@ -69,13 +70,13 @@ export class PropertiesService {
       'Property',
       property.id,
     );
-    this.clearPropertiesCache();
+    await this.clearPropertiesCache(currentUser.sub);
     return property;
   }
 
   async findAvailable({ page, limit }: { page: number; limit: number }) {
     const cacheKey = `properties_available_page:${page}_limit:${limit}`;
-    const cachedData = await this.cacheService.get(cacheKey);
+    const cachedData = await this.cacheService.get<any>(cacheKey);
 
     if (cachedData) {
       this.logger.log(`[CACHE HIT] Servindo dados de '${cacheKey}' do Redis.`);
@@ -123,7 +124,12 @@ export class PropertiesService {
       },
     };
 
-    await this.cacheService.set(cacheKey, result, 300); // 300 segundos
+    await this.cacheService.set(
+      cacheKey,
+      result,
+      300,
+      this.AVAILABLE_PROPERTIES_LIST_KEY,
+    );
 
     return result;
   }
@@ -133,9 +139,9 @@ export class PropertiesService {
     currentUser: { sub: string; role: string },
   ) {
     const cacheKey = `user_properties:${currentUser.sub}_page:${page}_limit:${limit}`;
+    const userPropertiesListKey = `list:user_properties:${currentUser.sub}`;
 
-    const cachedData = await this.cacheService.get(cacheKey);
-
+    const cachedData = await this.cacheService.get<any>(cacheKey);
     if (cachedData) {
       this.logger.log(`[CACHE HIT] Servindo dados de '${cacheKey}' do Redis.`);
       return cachedData;
@@ -210,7 +216,7 @@ export class PropertiesService {
       },
     };
 
-    await this.cacheService.set(cacheKey, result, 300); // 300 segundos
+    await this.cacheService.set(cacheKey, result, 300, userPropertiesListKey);
 
     return result;
   }
@@ -219,7 +225,9 @@ export class PropertiesService {
     const property = await this.prisma.property.findUnique({
       where: { id },
       include: {
-        landlord: { select: { name: true, email: true, phone: true } },
+        landlord: {
+          select: { name: true, email: true, phone: true, preferences: true },
+        },
         photos: true,
       },
     });
@@ -228,14 +236,36 @@ export class PropertiesService {
       throw new NotFoundException(`Imóvel com ID "${id}" não encontrado.`);
     }
 
+    const landlordPreferences =
+      (property.landlord?.preferences as UserPreferences) || {};
+    const acceptOnlineProposals =
+      landlordPreferences.notifications?.acceptOnlineProposals ?? false;
+
+    let safeLandlord: {
+      name: string;
+      email: string;
+      phone?: string;
+    } | null = null;
+    if (property.landlord) {
+      const { preferences, phone, ...baseLandlordInfo } = property.landlord;
+      safeLandlord = baseLandlordInfo;
+
+      if (!acceptOnlineProposals) {
+        safeLandlord.phone = phone;
+      }
+    }
+
     const photosWithUrls = await this.propertyPhotosService.getPhotosByProperty(
       property.id,
       true,
     );
+
     return {
       ...property,
-      photos: photosWithUrls,
       value: property.value.toNumber(),
+      landlord: safeLandlord,
+      photos: photosWithUrls,
+      acceptOnlineProposals,
     };
   }
 
@@ -306,7 +336,9 @@ export class PropertiesService {
         take: limit,
         orderBy,
         include: {
-          landlord: { select: { name: true, email: true } },
+          landlord: {
+            select: { name: true, email: true },
+          },
           photos: { where: { isCover: true }, take: 1 },
         },
       }),
@@ -454,7 +486,7 @@ export class PropertiesService {
       'Property',
       updatedProperty.id,
     );
-    this.clearPropertiesCache();
+    await this.clearPropertiesCache(property.landlordId);
 
     return updatedProperty;
   }
@@ -499,7 +531,7 @@ export class PropertiesService {
       property.id,
     );
 
-    this.clearPropertiesCache();
+    await this.clearPropertiesCache(property.landlordId);
 
     return {
       message:

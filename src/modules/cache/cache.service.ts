@@ -8,10 +8,8 @@ export class CacheService {
   private readonly redisPrefix: string;
 
   constructor(@InjectRedis() private readonly redis: Redis) {
-    // Captura o prefixo das opções do cliente Redis para uso posterior
     this.redisPrefix = this.redis.options.keyPrefix || '';
   }
-
   /**
    * Obtém um valor do cache e o des-serializa de JSON.
    */
@@ -26,48 +24,45 @@ export class CacheService {
   }
 
   /**
-   * Serializa um valor para JSON e o salva no cache com um TTL em segundos.
+   * Serializa um valor e o salva no cache, rastreando a chave em uma lista.
    */
-  async set(key: string, value: any, ttlSeconds: number): Promise<void> {
+  async set(
+    key: string,
+    value: any,
+    ttlSeconds: number,
+    listKey?: string,
+  ): Promise<void> {
     try {
-      // Converte Decimal para number antes de serializar para evitar erros
       const replacer = (k: any, v: any) =>
         typeof v === 'object' && v !== null && typeof v.toNumber === 'function'
           ? v.toNumber()
           : v;
       const stringifiedValue = JSON.stringify(value, replacer);
-      await this.redis.set(key, stringifiedValue, 'EX', ttlSeconds);
+
+      // Usamos uma transação para garantir que ambas as operações sejam executadas
+      const multi = this.redis.multi();
+      multi.set(key, stringifiedValue, 'EX', ttlSeconds);
+      if (listKey) {
+        multi.sadd(listKey, key); // Adiciona a chave ao set de rastreamento
+      }
+      await multi.exec();
     } catch (error) {
       this.logger.error(`Erro ao definir a chave '${key}' no cache`, error);
     }
   }
 
   /**
-   * Deleta chaves do cache com base em um padrão (wildcard).
+   * Deleta todas as chaves rastreadas em um set específico.
    */
-  async delByPattern(pattern: string): Promise<void> {
+  async delFromList(listKey: string): Promise<void> {
     try {
-      // Adiciona o prefixo ao padrão para que o `KEYS` funcione corretamente
-      const fullPattern = `${this.redisPrefix}${pattern}`;
-      this.logger.log(`Procurando chaves com o padrão: ${fullPattern}`);
-
-      const keys = await this.redis.keys(fullPattern);
+      const keys = await this.redis.smembers(listKey);
       if (keys.length > 0) {
-        // O cliente ioredis adiciona o prefixo automaticamente ao `del`
-        // então precisamos remover o prefixo antes de passar as chaves.
-        const keysWithoutPrefix = keys.map((key) =>
-          key.replace(this.redisPrefix, ''),
-        );
-        await this.redis.del(keysWithoutPrefix);
-        this.logger.log(
-          `${keys.length} chaves limpas para o padrão '${pattern}'.`,
-        );
+        await this.redis.del([...keys, listKey]); // Deleta as chaves e a lista
+        this.logger.log(`${keys.length} chaves limpas da lista '${listKey}'.`);
       }
     } catch (error) {
-      this.logger.error(
-        `Erro ao deletar chaves pelo padrão '${pattern}'`,
-        error,
-      );
+      this.logger.error(`Erro ao deletar chaves da lista '${listKey}'`, error);
     }
   }
 }
