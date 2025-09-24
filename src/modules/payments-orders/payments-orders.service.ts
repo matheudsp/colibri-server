@@ -419,7 +419,7 @@ export class PaymentsOrdersService {
       },
       action: {
         text: 'Regularizar Pagamento',
-        path: `/pagamentos`,
+        path: `/faturas`,
       },
     };
     await this.emailQueue.add(EmailJobType.NOTIFICATION, tenantJob);
@@ -435,7 +435,7 @@ export class PaymentsOrdersService {
       },
       action: {
         text: 'Ver Detalhes',
-        path: `/pagamentos`,
+        path: `/faturas`,
       },
     };
     await this.emailQueue.add(EmailJobType.NOTIFICATION, landlordJob);
@@ -477,7 +477,7 @@ export class PaymentsOrdersService {
       },
       action: {
         text: 'Ver Meus Pagamentos',
-        path: `/pagamentos`,
+        path: `/faturas`,
       },
     };
     await this.emailQueue.add(EmailJobType.NOTIFICATION, tenantJob);

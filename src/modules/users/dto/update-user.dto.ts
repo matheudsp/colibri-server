@@ -1,10 +1,10 @@
 import { PartialType, ApiProperty } from '@nestjs/swagger';
 import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { UserRole } from '@prisma/client';
-import { CreateUserDto } from './create-user.dto';
+import { CreateLandlordDto } from './create-landlord.dto';
 import { ROLES } from 'src/common/constants/roles.constant';
 
-export class UpdateUserDto extends PartialType(CreateUserDto) {
+export class UpdateUserDto extends PartialType(CreateLandlordDto) {
   @ApiProperty({
     description: 'Define o novo papel do usuário (Apenas Admins podem alterar)',
     enum: ROLES,

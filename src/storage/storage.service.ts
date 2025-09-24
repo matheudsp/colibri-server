@@ -12,16 +12,20 @@ import {
 @Injectable()
 export class StorageService {
   private readonly bucketName: string;
+  private readonly imageBucketName: string;
   private readonly logger = new Logger(StorageService.name);
   constructor(
     @InjectSupabaseClient() private supabase: SupabaseClient,
     private config: ConfigService,
   ) {
     this.bucketName = this.config.getOrThrow<string>('SUPABASE_STORAGE_BUCKET');
+    this.imageBucketName = this.config.getOrThrow<string>(
+      'SUPABASE_STORAGE_IMAGE_BUCKET',
+    );
   }
-  getPublicUrl(filePath: string): string {
+  getPublicImageUrl(filePath: string): string {
     const supabaseUrl = this.config.getOrThrow<string>('SUPABASE_URL');
-    return `${supabaseUrl}/storage/v1/object/public/${this.bucketName}/${filePath}`;
+    return `${supabaseUrl}/storage/v1/object/public/${this.imageBucketName}/${filePath}`;
   }
 
   async uploadFile(
@@ -102,7 +106,7 @@ export class StorageService {
       }
 
       return {
-        url: await this.getSignedUrl(filePath),
+        url: await this.getSignedUrl(filePath, targetBucket),
         key: filePath,
         metadata: {
           size: file.size,

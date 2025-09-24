@@ -58,7 +58,7 @@ export class PhotosService {
           };
           const uploadResult = await this.storageService.uploadFile(
             fileToUpload,
-            { folder: `properties/${property.id}` },
+            { folder: `properties/${property.id}`, bucket: 'property-images' },
           );
 
           return this.prisma.photo.create({
@@ -109,7 +109,7 @@ export class PhotosService {
         return {
           ...photo,
 
-          url: this.storageService.getPublicUrl(photo.filePath),
+          url: this.storageService.getPublicImageUrl(photo.filePath),
         };
       });
     }

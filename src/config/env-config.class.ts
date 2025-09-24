@@ -110,6 +110,9 @@ export class EnvConfig {
   SUPABASE_STORAGE_BUCKET!: string;
 
   @IsString()
+  SUPABASE_STORAGE_IMAGE_BUCKET!: string;
+
+  @IsString()
   @IsOptional()
   LOG_LEVEL = 'info';
 
