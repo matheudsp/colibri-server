@@ -165,7 +165,7 @@ export class ContractsService {
 
       const action = {
         text: 'Ver Contrato',
-        path: `/properties/${contract.propertyId}/contracts/${contract.id}`,
+        path: `/contrato/${contract.id}`,
       };
 
       this.emailQueue.add(EmailJobType.NOTIFICATION, {
@@ -262,7 +262,7 @@ export class ContractsService {
         },
         action: {
           text: 'Acessar e Enviar Documentos',
-          path: `/contracts/${contract.id}/documents`,
+          path: `/contrato/${contract.id}/documentos`,
         },
       };
 
@@ -395,7 +395,7 @@ export class ContractsService {
       },
       action: {
         text: 'Ver contrato',
-        path: `/contracts/${contract.id}`,
+        path: `/contrato/${contract.id}`,
       },
     };
 

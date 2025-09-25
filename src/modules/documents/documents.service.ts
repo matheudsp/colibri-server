@@ -179,7 +179,7 @@ export class DocumentsService {
         },
         action: {
           text: 'Enviar Documento Novamente',
-          path: `/contracts/${document.contract.id}/documents`,
+          path: `/contrato/${document.contract.id}/documentos`,
         },
       };
       await this.emailQueue.add(EmailJobType.NOTIFICATION, job);
@@ -241,7 +241,7 @@ export class DocumentsService {
         },
         action: {
           text: 'Verificar Documentos',
-          path: `/contracts/${contract.id}/documents`,
+          path: `/contrato/${contract.id}/documentos`,
         },
       };
 
