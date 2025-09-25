@@ -3,6 +3,7 @@ export enum EmailJobType {
   NOTIFICATION = 'notification',
   NEW_ACCOUNT = 'new-account',
   EMAIL_VERIFICATION = 'email-verification',
+  OTP_VERIFICATION = 'otp-verification',
 }
 
 export interface RecoveryPasswordJob {
@@ -11,7 +12,13 @@ export interface RecoveryPasswordJob {
   token: string;
   expiresIn: number;
 }
-
+export interface OtpVerificationJob {
+  user: {
+    email: string;
+    name: string;
+  };
+  otpCode: string;
+}
 export interface NotificationAction {
   text: string;
   path?: string;

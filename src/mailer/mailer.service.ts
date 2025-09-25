@@ -2,23 +2,36 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MailerService as NestMailerService } from '@nestjs-modules/mailer';
 import { SentMessageInfo } from 'nodemailer';
-import type {
-  NewAccountJob,
-  NotificationAction,
-} from 'src/queue/jobs/email.job';
+import * as fs from 'fs';
+import * as path from 'path';
+import { NotificationAction } from 'src/queue/jobs/email.job';
 
 @Injectable()
 export class MailerService {
   private readonly logger = new Logger(MailerService.name);
   private readonly appUrl: string;
   private readonly appName: string;
-
+  private readonly logoBase64: string;
   constructor(
     private readonly mailer: NestMailerService,
     private readonly configService: ConfigService,
   ) {
     this.appUrl = this.configService.getOrThrow<string>('APP_URL');
     this.appName = this.configService.getOrThrow<string>('APP_NAME');
+
+    try {
+      const logoPath = path.resolve(__dirname, 'assets', 'logo.png');
+      if (fs.existsSync(logoPath)) {
+        const logoBuffer = fs.readFileSync(logoPath);
+        this.logoBase64 = `data:image/png;base64,${logoBuffer.toString('base64')}`;
+      } else {
+        this.logger.warn(`Arquivo de logo não encontrado em: ${logoPath}`);
+        this.logoBase64 = ''; // Fallback para não quebrar
+      }
+    } catch (error) {
+      this.logger.error('Falha ao carregar o arquivo de logo', error);
+      this.logoBase64 = '';
+    }
   }
 
   private async sendEmail(
@@ -34,6 +47,7 @@ export class MailerService {
         template,
         context: {
           ...context,
+          logoUrl: this.logoBase64,
           appUrl: this.appUrl,
           appName: this.appName,
           currentYear: new Date().getFullYear(),
@@ -168,6 +182,26 @@ export class MailerService {
           url: loginUrl,
         },
         supportEmail: this.configService.get<string>('MAIL_FROM_ADDRESS'),
+      },
+    );
+  }
+
+  /**
+   * Envia email de verificação com código OTP (One-Time Password)
+   * @param user Usuário destinatário
+   * @param otpCode Código de 6 dígitos
+   */
+  async sendOtpEmail(
+    user: { email: string; name: string },
+    otpCode: string,
+  ): Promise<SentMessageInfo> {
+    return this.sendEmail(
+      user.email,
+      'Seu Código de Verificação',
+      'otp-email',
+      {
+        name: user.name,
+        otpCode,
       },
     );
   }

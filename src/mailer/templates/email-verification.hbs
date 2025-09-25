@@ -1,17 +1,80 @@
-<div>
-  <h2>Seja bem-vindo {{name}},</h2>
-  <p>Obrigado por se fazer parte do <strong>{{appName}}</strong>! Para ativar sua conta, por favor, verifique seu endereço de e-mail clicando no botão abaixo:</p>
-  <a
-    href='{{verificationUrl}}'
-    style='
-    display: inline-block; padding: 12px 24px; background-color: #97c52a; color: #2d2b2e; text-decoration: none; border-radius: 12px; font-weight: bold; border-style: solid;  border-width: 1px;   border-color: #7da623; border-bottom-width: 4px;
-    '
-  >
-    Verificar E-mail
-  </a>
-  <p>Este link de verificação é válido por 12 horas.</p>
-  <p>Se você não criou esta conta, por favor, ignore este e-mail.</p>
-  <footer style="margin-top: 20px; font-size: 0.9em; color: #666;">
-    <p>© {{currentYear}} {{appName}}. Todos os direitos reservados.</p>
-  </footer>
-</div>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verifique seu E-mail</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap');
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #ecede9; /* --background-alt */
+        }
+        .container {
+            padding: 20px;
+            max-width: 600px;
+            margin: 40px auto;
+            background-color: #ffffff; /* --background */
+            border-radius: 16px;
+            border: 1px solid #d6d8d2; /* --border */
+            text-align: center;
+        }
+        .header {
+            padding-bottom: 20px;
+        }
+        .header img {
+            max-width: 150px;
+        }
+        .content h2 {
+            color: #6b5c86; /* --secondary */
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        .content p {
+            color: #666468; /* --foreground-muted */
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        .action-button {
+            display: inline-block;
+            padding: 12px 24px;
+            margin: 20px 0;
+            background-color: #97c52a; /* --primary */
+            color: #2d2b2e !important; /* --foreground */
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: bold;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #7da623; /* um tom mais escuro de --primary */
+            border-bottom-width: 4px;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #d6d8d2; /* --border */
+            font-size: 12px;
+            color: #666468;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="{{logoUrl}}" alt="{{appName}} Logo">
+        </div>
+        <div class="content">
+            <h2>Quase lá, {{name}}!</h2>
+            <p>Obrigado por se cadastrar no {{appName}}. Para ativar sua conta, por favor, confirme seu endereço de e-mail clicando no botão abaixo.</p>
+            <a href="{{verificationUrl}}" class="action-button">Verificar E-mail</a>
+            <p style="font-size:12px;">Este link de verificação é válido por 12 horas.</p>
+            <p style="font-size:12px;">Se você não criou esta conta, por favor, ignore este e-mail.</p>
+        </div>
+        <div class="footer">
+            <p>© {{currentYear}} {{appName}}. Todos os direitos reservados.</p>
+        </div>
+    </div>
+</body>
+</html>

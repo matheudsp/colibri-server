@@ -3,22 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{notification.title}}</title>
+    <title>Seu Código de Verificação</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap');
         body {
             font-family: 'Poppins', sans-serif;
             margin: 0;
             padding: 0;
-            background-color: #ecede9;
+            background-color: #ecede9; /* --background-alt */
         }
         .container {
             padding: 20px;
             max-width: 600px;
             margin: 40px auto;
-            background-color: #ffffff;
+            background-color: #ffffff; /* --background */
             border-radius: 16px;
-            border: 1px solid #d6d8d2;
+            border: 1px solid #d6d8d2; /* --border */
             text-align: center;
         }
         .header {
@@ -28,34 +28,38 @@
             max-width: 150px;
         }
         .content h2 {
-            color: #6b5c86;
+            color: #6b5c86; /* --secondary */
             font-size: 24px;
             margin-bottom: 10px;
         }
         .content p {
-            color: #666468;
+            color: #666468; /* --foreground-muted */
             font-size: 16px;
             line-height: 1.5;
-            white-space: pre-wrap; /* Para preservar quebras de linha do back-end */
         }
-        .action-button {
-            display: inline-block;
-            padding: 12px 24px;
-            margin: 20px 0;
-            background-color: #97c52a;
-            color: #2d2b2e !important;
-            text-decoration: none;
+        .otp-code {
+            background-color: #f7f9f2; /* um tom mais claro de --primary-light */
+            border: 2px dashed #97c52a; /* --primary */
             border-radius: 12px;
-            font-weight: bold;
-            border-style: solid;
-            border-width: 1px;
-            border-color: #7da623;
-            border-bottom-width: 4px;
+            padding: 20px;
+            margin: 30px auto;
+            max-width: 300px;
+        }
+        .otp-code span {
+            font-size: 40px;
+            font-weight: 700;
+            color: #2d2b2e; /* --foreground */
+            letter-spacing: 10px;
+            margin-left: 10px; /* Ajuste para centralizar melhor com o espaçamento */
+        }
+        .security-note {
+            font-size: 12px;
+            color: #666468; /* --foreground-muted */
         }
         .footer {
             margin-top: 30px;
             padding-top: 20px;
-            border-top: 1px solid #d6d8d2;
+            border-top: 1px solid #d6d8d2; /* --border */
             font-size: 12px;
             color: #666468;
         }
@@ -67,12 +71,15 @@
            <img src="{{logoUrl}}" alt="{{appName}} Logo">
         </div>
         <div class="content">
-            <h2>{{notification.title}}</h2>
+            <h2>Seu Código de Verificação</h2>
             <p>Olá, <strong>{{name}}</strong>!</p>
-            <p>{{notification.message}}</p>
-            {{#if action}}
-                <a href="{{action.url}}" class="action-button">{{action.text}}</a>
-            {{/if}}
+            <p>Use o código abaixo para concluir sua ação com segurança. Este código é válido por 10 minutos.</p>
+
+            <div class="otp-code">
+                <span>{{otpCode}}</span>
+            </div>
+
+            <p class="security-note">Se você não solicitou este código, por favor, ignore este e-mail e entre em contato com nosso suporte imediatamente.</p>
         </div>
         <div class="footer">
             <p>© {{currentYear}} {{appName}}. Todos os direitos reservados.</p>

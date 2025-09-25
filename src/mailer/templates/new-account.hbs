@@ -31,3 +31,104 @@
     <p>© {{currentYear}} {{appName}}. Todos os direitos reservados.</p>
   </footer>
 </div>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bem-vindo(a) ao {{appName}}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap');
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #ecede9;
+        }
+        .container {
+            padding: 20px;
+            max-width: 600px;
+            margin: 40px auto;
+            background-color: #ffffff;
+            border-radius: 16px;
+            border: 1px solid #d6d8d2;
+            text-align: center;
+        }
+        .header {
+            padding-bottom: 20px;
+        }
+        .header img {
+            max-width: 150px;
+        }
+        .content h2 {
+            color: #6b5c86;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        .content p {
+            color: #666468;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        .credentials {
+            background-color: #f7f9f2;
+            border: 1px solid #d6d8d2;
+            border-radius: 12px;
+            padding: 15px;
+            margin: 25px auto;
+            max-width: 350px;
+            text-align: left;
+        }
+        .credentials p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        .action-button {
+            display: inline-block;
+            padding: 12px 24px;
+            margin: 20px 0;
+            background-color: #97c52a;
+            color: #2d2b2e !important;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: bold;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #7da623;
+            border-bottom-width: 4px;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #d6d8d2;
+            font-size: 12px;
+            color: #666468;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+         <img src="{{logoUrl}}" alt="{{appName}} Logo">
+        </div>
+        <div class="content">
+            <h2>Sua conta foi criada!</h2>
+            <p>Olá, <strong>{{name}}</strong>! Bem-vindo(a) ao {{appName}}.</p>
+
+            {{#if temporaryPassword}}
+                <p>Suas credenciais de acesso temporárias estão abaixo:</p>
+                <div class="credentials">
+                    <p><strong>E-mail:</strong> {{email}}</p>
+                    <p><strong>Senha provisória:</strong> {{temporaryPassword}}</p>
+                </div>
+                <p style="font-size:12px;">Recomendamos fortemente que você altere sua senha após o primeiro login.</p>
+            {{/if}}
+            
+            <a href="{{action.url}}" class="action-button">{{action.text}}</a>
+        </div>
+        <div class="footer">
+            <p>© {{currentYear}} {{appName}}. Todos os direitos reservados.</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -13,7 +13,10 @@ import Redis from 'ioredis';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 import { QueueName } from 'src/queue/jobs/jobs';
-import { EmailJobType } from 'src/queue/jobs/email.job';
+import {
+  EmailJobType,
+  type OtpVerificationJob,
+} from 'src/queue/jobs/email.job';
 import { VerificationContext } from 'src/common/constants/verification-contexts.constant';
 
 @Injectable()
@@ -56,13 +59,11 @@ export class VerificationService {
 
       await this.redis.set(redisKey, hashedCode, 'EX', this.OTP_TTL_SECONDS);
 
-      await this.emailQueue.add(EmailJobType.NOTIFICATION, {
+      const job: OtpVerificationJob = {
         user: { email: user.email, name: user.name },
-        notification: {
-          title: 'Seu Código de Verificação',
-          message: `Use o seguinte código para confirmar sua ação: ${code}. Este código é válido por 5 minutos.`,
-        },
-      });
+        otpCode: code,
+      };
+      await this.emailQueue.add(EmailJobType.OTP_VERIFICATION, job);
 
       this.logger.log(
         `Código para o contexto '${context}' do usuário ${user.id} gerado e enfileirado.`,

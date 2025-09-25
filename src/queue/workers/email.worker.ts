@@ -13,6 +13,7 @@ import {
   RecoveryPasswordJob,
   type EmailVerificationJob,
   type NewAccountJob,
+  type OtpVerificationJob,
 } from '../jobs/email.job';
 import { Job } from 'bull';
 import { QueueName } from '../jobs/jobs';
@@ -107,6 +108,20 @@ export class EmailWorker {
     } catch (error) {
       this.logger.error(
         `Falha ao enviar e-mail de boas-vindas: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
+      throw error;
+    }
+  }
+
+  @Process(EmailJobType.OTP_VERIFICATION)
+  async handleOtpVerification(job: Job<OtpVerificationJob>) {
+    try {
+      const { user, otpCode } = job.data;
+      await this.mailerService.sendOtpEmail(user, otpCode);
+    } catch (error) {
+      this.logger.error(
+        `Falha ao enviar e-mail de OTP: ${(error as Error).message}`,
         (error as Error).stack,
       );
       throw error;
