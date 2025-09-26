@@ -58,6 +58,7 @@ enum PropertyType {
 
 enum PdfType {
   CONTRATO_LOCACAO
+  RELATORIO_JUDICIAL
 }
 
 enum GuaranteeType {

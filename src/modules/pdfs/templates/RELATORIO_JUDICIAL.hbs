@@ -210,31 +210,6 @@
         </ul>
     </div>
 
-    <div class="section">
-        <h2>5. Registro de Comunicações Relevantes</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Data</th>
-                    <th>Ação / Evento</th>
-                    <th>Detalhes</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{#each logs}}
-                <tr>
-                    <td>{{formatDate this.createdAt "dd/MM/yyyy HH:mm"}}</td>
-                    <td>{{this.action}}</td>
-                    <td>Registro na tabela '{{this.tableName}}' com ID: {{this.targetId}}</td>
-                </tr>
-                {{else}}
-                <tr>
-                    <td colspan="3" style="text-align:center;">Nenhum registro de comunicação encontrado.</td>
-                </tr>
-                {{/each}}
-            </tbody>
-        </table>
-    </div>
-
+    
 </body>
 </html>

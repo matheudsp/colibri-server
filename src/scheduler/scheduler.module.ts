@@ -6,6 +6,8 @@ import { BankSlipsScheduler } from './tasks/bank-slips.scheduler';
 import { PaymentsScheduler } from './tasks/payments.scheduler';
 import { RemindersScheduler } from './tasks/reminders.scheduler';
 import { PaymentsOrdersModule } from 'src/modules/payments-orders/payments-orders.module';
+import { PdfsScheduler } from './tasks/pdfs.scheduler';
+import { StorageModule } from 'src/storage/storage.module';
 
 @Module({
   imports: [
@@ -13,7 +15,13 @@ import { PaymentsOrdersModule } from 'src/modules/payments-orders/payments-order
     PrismaModule,
     QueueModule,
     PaymentsOrdersModule,
+    StorageModule,
   ],
-  providers: [BankSlipsScheduler, PaymentsScheduler, RemindersScheduler],
+  providers: [
+    BankSlipsScheduler,
+    PaymentsScheduler,
+    RemindersScheduler,
+    PdfsScheduler,
+  ],
 })
 export class SchedulerModule {}

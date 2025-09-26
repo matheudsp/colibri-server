@@ -1,7 +1,7 @@
 import { Process, Processor } from '@nestjs/bull';
 import { Injectable, Logger } from '@nestjs/common';
 import { Job } from 'bull';
-import { PdfJobType, GenerateContractPdfJob } from '../jobs/pdf.job';
+import { PdfJobType, GeneratePdfJob } from '../jobs/pdf.job';
 import { QueueName } from '../jobs/jobs';
 import { generatePdfFromTemplate } from 'src/modules/pdfs/utils/pdf-generator';
 import { StorageService } from 'src/storage/storage.service';
@@ -17,16 +17,17 @@ export class PdfWorker {
     private readonly prisma: PrismaService,
   ) {}
 
-  @Process(PdfJobType.GENERATE_CONTRACT_PDF)
-  async handleGenerateContractPdf(job: Job<GenerateContractPdfJob>) {
-    const { pdfRecordId, templateData, fileName, contractId } = job.data;
+  @Process(PdfJobType.GENERATE_PDF)
+  async handleGenerateContractPdf(job: Job<GeneratePdfJob>) {
+    const { pdfRecordId, templateData, fileName, contractId, templateName } =
+      job.data;
     this.logger.log(
-      `Processando a geração do PDF para o registo: ${pdfRecordId}`,
+      `Processando a geração do PDF para o registo: ${pdfRecordId} usando o template ${templateName}`,
     );
 
     try {
       const generatedBuffer = await generatePdfFromTemplate(
-        'CONTRATO_LOCACAO',
+        templateName,
         templateData,
       );
       const pdfBuffer = Buffer.from(generatedBuffer);
@@ -51,7 +52,7 @@ export class PdfWorker {
     } catch (error) {
       this.logger.error(
         `Falha ao processar o job de PDF ${pdfRecordId}. Removendo registro do banco de dados.`,
-        error,
+        error as Error,
       );
 
       await this.prisma.generatedPdf.delete({

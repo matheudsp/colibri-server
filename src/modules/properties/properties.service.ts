@@ -98,6 +98,7 @@ export class PropertiesService {
         include: {
           landlord: { select: { name: true, email: true, phone: true } },
           photos: { where: { isCover: true }, take: 1 },
+          _count: { select: { Interest: true } },
         },
       }),
       this.prisma.property.count({ where }),
@@ -110,7 +111,12 @@ export class PropertiesService {
             property.id,
             true,
           );
-        return { ...property, photos: photosWithUrls };
+        const { _count } = property;
+        return {
+          ...property,
+          photos: photosWithUrls,
+          interestCount: _count?.Interest || 0,
+        };
       }),
     );
 
@@ -185,15 +191,20 @@ export class PropertiesService {
         include: {
           landlord: { select: { name: true, email: true, phone: true } },
           photos: true,
+          _count: { select: { Interest: true } },
         },
       }),
       this.prisma.property.count({ where }),
     ]);
 
-    const properties = propertiesFromDb.map((p) => ({
-      ...p,
-      value: p.value.toNumber(),
-    }));
+    const properties = propertiesFromDb.map((p) => {
+      const { _count, ...propertyData } = p;
+      return {
+        ...propertyData,
+        value: p.value.toNumber(),
+        interestCount: _count?.Interest || 0,
+      };
+    });
 
     const propertiesWithSignedUrls = await Promise.all(
       properties.map(async (property) => {
@@ -229,6 +240,11 @@ export class PropertiesService {
           select: { name: true, email: true, phone: true, preferences: true },
         },
         photos: true,
+        _count: {
+          select: {
+            Interest: true,
+          },
+        },
       },
     });
 
@@ -260,12 +276,15 @@ export class PropertiesService {
       true,
     );
 
+    const { _count } = property;
+
     return {
       ...property,
       value: property.value.toNumber(),
       landlord: safeLandlord,
       photos: photosWithUrls,
       acceptOnlineProposals,
+      interestCount: _count?.Interest || 0,
     };
   }
 
@@ -340,15 +359,20 @@ export class PropertiesService {
             select: { name: true, email: true },
           },
           photos: { where: { isCover: true }, take: 1 },
+          _count: { select: { Interest: true } },
         },
       }),
       this.prisma.property.count({ where }),
     ]);
 
-    const properties = propertiesFromDb.map((p) => ({
-      ...p,
-      value: p.value.toNumber(),
-    }));
+    const properties = propertiesFromDb.map((p) => {
+      const { _count, ...propertyData } = p;
+      return {
+        ...propertyData,
+        value: p.value.toNumber(),
+        interestCount: _count?.Interest || 0,
+      };
+    });
 
     const propertiesWithUrls = await Promise.all(
       properties.map(async (property) => {
@@ -427,15 +451,20 @@ export class PropertiesService {
         include: {
           landlord: { select: { name: true, email: true, phone: true } },
           photos: true,
+          _count: { select: { Interest: true } },
         },
       }),
       this.prisma.property.count({ where }),
     ]);
 
-    const properties = propertiesFromDb.map((p) => ({
-      ...p,
-      value: p.value.toNumber(),
-    }));
+    const properties = propertiesFromDb.map((p) => {
+      const { _count, ...propertyData } = p;
+      return {
+        ...propertyData,
+        value: p.value.toNumber(),
+        interestCount: _count?.Interest || 0,
+      };
+    });
 
     const propertiesWithSignedUrls = await Promise.all(
       properties.map(async (property) => {

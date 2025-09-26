@@ -5,11 +5,11 @@ export interface ContractTemplateData {
   landlord: {
     name: string;
     cpfCnpj: string;
-    street: string;
-    number: string;
-    province: string; // Bairro
-    city: string;
-    state: string;
+    street: string | null;
+    number: string | null;
+    province: string | null;
+    city: string | null;
+    state: string | null;
     email: string;
   };
   /**
@@ -26,13 +26,13 @@ export interface ContractTemplateData {
    */
   property: {
     propertyType: string;
-    street: string;
+    street: string | null;
     number: string;
-    complement?: string; // Opcional
-    district: string;
-    city: string;
-    state: string;
-    cep: string;
+    complement?: string | null;
+    district: string | null;
+    city: string | null;
+    state: string | null;
+    cep: string | null;
   };
   /**
    * A data de início do contrato.

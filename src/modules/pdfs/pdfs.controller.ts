@@ -29,6 +29,8 @@ import { StorageService } from 'src/storage/storage.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { PdfResponseDto } from './dto/response-pdf.dto';
+import { Roles } from 'src/common/decorator/roles.decorator';
+import { ROLES } from 'src/common/constants/roles.constant';
 
 @ApiTags('PDFs')
 @Controller('pdfs')
@@ -39,10 +41,13 @@ export class PdfsController {
   ) {}
 
   @Post('generate')
-  @ApiOperation({ summary: 'Generate a new document PDF' })
+  @Roles(ROLES.LOCADOR, ROLES.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Generate a new document PDF for a contract' })
   @ApiResponse({
     status: 201,
-    description: 'PDF generated successfully.',
+    description: 'PDF generation has been queued.',
+    type: PdfResponseDto,
   })
   @ApiBody({ type: CreatePdfDto })
   async generatePdf(
@@ -156,7 +161,6 @@ export class PdfsController {
   async downloadPdf(
     @Param('id', ParseUUIDPipe) id: string,
     @Res() res: Response,
-    // @CurrentUser() currentUser: JwtPayload,
   ) {
     try {
       const result = await this.pdfService.downloadPdf(id);

@@ -470,7 +470,11 @@ export class ContractsService {
       where: { id },
       include: {
         paymentsOrders: true,
-        GeneratedPdf: { select: { signatureRequests: true } },
+        GeneratedPdf: {
+          include: {
+            signatureRequests: true,
+          },
+        },
         property: {
           include: {
             photos: true,

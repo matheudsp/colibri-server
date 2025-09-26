@@ -19,10 +19,8 @@ import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { InjectQueue } from '@nestjs/bull';
 import { QueueName } from 'src/queue/jobs/jobs';
 import { Queue } from 'bull';
-import {
-  PdfJobType,
-  type GenerateContractPdfJob,
-} from 'src/queue/jobs/pdf.job';
+import { PdfJobType, type GeneratePdfJob } from 'src/queue/jobs/pdf.job';
+import type { JudicialReportTemplateData } from './types/judicial-report-template.interface';
 // import { ContractsService } from '../contracts/contracts.service';
 
 @Injectable()
@@ -239,77 +237,92 @@ export class PdfsService {
 
     const contract = await this.prisma.contract.findUnique({
       where: { id: contractId },
-      include: { landlord: true, tenant: true, property: true },
+      include: {
+        landlord: true,
+        tenant: true,
+        property: true,
+        paymentsOrders: { include: { bankSlip: true } },
+        documents: true,
+        GeneratedPdf: { where: { pdfType: 'CONTRATO_LOCACAO' } },
+      },
     });
 
     if (!contract) {
       throw new NotFoundException('Contrato não encontrado');
     }
 
-    if (!contract.landlord.street || !contract.property.cep) {
-      throw new BadRequestException(
-        'Não é possível gerar o contrato. O endereço do locador ou do imóvel está incompleto.',
-      );
+    let templateData: ContractTemplateData | JudicialReportTemplateData;
+    let templateName: string;
+
+    switch (pdfType) {
+      case PdfType.CONTRATO_LOCACAO:
+        if (!contract.landlord.street || !contract.property.cep) {
+          throw new BadRequestException(
+            'Não é possível gerar o contrato. O endereço do locador ou do imóvel está incompleto.',
+          );
+        }
+        templateName = 'CONTRATO_LOCACAO';
+        templateData = {
+          landlord: contract.landlord,
+          tenant: contract.tenant,
+          property: contract.property,
+          startDate: contract.startDate,
+          endDate: contract.endDate,
+          durationInMonths: contract.durationInMonths,
+          rentAmount: contract.rentAmount.toNumber(),
+          condoFee: contract.condoFee?.toNumber(),
+          iptuFee: contract.iptuFee?.toNumber(),
+          totalAmount:
+            contract.rentAmount.toNumber() +
+            (contract.condoFee?.toNumber() ?? 0) +
+            (contract.iptuFee?.toNumber() ?? 0),
+          guaranteeType: contract.guaranteeType,
+          securityDeposit: contract.securityDeposit?.toNumber(),
+          now: new Date(),
+        };
+        break;
+
+      case PdfType.RELATORIO_JUDICIAL:
+        templateName = 'RELATORIO_JUDICIAL';
+        const signedContractPdf = contract.GeneratedPdf.find(
+          (p) => p.signedFilePath,
+        );
+        const documentsWithUrls = await Promise.all(
+          contract.documents.map(async (doc) => ({
+            ...doc,
+            url: await this.storageService.getSignedUrl(
+              doc.filePath,
+              undefined,
+              60 * 60 * 24 * 30,
+            ), // URL válida por 30 dias
+          })),
+        );
+        templateData = {
+          contract,
+          landlord: contract.landlord,
+          tenant: contract.tenant,
+          property: contract.property,
+          payments: contract.paymentsOrders,
+          documents: documentsWithUrls,
+          signedContractUrl: signedContractPdf?.signedFilePath
+            ? await this.storageService.getSignedUrl(
+                signedContractPdf.signedFilePath,
+              )
+            : null,
+          logs: await this.prisma.log.findMany({
+            where: { targetId: contractId },
+          }),
+          now: new Date(),
+          totalAmount:
+            contract.rentAmount.toNumber() +
+            (contract.condoFee?.toNumber() ?? 0) +
+            (contract.iptuFee?.toNumber() ?? 0),
+        };
+        break;
+
+      default:
+        throw new BadRequestException(`Tipo de PDF inválido: ${pdfType}`);
     }
-
-    if (!Object.values(PdfType).includes(pdfType as PdfType)) {
-      throw new Error(`Tipo de PDF inválido: ${pdfType}`);
-    }
-    const totalAmount =
-      contract.rentAmount.toNumber() +
-      (contract.condoFee?.toNumber() ?? 0) +
-      (contract.iptuFee?.toNumber() ?? 0);
-
-    const templateData: ContractTemplateData = {
-      landlord: {
-        name: contract.landlord.name,
-        cpfCnpj: contract.landlord.cpfCnpj,
-        street: contract.landlord.street ?? '',
-        number: contract.landlord.number ?? '',
-        province: contract.landlord.province ?? '',
-        city: contract.landlord.city ?? '',
-        state: contract.landlord.state ?? '',
-        email: contract.landlord.email,
-      },
-      tenant: contract.tenant,
-      property: {
-        propertyType: contract.property.propertyType,
-        street: contract.property.street ?? '',
-        number: contract.property.number,
-        complement: contract.property.complement ?? '',
-        district: contract.property.district ?? '',
-        city: contract.property.city ?? '',
-        state: contract.property.state ?? '',
-        cep: contract.property.cep ?? '',
-      },
-      startDate: contract.startDate,
-      endDate: contract.endDate,
-      durationInMonths: contract.durationInMonths,
-      rentAmount: contract.rentAmount.toNumber(),
-      condoFee: contract.condoFee?.toNumber(),
-      iptuFee: contract.iptuFee?.toNumber(),
-      totalAmount: totalAmount,
-      guaranteeType: contract.guaranteeType,
-      securityDeposit: contract.securityDeposit?.toNumber(),
-      now: new Date(),
-    };
-
-    // const formatPdfType = pdfType.replace(/_/g, '_');
-    // const pdfBuffer = await generatePdfFromTemplate(
-    //   formatPdfType,
-    //   templateData,
-    // );
-
-    // const file = {
-    //   buffer: Buffer.from(pdfBuffer),
-    //   originalname: getPdfFileName(pdfType as PdfType, contract.id),
-    //   mimetype: 'application/pdf',
-    //   size: pdfBuffer.length,
-    // };
-
-    // const { key } = await this.storageService.uploadFile(file, {
-    //   folder: `contracts/${contract.id}`,
-    // });
 
     const fileName = getPdfFileName(pdfType, contractId);
     const tempFilePath = `contracts/${contractId}/generating-${fileName}`;
@@ -321,17 +334,15 @@ export class PdfsService {
         pdfType: pdfType,
       },
     });
-    const jobData: GenerateContractPdfJob = {
+    const jobData: GeneratePdfJob = {
       pdfRecordId: newPdf.id,
       templateData: templateData,
       fileName: fileName,
       contractId: contractId,
+      templateName: templateName as 'CONTRATO_LOCACAO' | 'RELATORIO_JUDICIAL',
     };
 
-    const job = await this.pdfQueue.add(
-      PdfJobType.GENERATE_CONTRACT_PDF,
-      jobData,
-    );
+    const job = await this.pdfQueue.add(PdfJobType.GENERATE_PDF, jobData);
 
     try {
       await job.finished();
@@ -340,9 +351,7 @@ export class PdfsService {
       );
     } catch (error) {
       this.logger.error(`Job de geração de PDF ${job.id} falhou.`, error);
-      throw new InternalServerErrorException(
-        'Falha ao gerar o documento PDF necessário para a assinatura.',
-      );
+      throw new InternalServerErrorException('Falha ao gerar o documento PDF.');
     }
 
     await this.logHelper.createLog(

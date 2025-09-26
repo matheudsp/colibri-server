@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "PdfType" ADD VALUE 'RELATORIO_JUDICIAL';
