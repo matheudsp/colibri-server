@@ -11,6 +11,7 @@ import { PaymentGatewayModule } from 'src/payment-gateway/payment-gateway.module
 import { PaymentsOrdersModule } from '../payments-orders/payments-orders.module';
 import { PdfsModule } from '../pdfs/pdfs.module';
 import { ClicksignModule } from '../clicksign/clicksign.module';
+import { StorageModule } from 'src/storage/storage.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { ClicksignModule } from '../clicksign/clicksign.module';
     PaymentsOrdersModule,
     forwardRef(() => PdfsModule),
     ClicksignModule,
+    StorageModule,
   ],
   controllers: [ContractsController],
   providers: [ContractsService, PrismaService, LogHelperService],

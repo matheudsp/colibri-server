@@ -17,6 +17,7 @@ import {
   PaymentStatus,
   Prisma,
   ContractStatus,
+  type Photo,
 } from '@prisma/client';
 import { PropertiesService } from '../properties/properties.service';
 import { ROLES } from 'src/common/constants/roles.constant';
@@ -30,6 +31,7 @@ import { QueueName } from 'src/queue/jobs/jobs';
 import { PdfsService } from '../pdfs/pdfs.service';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { ClicksignService } from '../clicksign/clicksign.service';
+import { StorageService } from 'src/storage/storage.service';
 
 @Injectable()
 export class ContractsService {
@@ -42,6 +44,7 @@ export class ContractsService {
     private logHelper: LogHelperService,
     private pdfsService: PdfsService,
     private clicksignService: ClicksignService,
+    private storageService: StorageService,
     @InjectQueue(QueueName.EMAIL) private emailQueue: Queue,
   ) {}
   async getContractPdfSignedUrl(contractId: string, currentUser: JwtPayload) {
@@ -304,15 +307,38 @@ export class ContractsService {
         take: limit,
         where,
         include: {
-          property: { select: { title: true } },
+          property: { select: { title: true, photos: true } },
           landlord: { select: { name: true, email: true } },
           tenant: { select: { name: true, email: true } },
         },
       }),
       this.prisma.contract.count({ where }),
     ]);
+
+    const dataWithSinglePhoto = contracts.map((contract) => {
+      const coverPhoto = contract.property.photos.find((p) => p.isCover);
+      const firstPhoto = contract.property.photos[0];
+      const photoToUse = coverPhoto || firstPhoto;
+
+      const photosWithUrl: (Photo & { url: string })[] = [];
+      if (photoToUse) {
+        photosWithUrl.push({
+          ...photoToUse,
+          url: this.storageService.getPublicImageUrl(photoToUse.filePath),
+        });
+      }
+
+      return {
+        ...contract,
+        property: {
+          ...contract.property,
+          photos: photosWithUrl,
+        },
+      };
+    });
+
     return {
-      data: contracts,
+      data: dataWithSinglePhoto,
       meta: {
         total,
         page,
@@ -321,7 +347,6 @@ export class ContractsService {
       },
     };
   }
-
   async forceActivateContract(
     contractId: string,
     currentUser: { role: string; sub: string },
@@ -409,7 +434,11 @@ export class ContractsService {
       include: {
         paymentsOrders: true,
         GeneratedPdf: { select: { signatureRequests: true } },
-        property: true,
+        property: {
+          include: {
+            photos: true,
+          },
+        },
         landlord: { select: { id: true, name: true, email: true } },
         tenant: { select: { id: true, name: true, email: true } },
         documents: { select: { id: true, status: true, type: true } },
@@ -427,7 +456,25 @@ export class ContractsService {
         'Você não tem permissão para visualizar este contrato.',
       );
     }
-    return contract;
+    const coverPhoto = contract.property.photos.find((p) => p.isCover);
+    const firstPhoto = contract.property.photos[0];
+    const photoToUse = coverPhoto || firstPhoto;
+
+    const photosWithUrl: (Photo & { url: string })[] = [];
+    if (photoToUse) {
+      photosWithUrl.push({
+        ...photoToUse,
+        url: this.storageService.getPublicImageUrl(photoToUse.filePath),
+      });
+    }
+
+    return {
+      ...contract,
+      property: {
+        ...contract.property,
+        photos: photosWithUrl,
+      },
+    };
   }
 
   async update(

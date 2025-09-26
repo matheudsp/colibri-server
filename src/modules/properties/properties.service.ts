@@ -350,7 +350,7 @@ export class PropertiesService {
       value: p.value.toNumber(),
     }));
 
-    const propertiesWithSignedUrls = await Promise.all(
+    const propertiesWithUrls = await Promise.all(
       properties.map(async (property) => {
         const photosWithUrls =
           await this.propertyPhotosService.getPhotosByProperty(
@@ -362,7 +362,7 @@ export class PropertiesService {
     );
 
     return {
-      properties: propertiesWithSignedUrls,
+      properties: propertiesWithUrls,
       meta: {
         total,
         page,
