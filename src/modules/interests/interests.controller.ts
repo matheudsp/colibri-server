@@ -66,4 +66,19 @@ export class InterestsController {
   ) {
     return this.interestsService.updateStatus(id, updateStatusDto, currentUser);
   }
+
+  /**
+   * Rota para verificar o status de interesse.
+   * O frontend chamará esta rota para saber se deve desabilitar o botão.
+   */
+  @Get('check/:propertyId')
+  @ApiOperation({
+    summary: 'Verifica se o usuário já demonstrou interesse em um imóvel.',
+  })
+  checkInterest(
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
+    @CurrentUser() currentUser: JwtPayload,
+  ) {
+    return this.interestsService.checkInterest(propertyId, currentUser);
+  }
 }

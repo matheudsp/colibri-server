@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <title>Relatório Jurídico do Contrato</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.5;
+            margin: 0;
+            padding: 40px;
+            color: #333;
+            font-size: 10pt;
+        }
+        h1, h2, h3 {
+            color: #000;
+            margin: 0;
+            padding: 0;
+            font-weight: bold;
+        }
+        h1 {
+            text-align: center;
+            font-size: 16pt;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        h2 {
+            font-size: 12pt;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 5px;
+        }
+        .report-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .report-header p {
+            margin: 2px 0;
+            font-size: 9pt;
+            color: #555;
+        }
+        .section {
+            margin-bottom: 20px;
+            page-break-inside: avoid;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px 20px;
+        }
+        .info-grid p {
+            margin: 4px 0;
+        }
+        .info-grid strong {
+            display: block;
+            color: #444;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            font-size: 9pt;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        .status {
+            font-weight: bold;
+            padding: 3px 6px;
+            border-radius: 4px;
+            color: white;
+            text-align: center;
+        }
+        .status-PAGO, .status-RECEBIDO { background-color: #28a745; }
+        .status-ATRASADO { background-color: #dc3545; }
+        .status-PENDENTE { background-color: #ffc107; color: #333; }
+        .status-CANCELADO { background-color: #6c757d; }
+        .document-list {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        .document-list li {
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            padding: 8px;
+            margin-bottom: 5px;
+            border-radius: 4px;
+        }
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 40px;
+            right: 40px;
+            width: auto;
+            font-size: 8pt;
+            text-align: center;
+            padding: 10px 0;
+            border-top: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="report-header">
+        <h1>Relatório Jurídico de Contrato de Locação</h1>
+        <p><strong>Contrato ID:</strong> {{contract.id}}</p>
+        <p><strong>Data de Emissão do Relatório:</strong> {{formatDate now "dd/MM/yyyy 'às' HH:mm"}}</p>
+    </div>
+
+    <div class="section">
+        <h2>1. Partes Envolvidas</h2>
+        <div class="info-grid">
+            <div>
+                <p><strong>LOCADOR(A):</strong> {{landlord.name}}</p>
+                <p><strong>CPF/CNPJ:</strong> {{formatCPF landlord.cpfCnpj}}</p>
+                <p><strong>E-mail:</strong> {{landlord.email}}</p>
+                <p><strong>Telefone:</strong> {{formatPhone landlord.phone}}</p>
+            </div>
+            <div>
+                <p><strong>LOCATÁRIO(A):</strong> {{tenant.name}}</p>
+                <p><strong>CPF/CNPJ:</strong> {{formatCPF tenant.cpfCnpj}}</p>
+                <p><strong>E-mail:</strong> {{tenant.email}}</p>
+                <p><strong>Telefone:</strong> {{formatPhone tenant.phone}}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>2. Detalhes do Contrato e Imóvel</h2>
+        <div class="info-grid">
+            <div>
+                <p><strong>Imóvel:</strong> {{property.title}}</p>
+                <p><strong>Endereço:</strong> {{property.street}}, {{property.number}} - {{property.district}}, {{property.city}}/{{property.state}}</p>
+                <p><strong>Início do Contrato:</strong> {{formatDate contract.startDate "dd/MM/yyyy"}}</p>
+                <p><strong>Término do Contrato:</strong> {{formatDate contract.endDate "dd/MM/yyyy"}}</p>
+            </div>
+            <div>
+                <p><strong>Status Atual:</strong> {{contract.status}}</p>
+                <p><strong>Valor do Aluguel (base):</strong> {{formatCurrency contract.rentAmount}}</p>
+                <p><strong>Valor Total Mensal:</strong> {{formatCurrency totalAmount}}</p>
+                <p><strong>Garantia:</strong> {{formatGuaranteeType contract.guaranteeType}}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>3. Histórico de Pagamentos</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Vencimento</th>
+                    <th>Valor Devido</th>
+                    <th>Status</th>
+                    <th>Data Pagto.</th>
+                    <th>Valor Pago</th>
+                    <th>Comprovante</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each payments}}
+                <tr>
+                    <td>{{addOne @index}}</td>
+                    <td>{{formatDate this.dueDate "dd/MM/yyyy"}}</td>
+                    <td>{{formatCurrency this.amountDue}}</td>
+                    <td><span class="status status-{{this.status}}">{{this.status}}</span></td>
+                    <td>{{#if this.paidAt}}{{formatDate this.paidAt "dd/MM/yyyy"}}{{else}} - {{/if}}</td>
+                    <td>{{#if this.amountPaid}}{{formatCurrency this.amountPaid}}{{else}} - {{/if}}</td>
+                    <td>
+                        {{#if this.bankSlip.transactionReceiptUrl}}
+                            <a href="{{this.bankSlip.transactionReceiptUrl}}" target="_blank">Ver Recibo</a>
+                        {{else}}
+                            -
+                        {{/if}}
+                    </td>
+                </tr>
+                {{else}}
+                <tr>
+                    <td colspan="7" style="text-align:center;">Nenhuma ordem de pagamento encontrada para este contrato.</td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>4. Provas Documentais Anexadas</h2>
+        <ul class="document-list">
+            <li>
+                <strong>Contrato de Locação Assinado:</strong>
+                {{#if signedContractUrl}}
+                    <a href="{{signedContractUrl}}" target="_blank">Visualizar Contrato</a>
+                {{else}}
+                    <span style="color: #dc3545;">Contrato ainda não assinado ou não disponível.</span>
+                {{/if}}
+            </li>
+            {{#each documents}}
+            <li>
+                <strong>{{this.type}}:</strong> Status <strong>{{this.status}}</strong>
+                (<a href="{{this.url}}" target="_blank">Visualizar Documento</a>)
+            </li>
+            {{/each}}
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>5. Registro de Comunicações Relevantes</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Ação / Evento</th>
+                    <th>Detalhes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each logs}}
+                <tr>
+                    <td>{{formatDate this.createdAt "dd/MM/yyyy HH:mm"}}</td>
+                    <td>{{this.action}}</td>
+                    <td>Registro na tabela '{{this.tableName}}' com ID: {{this.targetId}}</td>
+                </tr>
+                {{else}}
+                <tr>
+                    <td colspan="3" style="text-align:center;">Nenhum registro de comunicação encontrado.</td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+    </div>
+
+</body>
+</html>

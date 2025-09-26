@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -8,7 +9,6 @@ import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
-import { ROLES } from 'src/common/constants/roles.constant';
 
 import { QueueName } from 'src/queue/jobs/jobs';
 import { EmailJobType, NotificationJob } from 'src/queue/jobs/email.job';
@@ -24,13 +24,25 @@ export class InterestsService {
     @InjectQueue(QueueName.EMAIL) private readonly emailQueue: Queue,
   ) {}
 
-  async create(dto: CreateInterestDto, currentUser: JwtPayload) {
-    // if (currentUser.role !== ROLES.LOCATARIO) {
-    //   throw new ForbiddenException(
-    //     'Apenas locatários podem manifestar interesse.',
-    //   );
-    // }
+  /**
+   * Verifica se o usuário atual já demonstrou interesse em um imóvel.
+   * Retorna um booleano para indicar o status.
+   */
+  async checkInterest(propertyId: string, currentUser: JwtPayload) {
+    const interest = await this.prisma.interest.findFirst({
+      where: {
+        propertyId: propertyId,
+        tenantId: currentUser.sub,
+      },
+      select: {
+        id: true,
+      },
+    });
 
+    return { hasInterested: !!interest };
+  }
+
+  async create(dto: CreateInterestDto, currentUser: JwtPayload) {
     const property = await this.prisma.property.findUnique({
       where: { id: dto.propertyId },
       include: { landlord: true },
@@ -38,6 +50,17 @@ export class InterestsService {
 
     if (!property || !property.landlord) {
       throw new NotFoundException('Imóvel não encontrado.');
+    }
+
+    const existingInterest = await this.prisma.interest.findFirst({
+      where: {
+        tenantId: currentUser.sub,
+        propertyId: dto.propertyId,
+      },
+    });
+
+    if (existingInterest) {
+      throw new ConflictException('Você já demonstrou interesse neste imóvel.');
     }
 
     if (property.landlordId === currentUser.sub) {
@@ -63,7 +86,6 @@ export class InterestsService {
       },
     });
 
-    // Notificar o Locador sobre o novo interesse
     const job: NotificationJob = {
       user: { name: property.landlord.name, email: property.landlord.email },
       notification: {

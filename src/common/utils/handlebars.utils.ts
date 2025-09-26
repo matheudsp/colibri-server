@@ -2,6 +2,10 @@ import * as Handlebars from 'handlebars';
 import { DateTime } from 'luxon';
 
 export function registerHandlebarsHelpers(): void {
+  Handlebars.registerHelper('addOne', (value: number): number => {
+    return value + 1;
+  });
+
   /**
    * Formata um valor numérico como moeda no padrão brasileiro (BRL).
    * Exemplo: {{formatCurrency rentAmount}} -> "R$ 2.500,00"
