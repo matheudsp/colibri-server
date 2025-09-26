@@ -93,7 +93,7 @@ export async function generatePdfFromTemplate(templateName: string, data: any) {
         : '',
       footerTemplate: `
                <div style="width: 100%; font-size: 8pt; text-align: center; padding: 10px 0; border-top: 1px solid #ddd;">
-                  Gerado pela plataforma Colibri em ${formattedDateForFooter}
+                  Gerado pelo Sistema Locaterra em ${formattedDateForFooter}
                   <div style="margin-top: 5px; font-size: 6pt; color: #666;">Página <span class="pageNumber"></span> de <span class="totalPages"></span></div>
                 </div>
             `,

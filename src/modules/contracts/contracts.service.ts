@@ -7,6 +7,7 @@ import {
   ConflictException,
   Inject,
   forwardRef,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateContractDto } from './dto/create-contract.dto';
@@ -32,6 +33,8 @@ import { PdfsService } from '../pdfs/pdfs.service';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { ClicksignService } from '../clicksign/clicksign.service';
 import { StorageService } from 'src/storage/storage.service';
+import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.service';
+import { BankSlipsService } from '../bank-slips/bank-slips.service';
 
 @Injectable()
 export class ContractsService {
@@ -45,6 +48,8 @@ export class ContractsService {
     private pdfsService: PdfsService,
     private clicksignService: ClicksignService,
     private storageService: StorageService,
+    private paymentGateway: PaymentGatewayService,
+    private bankSlipsService: BankSlipsService,
     @InjectQueue(QueueName.EMAIL) private emailQueue: Queue,
   ) {}
   async getContractPdfSignedUrl(contractId: string, currentUser: JwtPayload) {
@@ -160,7 +165,23 @@ export class ContractsService {
         data: { isAvailable: false },
       });
       await this.paymentsOrdersService.createPaymentsForContract(contractId);
+      const firstPaymentOrder = await this.prisma.paymentOrder.findFirst({
+        where: { contractId },
+        orderBy: { dueDate: 'asc' },
+      });
 
+      if (firstPaymentOrder) {
+        try {
+          await this.bankSlipsService.generateBankSlipForPaymentOrder(
+            firstPaymentOrder.id,
+          );
+        } catch (error) {
+          console.error(
+            `Falha ao gerar o primeiro boleto para o contrato ${contractId} após assinatura. O scheduler tentará novamente.`,
+            error,
+          );
+        }
+      }
       const notification = {
         title: 'Contrato Assinado e Ativado!',
         message: `O contrato de aluguel para o imóvel "${contract.property.title}" foi assinado por todas as partes e agora está ativo.`,
@@ -391,7 +412,23 @@ export class ContractsService {
     //   contract.tenant.id,
     //   contract.landlord.subAccount.id,
     // );
+    const firstPaymentOrder = await this.prisma.paymentOrder.findFirst({
+      where: { contractId },
+      orderBy: { dueDate: 'asc' },
+    });
 
+    if (firstPaymentOrder) {
+      try {
+        await this.bankSlipsService.generateBankSlipForPaymentOrder(
+          firstPaymentOrder.id,
+        );
+      } catch (error) {
+        console.error(
+          `Falha ao gerar o primeiro boleto para o contrato ${contractId} durante a ativação forçada. O scheduler tentará novamente.`,
+          error,
+        );
+      }
+    }
     const updatedContract = await this.prisma.contract.update({
       where: { id: contractId },
       data: { status: ContractStatus.ATIVO },
@@ -505,7 +542,30 @@ export class ContractsService {
   }
 
   async cancelContract(contractId: string, currentUser: JwtPayload) {
-    const contract = await this.findOne(contractId, currentUser); // Reutiliza o findOne para validar permissões
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+      include: {
+        landlord: { include: { subAccount: true } },
+        property: { select: { title: true } },
+        paymentsOrders: {
+          where: { status: 'PENDENTE' },
+          include: { bankSlip: true },
+        },
+      },
+    });
+
+    if (!contract) {
+      throw new NotFoundException('Contrato não encontrado.');
+    }
+
+    if (
+      contract.landlordId !== currentUser.sub &&
+      currentUser.role !== ROLES.ADMIN
+    ) {
+      throw new ForbiddenException(
+        'Você não tem permissão para cancelar este contrato.',
+      );
+    }
 
     if (
       contract.status === ContractStatus.CANCELADO ||
@@ -516,7 +576,34 @@ export class ContractsService {
       );
     }
 
-    // Opcional, mas recomendado: Cancela todas as ordens de pagamento pendentes
+    const pendingOrdersWithSlips = contract.paymentsOrders.filter(
+      (po) => po.bankSlip,
+    );
+
+    if (pendingOrdersWithSlips.length > 0) {
+      if (!contract.landlord.subAccount?.apiKey) {
+        throw new InternalServerErrorException(
+          'A API Key da subconta do locador não foi encontrada para cancelar as cobranças.',
+        );
+      }
+      const apiKey = contract.landlord.subAccount.apiKey;
+
+      for (const order of pendingOrdersWithSlips) {
+        try {
+          await this.paymentGateway.cancelCharge(
+            apiKey,
+            order.bankSlip!.asaasChargeId,
+          );
+        } catch (error) {
+          // Loga o erro mas continua o processo, pois o importante é o status interno
+          console.error(
+            `Falha ao cancelar a cobrança ${order.bankSlip!.asaasChargeId} no gateway.`,
+            error,
+          );
+        }
+      }
+    }
+
     await this.prisma.paymentOrder.updateMany({
       where: {
         contractId: contractId,
@@ -527,7 +614,6 @@ export class ContractsService {
       },
     });
 
-    // Atualiza o status do contrato
     const updatedContract = await this.prisma.contract.update({
       where: { id: contractId },
       data: { status: ContractStatus.CANCELADO },
@@ -540,7 +626,21 @@ export class ContractsService {
       updatedContract.id,
     );
 
-    // Opcional: Enviar notificação de cancelamento para as partes
+    const job: NotificationJob = {
+      user: {
+        name: contract.landlord.name,
+        email: contract.landlord.email,
+      },
+      notification: {
+        title: 'Contrato Cancelado com Sucesso',
+        message: `O contrato para o imóvel "${contract.property.title}" foi cancelado. Todas as cobranças pendentes associadas a ele também foram canceladas.`,
+      },
+      action: {
+        text: 'Ver Meus Contratos',
+        path: '/contratos',
+      },
+    };
+    await this.emailQueue.add(EmailJobType.NOTIFICATION, job);
 
     return updatedContract;
   }
@@ -560,7 +660,21 @@ export class ContractsService {
   }
 
   async remove(id: string, currentUser: { sub: string; role: string }) {
-    const contract = await this.findOne(id, currentUser);
+    const contract = await this.prisma.contract.findUnique({
+      where: { id },
+      include: {
+        landlord: { include: { subAccount: true } },
+        paymentsOrders: {
+          where: { status: 'PENDENTE' },
+          include: { bankSlip: true },
+        },
+      },
+    });
+
+    if (!contract) {
+      throw new NotFoundException(`Contrato com ID "${id}" não encontrado.`);
+    }
+
     if (
       currentUser.role !== ROLES.ADMIN &&
       currentUser.sub !== contract.landlordId
@@ -569,8 +683,38 @@ export class ContractsService {
         'Você não tem permissão para remover este contrato.',
       );
     }
+
+    const pendingOrdersWithSlips = contract.paymentsOrders.filter(
+      (po) => po.bankSlip,
+    );
+
+    if (pendingOrdersWithSlips.length > 0) {
+      const apiKey = contract.landlord.subAccount?.apiKey;
+      if (!apiKey) {
+        // Loga um aviso mas não impede a exclusão local
+        console.warn(
+          `API Key da subconta do locador não encontrada para o contrato ${id}. Não foi possível cancelar as cobranças no gateway.`,
+        );
+      } else {
+        for (const order of pendingOrdersWithSlips) {
+          try {
+            await this.paymentGateway.cancelCharge(
+              apiKey,
+              order.bankSlip!.asaasChargeId,
+            );
+          } catch (error) {
+            console.error(
+              `Falha ao cancelar a cobrança ${order.bankSlip!.asaasChargeId} no gateway durante a remoção do contrato.`,
+              error,
+            );
+          }
+        }
+      }
+    }
+
     await this.pdfsService.deletePdfsByContract(id);
     await this.prisma.paymentOrder.deleteMany({ where: { contractId: id } });
+
     await this.prisma.contract.delete({ where: { id } });
 
     await this.logHelper.createLog(
@@ -579,6 +723,10 @@ export class ContractsService {
       'Contract',
       contract.id,
     );
-    return { message: 'Contrato removido com sucesso.' };
+
+    return {
+      message:
+        'Contrato e todas as suas cobranças associadas foram removidos com sucesso.',
+    };
   }
 }

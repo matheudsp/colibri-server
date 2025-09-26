@@ -12,6 +12,7 @@ import { PaymentsOrdersModule } from '../payments-orders/payments-orders.module'
 import { PdfsModule } from '../pdfs/pdfs.module';
 import { ClicksignModule } from '../clicksign/clicksign.module';
 import { StorageModule } from 'src/storage/storage.module';
+import { BankSlipsModule } from '../bank-slips/bank-slips.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { StorageModule } from 'src/storage/storage.module';
     PaymentGatewayModule,
     PaymentsOrdersModule,
     forwardRef(() => PdfsModule),
+    BankSlipsModule,
     ClicksignModule,
     StorageModule,
   ],

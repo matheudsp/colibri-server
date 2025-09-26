@@ -153,7 +153,11 @@ export class ClicksignService {
     const authenticationPayload = {
       data: {
         type: 'requirements',
-        attributes: { action: 'provide_evidence', auth: 'whatsapp' as const },
+        attributes: {
+          action: 'provide_evidence',
+          auth: 'selfie' as const,
+          //  auth: 'whatsapp' as const
+        },
         relationships: commonRelationships,
       },
     };
