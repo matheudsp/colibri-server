@@ -46,6 +46,11 @@ export class UserService {
     };
   }
 
+  async getPreferences(userId: string): Promise<UserPreferences> {
+    const user = await this.validateUserExists(userId);
+    return (user.preferences as UserPreferences) || {};
+  }
+
   async updatePreferences(
     userId: string,
     newPreferences: UpdateUserPreferencesDto,
@@ -388,6 +393,11 @@ export class UserService {
         cpfCnpj: data.cpfCnpj,
         birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
         role: ROLES.LOCADOR,
+        preferences: {
+          notifications: {
+            acceptOnlineProposals: false,
+          },
+        },
       },
     });
   }

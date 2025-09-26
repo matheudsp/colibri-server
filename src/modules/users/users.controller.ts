@@ -30,6 +30,7 @@ import { JwtPayload } from '../../common/interfaces/jwt.payload.interface';
 import { SearchUserDto } from './dto/search-user.dto';
 import { Roles } from 'src/common/decorator/roles.decorator';
 import { ROLES } from 'src/common/constants/roles.constant';
+import { UpdateUserPreferencesDto } from './dto/update-user-preferences.dto';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -76,7 +77,16 @@ export class UserController {
   findMe(@CurrentUser() { sub }: JwtPayload) {
     return this.userService.findMe(sub);
   }
-
+  @Get('preferences')
+  @Roles(ROLES.ADMIN, ROLES.LOCADOR)
+  @ApiOperation({ summary: 'Get current user preferences' })
+  @ApiResponse({
+    status: 200,
+    description: 'User preferences object',
+  })
+  getMyPreferences(@CurrentUser() currentUser: JwtPayload) {
+    return this.userService.getPreferences(currentUser.sub);
+  }
   @Get(':id')
   @ApiOperation({ summary: 'Get user profile' })
   @ApiParam({ name: 'id', description: 'User UUID' })
@@ -87,6 +97,24 @@ export class UserController {
   })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.userService.findOne(id);
+  }
+
+  @Patch('preferences')
+  @Roles(ROLES.ADMIN, ROLES.LOCADOR)
+  @ApiOperation({ summary: 'Update current user preferences' })
+  @ApiBody({ type: UpdateUserPreferencesDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Preferences updated successfully',
+  })
+  updateMyPreferences(
+    @CurrentUser() currentUser: JwtPayload,
+    @Body() updateUserPreferencesDto: UpdateUserPreferencesDto,
+  ) {
+    return this.userService.updatePreferences(
+      currentUser.sub,
+      updateUserPreferencesDto,
+    );
   }
 
   @Patch(':id')

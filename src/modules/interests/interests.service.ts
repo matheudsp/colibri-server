@@ -25,11 +25,11 @@ export class InterestsService {
   ) {}
 
   async create(dto: CreateInterestDto, currentUser: JwtPayload) {
-    if (currentUser.role !== ROLES.LOCATARIO) {
-      throw new ForbiddenException(
-        'Apenas locatários podem manifestar interesse.',
-      );
-    }
+    // if (currentUser.role !== ROLES.LOCATARIO) {
+    //   throw new ForbiddenException(
+    //     'Apenas locatários podem manifestar interesse.',
+    //   );
+    // }
 
     const property = await this.prisma.property.findUnique({
       where: { id: dto.propertyId },

@@ -27,7 +27,7 @@ export class InterestsController {
   constructor(private readonly interestsService: InterestsService) {}
 
   @Post()
-  @Roles(ROLES.LOCATARIO)
+  @Roles(ROLES.LOCATARIO, ROLES.ADMIN, ROLES.LOCADOR)
   @ApiOperation({
     summary: 'Envia uma manifestação de interesse para um imóvel.',
   })
