@@ -14,13 +14,15 @@ import { QueueName } from 'src/queue/jobs/jobs';
 import { EmailJobType, NotificationJob } from 'src/queue/jobs/email.job';
 import { CreateInterestDto } from './dto/create-interest.dto';
 import { UpdateInterestStatusDto } from './dto/update-interest-status.dto';
-import { InterestStatus } from '@prisma/client';
+import { InterestStatus, type Photo } from '@prisma/client';
 import { UserPreferences } from 'src/common/interfaces/user.preferences.interface';
+import { StorageService } from 'src/storage/storage.service';
 
 @Injectable()
 export class InterestsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly storageService: StorageService,
     @InjectQueue(QueueName.EMAIL) private readonly emailQueue: Queue,
   ) {}
 
@@ -93,8 +95,8 @@ export class InterestsService {
         message: `O usuário ${currentUser.email} manifestou interesse no seu imóvel. Acesse a plataforma para ver os detalhes e iniciar o contato.`,
       },
       action: {
-        text: 'Ver Interesses Recebidos',
-        path: '/interesses/recebidos',
+        text: 'Ver Interessados',
+        path: '/interesses',
       },
     };
     await this.emailQueue.add(EmailJobType.NOTIFICATION, job);
@@ -103,7 +105,7 @@ export class InterestsService {
   }
 
   async findReceived(currentUser: JwtPayload) {
-    return this.prisma.interest.findMany({
+    const interests = await this.prisma.interest.findMany({
       where: { landlordId: currentUser.sub },
       include: {
         tenant: {
@@ -115,25 +117,75 @@ export class InterestsService {
             cpfCnpj: true,
           },
         },
+        landlord: { select: { name: true } },
         property: {
-          select: {
-            id: true,
-            title: true,
+          include: {
+            photos: true,
           },
         },
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    return interests.map((interest) => {
+      const { property } = interest;
+      const coverPhoto = property.photos.find((p) => p.isCover);
+      const firstPhoto = property.photos[0];
+      const photoToUse = coverPhoto || firstPhoto;
+
+      const photosWithUrl: (Photo & { url: string })[] = [];
+      if (photoToUse) {
+        photosWithUrl.push({
+          ...photoToUse,
+          url: this.storageService.getPublicImageUrl(photoToUse.filePath),
+        });
+      }
+
+      return {
+        ...interest,
+        property: {
+          ...property,
+          photos: photosWithUrl,
+        },
+      };
+    });
   }
 
   async findSent(currentUser: JwtPayload) {
-    return this.prisma.interest.findMany({
+    const interests = await this.prisma.interest.findMany({
       where: { tenantId: currentUser.sub },
       include: {
         landlord: { select: { name: true } },
-        property: { select: { id: true, title: true } },
+        property: {
+          include: {
+            photos: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
+    });
+
+    return interests.map((interest) => {
+      const { property } = interest;
+      const coverPhoto = property.photos.find((p) => p.isCover);
+      const firstPhoto = property.photos[0];
+      const photoToUse = coverPhoto || firstPhoto;
+
+      const photosWithUrl: (Photo & { url: string })[] = [];
+      if (photoToUse) {
+        photosWithUrl.push({
+          ...photoToUse,
+          url: this.storageService.getPublicImageUrl(photoToUse.filePath),
+        });
+      }
+
+      return {
+        ...interest,
+        property: {
+          ...property,
+          photos: photosWithUrl,
+        },
+      };
     });
   }
 
@@ -188,7 +240,7 @@ export class InterestsService {
           title: notificationTitle,
           message: notificationMessage,
         },
-        action: { text: 'Ver Meus Interesses', path: '/interesses/enviados' },
+        action: { text: 'Ver Meus Interesses', path: '/interesses' },
       };
       await this.emailQueue.add(EmailJobType.NOTIFICATION, job);
     }

@@ -3,9 +3,10 @@ import { InterestsService } from './interests.service';
 import { InterestsController } from './interests.controller';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { QueueModule } from 'src/queue/queue.module';
+import { StorageModule } from 'src/storage/storage.module';
 
 @Module({
-  imports: [QueueModule],
+  imports: [QueueModule, StorageModule],
   controllers: [InterestsController],
   providers: [InterestsService, PrismaService],
 })

@@ -58,6 +58,25 @@ export class PropertiesController {
   ) {
     return this.propertiesService.create(createPropertyDto, currentUser);
   }
+  @Get('public/most-interested')
+  @Public()
+  @ApiOperation({ summary: 'List properties with the most interested users' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    description: 'Page number for pagination',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Number of items per page',
+  })
+  findMostInterested(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    return this.propertiesService.findMostInterested({ page, limit });
+  }
 
   @Get('public')
   // @UseInterceptors(CacheInterceptor)

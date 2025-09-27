@@ -487,7 +487,67 @@ export class PropertiesService {
       },
     };
   }
+  async findMostInterested({
+    page = 1,
+    limit = 10,
+  }: {
+    page: number;
+    limit: number;
+  }) {
+    const skip = (page - 1) * limit;
 
+    const [properties, total] = await this.prisma.$transaction([
+      this.prisma.property.findMany({
+        skip,
+        take: limit,
+        where: {
+          isAvailable: true,
+        },
+        include: {
+          _count: {
+            select: { Interest: true },
+          },
+          photos: { where: { isCover: true }, take: 1 },
+        },
+        orderBy: {
+          Interest: {
+            _count: 'desc',
+          },
+        },
+      }),
+      this.prisma.property.count({
+        where: {
+          isAvailable: true,
+        },
+      }),
+    ]);
+
+    const propertiesWithUrls = await Promise.all(
+      properties.map(async (p) => {
+        const { _count, ...propertyData } = p;
+        const photosWithUrls =
+          await this.propertyPhotosService.getPhotosByProperty(
+            propertyData.id,
+            true,
+          );
+        return {
+          ...propertyData,
+          interestCount: _count?.Interest || 0,
+          photos: photosWithUrls,
+        };
+      }),
+    );
+
+    return {
+      data: propertiesWithUrls,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
   async update(
     id: string,
     updatePropertyDto: UpdatePropertyDto,

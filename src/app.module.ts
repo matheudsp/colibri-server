@@ -37,7 +37,6 @@ import { HealthModule } from './modules/health/health.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
-import { InterestsService } from './modules/interests/interests.service';
 import { InterestsModule } from './modules/interests/interests.module';
 
 @Module({
@@ -105,7 +104,6 @@ import { InterestsModule } from './modules/interests/interests.module';
       provide: APP_FILTER,
       useClass: HttpExceptionFilter,
     },
-    InterestsService,
   ],
 })
 export class AppModule {}
