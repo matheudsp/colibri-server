@@ -13,7 +13,7 @@ export interface JudicialReportTemplateData {
   tenant: User;
   property: Property;
   payments: PaymentOrder[];
-  documents: (Document & { url: string })[];
+  documents: (Document & { base64: string })[];
   signedContractUrl: string | null;
   logs: Log[];
   now: Date;

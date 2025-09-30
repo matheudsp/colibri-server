@@ -82,16 +82,31 @@
         .status-ATRASADO { background-color: #dc3545; }
         .status-PENDENTE { background-color: #ffc107; color: #333; }
         .status-CANCELADO { background-color: #6c757d; }
-        .document-list {
-            list-style-type: none;
-            padding-left: 0;
+        .document-gallery {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 15px;
         }
-        .document-list li {
-            background-color: #f8f9fa;
-            border: 1px solid #ddd;
-            padding: 8px;
-            margin-bottom: 5px;
+        .document-item {
+            flex: 1 1 48%; /* Ocupa ~48% para criar duas colunas */
+            border: 1px solid #eee;
+            padding: 10px;
             border-radius: 4px;
+            text-align: center;
+            page-break-inside: avoid; /* Tenta evitar que o item quebre entre páginas */
+            box-sizing: border-box;
+        }
+        .document-item strong {
+            display: block;
+            margin-bottom: 10px;
+            font-size: 9pt;
+        }
+        .document-item img {
+            max-width: 100%;
+            max-height: 400px; /* Limita a altura da imagem */
+            height: auto;
+            border: 1px solid #ccc;
         }
         .footer {
             position: fixed;
@@ -192,24 +207,16 @@
 
     <div class="section">
         <h2>4. Provas Documentais Anexadas</h2>
-        <ul class="document-list">
-            <li>
-                <strong>Contrato de Locação Assinado:</strong>
-                {{#if signedContractUrl}}
-                    <a href="{{signedContractUrl}}" target="_blank">Visualizar Contrato</a>
-                {{else}}
-                    <span style="color: #dc3545;">Contrato ainda não assinado ou não disponível.</span>
-                {{/if}}
-            </li>
+        
+        <div class="document-gallery">
             {{#each documents}}
-            <li>
-                <strong>{{this.type}}:</strong> Status <strong>{{this.status}}</strong>
-                (<a href="{{this.url}}" target="_blank">Visualizar Documento</a>)
-            </li>
+            <div class="document-item">
+                <strong>{{this.type}} (Status: {{this.status}})</strong>
+                <img src="{{this.base64}}" alt="Documento {{this.type}}">
+            </div>
             {{/each}}
-        </ul>
+        </div>
     </div>
-
     
 </body>
 </html>

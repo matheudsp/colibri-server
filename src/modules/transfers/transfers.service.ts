@@ -86,6 +86,12 @@ export class TransfersService {
     if (availableBalance <= 0) {
       throw new BadRequestException('Não há saldo disponível para saque.');
     }
+    const MINIMUM_WITHDRAWAL_AMOUNT = 20.0;
+    if (availableBalance < MINIMUM_WITHDRAWAL_AMOUNT) {
+      throw new BadRequestException(
+        `O valor mínimo para saque é de ${CurrencyUtils.formatCurrency(MINIMUM_WITHDRAWAL_AMOUNT)}. Seu saldo atual é de ${CurrencyUtils.formatCurrency(availableBalance)}.`,
+      );
+    }
 
     // 2. Criar a transferência no Asaas
     const transferPayload: CreateAsaasPixTransferDto = {

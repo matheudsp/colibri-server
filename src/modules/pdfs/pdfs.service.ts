@@ -287,15 +287,39 @@ export class PdfsService {
         const signedContractPdf = contract.GeneratedPdf.find(
           (p) => p.signedFilePath,
         );
-        const documentsWithUrls = await Promise.all(
-          contract.documents.map(async (doc) => ({
-            ...doc,
-            url: await this.storageService.getSignedUrl(
+        const documentsWithBase64 = await Promise.all(
+          contract.documents.map(async (doc) => {
+            const { buffer } = await this.storageService.getFileBuffer(
               doc.filePath,
-              undefined,
-              60 * 60 * 24 * 30,
-            ), // URL válida por 30 dias
-          })),
+            );
+            const base64 = buffer.toString('base64');
+
+            const getMimeType = (filePath: string): string => {
+              const extension = filePath.split('.').pop()?.toLowerCase() || '';
+              switch (extension) {
+                case 'pdf':
+                  return 'application/pdf';
+                case 'jpg':
+                case 'jpeg':
+                  return 'image/jpeg';
+                case 'png':
+                  return 'image/png';
+                case 'gif':
+                  return 'image/gif';
+                case 'webp':
+                  return 'image/webp';
+                default:
+                  return 'application/octet-stream';
+              }
+            };
+
+            const mimeType = getMimeType(doc.filePath);
+
+            return {
+              ...doc,
+              base64: `data:${mimeType};base64,${base64}`,
+            };
+          }),
         );
         templateData = {
           contract,
@@ -303,7 +327,7 @@ export class PdfsService {
           tenant: contract.tenant,
           property: contract.property,
           payments: contract.paymentsOrders,
-          documents: documentsWithUrls,
+          documents: documentsWithBase64,
           signedContractUrl: signedContractPdf?.signedFilePath
             ? await this.storageService.getSignedUrl(
                 signedContractPdf.signedFilePath,
