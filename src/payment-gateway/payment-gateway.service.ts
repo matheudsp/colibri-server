@@ -163,6 +163,23 @@ export class PaymentGatewayService {
     return this.request('get', `${this.asaasApiUrl}/finance/balance`, apiKey);
   }
 
+  async confirmCashPayment(
+    chargeId: string,
+    paymentDate: Date,
+    value: number,
+    apiKey: string,
+  ) {
+    const endpoint = `${this.asaasApiUrl}/payments/${chargeId}/receiveInCash`;
+    this.logger.log(
+      `Confirmando recebimento em dinheiro para a cobrança: ${chargeId}`,
+    );
+    return this.request('post', endpoint, apiKey, {
+      paymentDate: paymentDate.toISOString().split('T')[0],
+      value,
+      notifyCustomer: true,
+    });
+  }
+
   async createCustomer(
     apiKey: string = this.asaasApiKey,
     customerData: CreateAsaasCustomerDto,

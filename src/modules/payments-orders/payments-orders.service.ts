@@ -30,6 +30,7 @@ import { DateUtils } from 'src/common/utils/date.utils';
 import { CurrencyUtils } from 'src/common/utils/currency.utils';
 import { FindUserPaymentsDto } from './dto/find-user-payments.dto';
 import { TransfersService } from '../transfers/transfers.service';
+import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.service';
 
 @Injectable()
 export class PaymentsOrdersService {
@@ -39,6 +40,7 @@ export class PaymentsOrdersService {
     private logHelper: LogHelperService,
     @InjectQueue(QueueName.EMAIL) private emailQueue: Queue,
     private transfersService: TransfersService,
+    private paymentGateway: PaymentGatewayService,
   ) {}
   async findUserPayments(
     currentUser: JwtPayload,
@@ -236,14 +238,27 @@ export class PaymentsOrdersService {
     await this.transfersService.initiateAutomaticTransfer(updatedPaymentOrder);
   }
 
-  async registerPayment(
+  async confirmCashPayment(
     paymentId: string,
     currentUser: JwtPayload,
     registerPaymentDto: RegisterPaymentDto,
   ) {
     const paymentOrder = await this.prisma.paymentOrder.findUnique({
       where: { id: paymentId },
-      include: { contract: true },
+      include: {
+        contract: {
+          include: {
+            landlord: {
+              include: {
+                subAccount: true,
+              },
+            },
+            tenant: true,
+            property: true,
+          },
+        },
+        bankSlip: true,
+      },
     });
 
     if (!paymentOrder) {
@@ -260,22 +275,61 @@ export class PaymentsOrdersService {
     }
 
     const { amountPaid, paidAt } = registerPaymentDto;
+    const value = amountPaid ?? paymentOrder.amountDue.toNumber();
+    const paymentDate = paidAt ?? new Date();
+    let logAction = 'CONFIRM_CASH_PAYMENT_MANUAL';
+
+    if (
+      paymentOrder.bankSlip &&
+      paymentOrder.contract.landlord.subAccount?.apiKey
+    ) {
+      this.logger.log(
+        `Boleto ${paymentOrder.bankSlip.asaasChargeId} encontrado. Notificando gateway sobre recebimento em dinheiro.`,
+      );
+      await this.paymentGateway.confirmCashPayment(
+        paymentOrder.bankSlip.asaasChargeId,
+        paymentDate,
+        value,
+        paymentOrder.contract.landlord.subAccount.apiKey,
+      );
+      logAction = 'CONFIRM_CASH_PAYMENT_GATEWAY';
+    } else {
+      this.logger.log(
+        `Nenhum boleto encontrado para a ordem de pagamento ${paymentId}. Registrando pagamento apenas localmente.`,
+      );
+    }
 
     const updatedPaymentOrder = await this.prisma.paymentOrder.update({
       where: { id: paymentId },
       data: {
         status: PaymentStatus.PAGO,
-        amountPaid: amountPaid ?? paymentOrder.amountDue,
-        paidAt: paidAt ?? new Date(),
+        amountPaid: value,
+        paidAt: paymentDate,
+      },
+      include: {
+        contract: {
+          include: {
+            property: { select: { title: true } },
+            tenant: { select: { name: true, email: true } },
+            landlord: {
+              include: {
+                bankAccount: true,
+                subAccount: true,
+              },
+            },
+          },
+        },
       },
     });
 
     await this.logHelper.createLog(
       currentUser.sub,
-      'UPDATE_STATUS_TO_PAGO',
+      logAction,
       'PaymentOrder',
       updatedPaymentOrder.id,
     );
+
+    await this.notifyUsersOfPayment(updatedPaymentOrder);
 
     return updatedPaymentOrder;
   }
@@ -378,6 +432,7 @@ export class PaymentsOrdersService {
       await this.processOverduePayment(payment);
     }
   }
+
   /**
    * Lógica centralizada para processar uma ordem de pagamento como ATRASADA.
    */

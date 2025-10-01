@@ -55,16 +55,16 @@ export class PaymentsOrdersController {
     return this.paymentsService.findUserPayments(currentUser, filters);
   }
 
-  @Patch(':paymentOrderId')
+  @Post(':paymentOrderId/confirm-cash')
   @Roles(ROLES.LOCADOR, ROLES.ADMIN)
-  @ApiOperation({ summary: 'Registra um pagamento manualmente (dar baixa)' })
+  @ApiOperation({ summary: 'Registra um pagamento recebido em dinheiro' })
   @ApiResponse({ status: 200, type: PaymentResponseDto })
-  registerPayment(
+  confirmCashPayment(
     @Param('paymentOrderId', ParseUUIDPipe) paymentId: string,
     @CurrentUser() currentUser: JwtPayload,
     @Body() registerPaymentDto: RegisterPaymentDto,
   ) {
-    return this.paymentsService.registerPayment(
+    return this.paymentsService.confirmCashPayment(
       paymentId,
       currentUser,
       registerPaymentDto,
