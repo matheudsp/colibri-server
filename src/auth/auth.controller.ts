@@ -10,6 +10,7 @@ import {
   Req,
   UnauthorizedException,
   Query,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
@@ -29,6 +30,7 @@ import { LoginResponse } from 'src/common/interfaces/response.login.interface';
 import { Login2FADto } from './dto/login-2fa.dto';
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
+import { FlagsService } from 'src/feature-flags/flags.service';
 
 @Controller('auth')
 @ApiTags('Auth')
@@ -38,6 +40,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
+    private readonly flagsService: FlagsService,
   ) {
     this.isProduction = this.configService.get('NODE_ENV') === 'production';
 
@@ -177,6 +180,11 @@ export class AuthController {
   @ApiBody({ type: CreateUserDto })
   @ApiOperation({ summary: 'Register a new standard user (Tenant)' })
   async registerUser(@Body() registerDto: CreateUserDto) {
+    if (!this.flagsService.isEnabled('enableRegistration')) {
+      throw new ServiceUnavailableException(
+        'O cadastro de novos usuários está temporariamente desabilitado.',
+      );
+    }
     return this.authService.registerUser(registerDto);
   }
 
@@ -186,6 +194,11 @@ export class AuthController {
   @ApiBody({ type: CreateLandlordDto })
   @ApiOperation({ summary: 'Register a new Landlord' })
   async registerLandlord(@Body() registerDto: CreateLandlordDto) {
+    if (!this.flagsService.isEnabled('enableRegistration')) {
+      throw new ServiceUnavailableException(
+        'O cadastro de novos usuários está temporariamente desabilitado.',
+      );
+    }
     return this.authService.registerLandlord(registerDto);
   }
 
