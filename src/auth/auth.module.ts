@@ -10,6 +10,7 @@ import { PrismaModule } from 'src/prisma/prisma.module';
 import { UserModule } from 'src/modules/users/users.module';
 import { QueueModule } from 'src/queue/queue.module';
 import { VerificationModule } from 'src/modules/verification/verification.module';
+import { FlagsModule } from 'src/feature-flags/flags.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { VerificationModule } from 'src/modules/verification/verification.module
     UserModule,
     QueueModule,
     VerificationModule,
+    FlagsModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
