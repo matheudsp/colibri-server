@@ -42,4 +42,13 @@ export class AnalyticsController {
   getPropertiesOccupancy(@CurrentUser() currentUser: JwtPayload) {
     return this.analyticsService.getPropertiesOccupancy(currentUser);
   }
+
+  @Get('marketing-summary')
+  @Roles(ROLES.ADMIN)
+  @ApiOperation({
+    summary: 'Obtém um resumo das respostas da pesquisa de marketing',
+  })
+  getMarketingSummary() {
+    return this.analyticsService.getMarketingSurveySummary();
+  }
 }

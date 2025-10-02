@@ -8,6 +8,7 @@ import {
   Query,
   ForbiddenException,
   Body,
+  Post,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -31,6 +32,7 @@ import { SearchUserDto } from './dto/search-user.dto';
 import { Roles } from 'src/common/decorator/roles.decorator';
 import { ROLES } from 'src/common/constants/roles.constant';
 import { UpdateUserPreferencesDto } from './dto/update-user-preferences.dto';
+import { SubmitSurveyDto } from './dto/submit-survey.dto';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -115,6 +117,20 @@ export class UserController {
       currentUser.sub,
       updateUserPreferencesDto,
     );
+  }
+
+  @Post('survey')
+  @ApiOperation({
+    summary: 'Envia as respostas da pesquisa de marketing do usuário',
+  })
+  @ApiBody({ type: SubmitSurveyDto })
+  @ApiResponse({ status: 201, description: 'Pesquisa enviada com sucesso.' })
+  @ApiResponse({ status: 409, description: 'Pesquisa já respondida.' })
+  submitSurvey(
+    @CurrentUser() currentUser: JwtPayload,
+    @Body() submitSurveyDto: SubmitSurveyDto,
+  ) {
+    return this.userService.submitSurvey(currentUser.sub, submitSurveyDto);
   }
 
   @Patch(':id')

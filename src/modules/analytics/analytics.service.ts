@@ -194,4 +194,37 @@ export class AnalyticsService {
       types: occupancyData,
     };
   }
+
+  async getMarketingSurveySummary() {
+    const channelCounts = await this.prisma.userMarketingSurvey.groupBy({
+      by: ['channel'],
+      _count: {
+        channel: true,
+      },
+      where: {
+        channel: { not: null },
+      },
+    });
+
+    const paymentMethodCounts = await this.prisma.userMarketingSurvey.groupBy({
+      by: ['preferredPaymentMethod'],
+      _count: {
+        preferredPaymentMethod: true,
+      },
+      where: {
+        preferredPaymentMethod: { not: null },
+      },
+    });
+
+    return {
+      channels: channelCounts.map((item) => ({
+        channel: item.channel,
+        count: item._count.channel,
+      })),
+      paymentMethods: paymentMethodCounts.map((item) => ({
+        method: item.preferredPaymentMethod,
+        count: item._count.preferredPaymentMethod,
+      })),
+    };
+  }
 }

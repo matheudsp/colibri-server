@@ -26,6 +26,7 @@ import { VerificationContexts } from 'src/common/constants/verification-contexts
 import { UpdateUserPreferencesDto } from './dto/update-user-preferences.dto';
 import { UserPreferences } from 'src/common/interfaces/user.preferences.interface';
 import { merge } from 'lodash';
+import type { SubmitSurveyDto } from './dto/submit-survey.dto';
 
 @Injectable()
 export class UserService {
@@ -43,6 +44,7 @@ export class UserService {
       email: true,
       role: true,
       status: true,
+      marketingSurvey: true,
     };
   }
 
@@ -241,13 +243,15 @@ export class UserService {
         companyType: true,
         phone: true,
         birthDate: true,
+        marketingSurvey: true,
       },
     });
 
     if (!user) {
       throw new NotFoundException('Usuário não encontrado');
     }
-
+    // Remova a senha antes de retornar
+    // const { password, ...result } = user
     return user;
   }
 
@@ -309,6 +313,39 @@ export class UserService {
       data: { status: true },
       select: this.userSafeFields(),
     });
+  }
+
+  async submitSurvey(userId: string, dto: SubmitSurveyDto) {
+    const existingSurvey = await this.prisma.userMarketingSurvey.findUnique({
+      where: { userId },
+    });
+
+    if (existingSurvey) {
+      throw new ConflictException('Você já respondeu a esta pesquisa.');
+    }
+
+    if (!dto.channel && !dto.preferredPaymentMethod) {
+      throw new BadRequestException(
+        'Pelo menos uma resposta deve ser fornecida.',
+      );
+    }
+
+    const survey = await this.prisma.userMarketingSurvey.create({
+      data: {
+        userId,
+        channel: dto.channel,
+        preferredPaymentMethod: dto.preferredPaymentMethod,
+      },
+    });
+
+    await this.logHelper.createLog(
+      userId,
+      'SUBMIT_MARKETING_SURVEY',
+      'UserMarketingSurvey',
+      survey.id,
+    );
+
+    return { message: 'Pesquisa enviada com sucesso!' };
   }
 
   /**

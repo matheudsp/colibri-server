@@ -22,6 +22,19 @@ enum PropertyTransactionType {
   LOCACAO
 }
 
+enum MarketingChannel {
+  INSTAGRAM
+  FACEBOOK
+  REDDIT
+  INDICACAO
+  OUTRO
+}
+
+enum PreferredPaymentMethod {
+  PIX
+  BOLETO
+}
+
 enum UserRole {
   ADMIN
   LOCADOR
@@ -119,18 +132,19 @@ enum InterestStatus {
 // --- MODELS ---
 
 model User {
-  id                 String   @id @default(uuid())
+  id                 String               @id @default(uuid())
   name               String
-  email              String   @unique
+  email              String               @unique
   password           String
-  cpfCnpj            String   @unique
+  cpfCnpj            String               @unique
   phone              String
-  role               UserRole @default(LOCATARIO)
-  status             Boolean  @default(true)
-  emailVerified      Boolean  @default(false)
-  isTwoFactorEnabled Boolean  @default(false)
+  role               UserRole             @default(LOCATARIO)
+  status             Boolean              @default(true)
+  emailVerified      Boolean              @default(false)
+  isTwoFactorEnabled Boolean              @default(false)
   preferences        Json?
-  asaasCustomerId    String?  @unique
+  marketingSurvey    UserMarketingSurvey?
+  asaasCustomerId    String?              @unique
 
   emailVerificationToken       String?   @unique
   emailVerificationTokenExpiry DateTime?
@@ -165,6 +179,19 @@ model User {
   transfers           Transfer[]
   interestsAsTenant   Interest[]         @relation("InterestsAsTenant")
   interestsAsLandlord Interest[]         @relation("InterestsAsLandlord")
+}
+
+model UserMarketingSurvey {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  channel                MarketingChannel?
+  preferredPaymentMethod PreferredPaymentMethod?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model SubAccount {
