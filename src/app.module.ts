@@ -38,6 +38,7 @@ import { MetricsModule } from './modules/metrics/metrics.module';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { InterestsModule } from './modules/interests/interests.module';
+import { LaunchNotificationsModule } from './modules/launch-notifications/launch-notifications.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { InterestsModule } from './modules/interests/interests.module';
     MetricsModule,
     AnalyticsModule,
     InterestsModule,
+    LaunchNotificationsModule,
   ],
   providers: [
     {

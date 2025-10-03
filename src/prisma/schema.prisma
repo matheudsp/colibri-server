@@ -483,3 +483,9 @@ model Interest {
   @@index([tenantId])
   @@index([landlordId])
 }
+
+model LaunchNotification {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}
