@@ -166,6 +166,7 @@ model User {
   province   String?
   complement String?
 
+  notifications       Notification[]
   condominiums        Condominium[]      @relation("LandlordCondominiums")
   propertiesOwned     Property[]         @relation("LandlordProperties")
   contractsAsLandlord Contract[]         @relation("LandlordContracts")
@@ -484,8 +485,19 @@ model Interest {
   @@index([landlordId])
 }
 
-model LaunchNotification {
-  id        String   @id @default(uuid())
-  email     String   @unique
+model Notification {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title     String
+  message   String    @db.Text
+  read      Boolean   @default(false)
+  readAt    DateTime?
+  actionUrl String? // URL para onde o usuário será redirecionado ao clicar (ex: /contratos/xyz)
+
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }

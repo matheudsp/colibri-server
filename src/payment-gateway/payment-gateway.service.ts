@@ -125,9 +125,9 @@ export class PaymentGatewayService {
       ...accountData,
       webhooks: [
         {
-          name: 'Webhook Padrão Colibri',
+          name: 'Webhook Padrão Locaterra',
           url: `${this.configService.get('API_URL')}/api/v1/webhooks/asaas`,
-          email: 'atendimentoaocliente.valedosol@gmail.com',
+          email: 'atendimentoaocliente.locaterra@gmail.com',
           sendType: 'SEQUENTIALLY',
           enabled: true,
           apiVersion: 3,

@@ -2,11 +2,10 @@ import { Module } from '@nestjs/common';
 import { InterestsService } from './interests.service';
 import { InterestsController } from './interests.controller';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { QueueModule } from 'src/queue/queue.module';
 import { StorageModule } from 'src/storage/storage.module';
-
+import { NotificationsModule } from '../notifications/notifications.module';
 @Module({
-  imports: [QueueModule, StorageModule],
+  imports: [StorageModule, NotificationsModule],
   controllers: [InterestsController],
   providers: [InterestsService, PrismaService],
 })

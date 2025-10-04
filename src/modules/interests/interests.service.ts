@@ -5,25 +5,22 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bull';
-import { Queue } from 'bull';
+
 import { PrismaService } from 'src/prisma/prisma.service';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
-
-import { QueueName } from 'src/queue/jobs/jobs';
-import { EmailJobType, NotificationJob } from 'src/queue/jobs/email.job';
 import { CreateInterestDto } from './dto/create-interest.dto';
 import { UpdateInterestStatusDto } from './dto/update-interest-status.dto';
-import { InterestStatus, type Photo } from '@prisma/client';
+import { type Photo } from '@prisma/client';
 import { UserPreferences } from 'src/common/interfaces/user.preferences.interface';
 import { StorageService } from 'src/storage/storage.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class InterestsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
-    @InjectQueue(QueueName.EMAIL) private readonly emailQueue: Queue,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   /**
@@ -88,18 +85,17 @@ export class InterestsService {
       },
     });
 
-    const job: NotificationJob = {
-      user: { name: property.landlord.name, email: property.landlord.email },
-      notification: {
-        title: `Você tem um novo interessado no imóvel ${property.title}!`,
-        message: `O usuário ${currentUser.email} manifestou interesse no seu imóvel. Acesse a plataforma para ver os detalhes e iniciar o contato.`,
-      },
+    await this.notificationsService.create({
+      userId: property.landlordId,
+      title: `Você tem um novo interessado no imóvel ${property.title}!`,
+      message: `O usuário ${currentUser.email} manifestou interesse no seu imóvel. Acesse a plataforma para ver os detalhes e iniciar o contato.`,
       action: {
         text: 'Ver Interessados',
         path: '/interesses',
       },
-    };
-    await this.emailQueue.add(EmailJobType.NOTIFICATION, job);
+      sendEmail: true,
+      user: { name: property.landlord.name, email: property.landlord.email },
+    });
 
     return { message: 'Interesse enviado com sucesso!', data: newInterest };
   }
@@ -207,7 +203,7 @@ export class InterestsService {
         'Você não tem permissão para alterar o status deste interesse.',
       );
     }
-    if (interest.status !== InterestStatus.PENDING) {
+    if (interest.status !== 'PENDING') {
       throw new BadRequestException(
         `Este interesse já foi atualizado para o status: ${interest.status}.`,
       );
@@ -219,30 +215,29 @@ export class InterestsService {
         status: dto.status,
         // Salva o motivo da dispensa apenas se o status for DISMISSED
         dismissalReason:
-          dto.status === InterestStatus.DISMISSED ? dto.dismissalReason : null,
+          dto.status === 'DISMISSED' ? dto.dismissalReason : null,
       },
     });
     let notificationTitle = '';
     let notificationMessage = '';
 
-    if (dto.status === InterestStatus.CONTACTED) {
+    if (dto.status === 'CONTACTED') {
       notificationTitle = `Boas notícias sobre o imóvel ${interest.property.title}!`;
       notificationMessage = `O locador visualizou seu interesse e poderá entrar em contato com você em breve.`;
-    } else if (dto.status === InterestStatus.DISMISSED) {
+    } else if (dto.status === 'DISMISSED') {
       notificationTitle = `Atualização sobre seu interesse no imóvel ${interest.property.title}`;
       notificationMessage = `O locador analisou seu interesse, mas não poderá seguir com o contato no momento.\nMotivo: "${dto.dismissalReason}"`;
     }
 
     if (notificationTitle) {
-      const job: NotificationJob = {
-        user: { name: interest.tenant.name, email: interest.tenant.email },
-        notification: {
-          title: notificationTitle,
-          message: notificationMessage,
-        },
+      await this.notificationsService.create({
+        userId: interest.tenantId,
+        title: notificationTitle,
+        message: notificationMessage,
         action: { text: 'Ver Meus Interesses', path: '/interesses' },
-      };
-      await this.emailQueue.add(EmailJobType.NOTIFICATION, job);
+        sendEmail: true,
+        user: { name: interest.tenant.name, email: interest.tenant.email },
+      });
     }
 
     return updatedInterest;
