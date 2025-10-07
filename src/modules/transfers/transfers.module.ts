@@ -6,9 +6,9 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { PaymentGatewayModule } from 'src/payment-gateway/payment-gateway.module';
 import { TransfersController } from './transfers.controller';
 import { LogHelperService } from '../logs/log-helper.service';
-
+import { NotificationsModule } from '../notifications/notifications.module';
 @Module({
-  imports: [QueueModule, UserModule, PaymentGatewayModule],
+  imports: [QueueModule, UserModule, PaymentGatewayModule, NotificationsModule],
   controllers: [TransfersController],
   providers: [TransfersService, PrismaService, LogHelperService],
   exports: [TransfersService],

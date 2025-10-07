@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.service';
 import { CreateAsaasCustomerDto } from './dto/create-asaas-customer.dto';
@@ -29,7 +33,11 @@ export class AsaasCustomersService {
     });
 
     if (existing) return existing.asaasCustomerId;
-
+    if (!subaccount.apiKey) {
+      throw new BadRequestException(
+        `A subconta [${subaccount.id}] não possui uma apiKey configurada para realizar esta operação.`,
+      );
+    }
     const dto: CreateAsaasCustomerDto = {
       name: user.name,
       cpfCnpj: user.cpfCnpj,

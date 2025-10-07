@@ -9,7 +9,8 @@ import { NotificationsGateway } from './notifications.gateway';
 
 export interface NotificationAction {
   text: string;
-  path: string;
+  path?: string;
+  url?: string;
 }
 
 export interface CreateNotificationDto {
@@ -48,7 +49,7 @@ export class NotificationsService {
       const emailJob: NotificationJob = {
         user: { name: user.name, email: user.email },
         notification: { title, message },
-        action: action,
+        action: { text: action!.text, url: action?.url ?? action?.path },
       };
       await this.emailQueue.add(EmailJobType.NOTIFICATION, emailJob);
     }

@@ -1,23 +1,18 @@
-import { InjectQueue } from '@nestjs/bull';
 import {
   BadRequestException,
   Injectable,
-  InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { User, type SubAccount } from '@prisma/client';
-import type { Queue } from 'bull';
 import type { AsaasDocumentType } from 'src/common/constants/asaas.constants';
-import {
-  CreateAsaasSubAccountDto,
-  CreateAsaasSubAccountResponse,
-} from 'src/common/interfaces/payment-gateway.interface';
+import { CreateAsaasSubAccountDto } from 'src/common/interfaces/payment-gateway.interface';
 import { formatZipCode } from 'src/common/utils/zip-code.util';
+import { FlagsService } from 'src/feature-flags/flags.service';
 import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { EmailJobType, type NotificationJob } from 'src/queue/jobs/email.job';
-import { QueueName } from 'src/queue/jobs/jobs';
+import { NotificationsService } from '../notifications/notifications.service';
+import { UserService } from '../users/users.service';
 
 @Injectable()
 export class SubaccountsService {
@@ -26,13 +21,11 @@ export class SubaccountsService {
   constructor(
     private prisma: PrismaService,
     private paymentGatewayService: PaymentGatewayService,
-    @InjectQueue(QueueName.EMAIL) private emailQueue: Queue,
+    private flagsService: FlagsService,
+    private readonly notificationsService: NotificationsService,
+    private readonly userService: UserService,
   ) {}
 
-  /**
-   * Processa eventos de atualização de status da subconta vindos do webhook.
-   * @param accountPayload - O objeto 'account' do webhook do Asaas.
-   */
   async handleAccountStatusUpdate(accountPayload: any): Promise<void> {
     const { id, general, documentation, commercialInfo, bankAccountInfo } =
       accountPayload;
@@ -41,7 +34,7 @@ export class SubaccountsService {
       where: { asaasAccountId: id },
       include: {
         user: {
-          select: { name: true, email: true },
+          select: { id: true, name: true, email: true },
         },
       },
     });
@@ -67,37 +60,30 @@ export class SubaccountsService {
       `Status da subconta ${subAccount.id} (Asaas: ${id}) atualizado para: ${general}`,
     );
 
-    let notification: NotificationJob | null = null;
+    let notificationTitle = '';
+    let notificationMessage = '';
+    let actionPath = '/conta?aba=conta-de-pagamentos';
 
     if (general === 'APPROVED') {
-      notification = {
-        user: subAccount.user,
-        notification: {
-          title: '✅ Sua conta de recebimentos foi aprovada!',
-          message: `Olá, ${subAccount.user.name}. Parabéns! Sua conta foi verificada e aprovada. Você já está apto a receber os pagamentos de aluguel através da plataforma.`,
-        },
-        action: {
-          text: 'Acessar minha carteira',
-          path: '/conta?aba=conta-de-pagamentos',
-        },
-      };
+      notificationTitle = '✅ Sua conta de recebimentos foi aprovada!';
+      notificationMessage = `Olá, ${subAccount.user.name}. Parabéns! Sua conta foi verificada e aprovada. Você já está apto a receber os pagamentos de aluguel através da plataforma.`;
     } else if (general === 'REJECTED') {
-      notification = {
-        user: subAccount.user,
-        notification: {
-          title: '⚠️ Pendência na sua conta de recebimentos',
-          message: `Olá, ${subAccount.user.name}. Identificamos uma pendência na verificação da sua conta. Pode ser necessário reenviar algum documento ou corrigir informações. Acesse a plataforma para mais detalhes.`,
-        },
-        action: {
-          text: 'Verificar Pendências',
-
-          path: '/conta?aba=conta-de-pagamentos',
-        },
-      };
+      notificationTitle = '⚠️ Pendência na sua conta de recebimentos';
+      notificationMessage = `Olá, ${subAccount.user.name}. Identificamos uma pendência na verificação da sua conta. Pode ser necessário reenviar algum documento ou corrigir informações. Acesse a plataforma para mais detalhes.`;
     }
 
-    if (notification) {
-      await this.emailQueue.add(EmailJobType.NOTIFICATION, notification);
+    if (notificationTitle) {
+      await this.notificationsService.create({
+        userId: subAccount.user.id,
+        user: subAccount.user,
+        title: notificationTitle,
+        message: notificationMessage,
+        action: {
+          text: 'Acessar Minha Carteira',
+          path: actionPath,
+        },
+        sendEmail: true,
+      });
       this.logger.log(
         `Notificação de status de conta enfileirada para ${subAccount.user.email}`,
       );
@@ -107,21 +93,61 @@ export class SubaccountsService {
   async getOrCreateSubaccount(
     user: User & { subAccount: SubAccount | null },
   ): Promise<SubAccount> {
-    if (
-      user.subAccount &&
-      user.subAccount.asaasAccountId &&
-      user.subAccount.apiKey &&
-      user.subAccount.asaasWalletId
-    ) {
+    if (user.subAccount?.asaasAccountId) {
       this.logger.log(
-        `Subconta completa [${user.subAccount.asaasAccountId}] já existe localmente para o usuário ${user.id}. Retornando dados existentes.`,
+        `Subconta completa [${user.subAccount.asaasAccountId}] já existe para o usuário ${user.id}.`,
       );
       return user.subAccount;
     }
 
-    this.logger.log(
-      `Iniciando processo de criação/atualização de subconta para o usuário ${user.id}.`,
+    const requireApproval = this.flagsService.isEnabled(
+      'requireAdminApprovalForSubaccount',
     );
+
+    if (requireApproval) {
+      const existingRequest = await this.prisma.subAccount.findUnique({
+        where: { userId: user.id },
+      });
+
+      if (existingRequest) {
+        this.logger.log(
+          `Usuário ${user.id} já possui uma solicitação pendente.`,
+        );
+        return existingRequest;
+      }
+
+      const pendingSubAccount = await this.prisma.subAccount.create({
+        data: {
+          userId: user.id,
+          statusGeneral: 'PENDING_ADMIN_APPROVAL',
+        },
+      });
+
+      const admins = await this.userService.findAdmins();
+      for (const admin of admins) {
+        await this.notificationsService.create({
+          userId: admin.id,
+          title: 'Nova Conta para Aprovação',
+          message: `O usuário ${user.name} (${user.email}) solicitou a criação de uma conta de pagamentos e aguarda sua aprovação.`,
+          action: {
+            text: 'Ver Solicitações',
+            path: '/admin/subaccounts/pending',
+          },
+          sendEmail: true,
+          user: admin,
+        });
+      }
+      this.logger.log(
+        `Solicitação para ${user.id} criada e admins notificados.`,
+      );
+      return pendingSubAccount;
+    } else {
+      this.logger.log(`Modo 'allowAll' ativo. Criando subconta no gateway.`);
+      return this.completeSubaccountCreation(user);
+    }
+  }
+
+  async completeSubaccountCreation(user: User): Promise<SubAccount> {
     this.validateUserForSubAccountCreation(user);
 
     const subaccountDto: CreateAsaasSubAccountDto = {
@@ -138,59 +164,49 @@ export class SubaccountsService {
         ? { companyType: user.companyType }
         : { birthDate: user.birthDate!.toISOString().split('T')[0] }),
     };
-    console.log(subaccountDto);
+
     const asaasAccount =
       await this.paymentGatewayService.createWhitelabelSubAccount(
         subaccountDto,
       );
 
-    try {
-      const savedSubAccount = await this.prisma.subAccount.upsert({
-        where: { userId: user.id },
+    const savedSubAccount = await this.prisma.subAccount.upsert({
+      where: { userId: user.id },
+      update: {
+        asaasAccountId: asaasAccount.id,
+        apiKey: asaasAccount.apiKey,
+        asaasWalletId: asaasAccount.walletId,
+        asaasWebhookToken: asaasAccount.authTokenSent,
+        statusGeneral: 'PENDING',
+      },
+      create: {
+        userId: user.id,
+        asaasAccountId: asaasAccount.id,
+        apiKey: asaasAccount.apiKey,
+        asaasWalletId: asaasAccount.walletId,
+        asaasWebhookToken: asaasAccount.authTokenSent,
+        statusGeneral: 'PENDING',
+      },
+    });
 
-        update: {
-          asaasAccountId: asaasAccount.id,
-          apiKey: asaasAccount.apiKey,
-          asaasWalletId: asaasAccount.walletId,
-          asaasWebhookToken: asaasAccount.authTokenSent,
-        },
-
-        create: {
-          userId: user.id,
-          asaasAccountId: asaasAccount.id,
-          apiKey: asaasAccount.apiKey,
-          asaasWalletId: asaasAccount.walletId,
-          asaasWebhookToken: asaasAccount.authTokenSent,
-        },
-      });
-
-      // this.logger.log(
-      //   `Subconta [${asaasAccount.id}] salva/atualizada no banco de dados para o usuário ${user.id}.`,
-      // );
-      this.initiateDocumentOnboarding(savedSubAccount, user);
-      return savedSubAccount;
-    } catch (error) {
-      this.logger.error(
-        `Falha ao salvar/atualizar a subconta no banco de dados para o usuário ${user.id}`,
-        error,
-      );
-      throw new InternalServerErrorException(
-        'A subconta foi criada no gateway, mas falhou ao ser salva localmente.',
-      );
-    }
+    await this.initiateDocumentOnboarding(savedSubAccount, user);
+    return savedSubAccount;
   }
 
-  /**
-   * Inicia a coleta de documentos após a criação da subconta.
-   */
   private async initiateDocumentOnboarding(
     subAccount: SubAccount,
     user: User,
   ): Promise<void> {
+    if (!subAccount.asaasAccountId || !subAccount.apiKey) {
+      this.logger.error(
+        `Tentativa de iniciar onboarding para subconta incompleta: ${subAccount.id}. Abortando.`,
+      );
+      return;
+    }
+
     this.logger.log(
-      `Aguardando 15 segundos antes de buscar documentos para a subconta ${subAccount.asaasAccountId}...`,
+      `Aguardando 15s para buscar documentos para a subconta ${subAccount.asaasAccountId}...`,
     );
-    // Timeout recomendado pela documentação de 15 segundos
     await new Promise((resolve) => setTimeout(resolve, 15000));
 
     try {
@@ -199,32 +215,27 @@ export class SubaccountsService {
           subAccount.apiKey,
         );
       const identificationDoc = documentsInfo.data.find(
-        (doc) => doc.type === 'IDENTIFICATION',
+        (doc: any) => doc.type === 'IDENTIFICATION',
       );
 
       if (identificationDoc?.onboardingUrl) {
-        // Salva a URL no banco de dados para referência futura
         await this.prisma.subAccount.update({
           where: { id: subAccount.id },
           data: { onboardingUrl: identificationDoc.onboardingUrl },
         });
 
-        // Notifica o usuário para enviar os documentos
-        const job: NotificationJob = {
+        await this.notificationsService.create({
+          userId: user.id,
           user: { name: user.name, email: user.email },
-          notification: {
-            title: 'Ação necessária: Envie seus documentos',
-            message: `Sua conta para recebimento de pagamentos foi criada! Para ativá-la, precisamos que você envie alguns documentos para verificação. Por favor, acesse o link seguro para concluir seu cadastro.`,
-          },
+          title: 'Ação necessária: Envie seus documentos',
+          message: `Sua conta para recebimento de pagamentos foi criada! Para ativá-la, precisamos que você envie alguns documentos para verificação. Por favor, acesse o link seguro para concluir seu cadastro.`,
           action: {
             text: 'Enviar Documentos',
             url: identificationDoc.onboardingUrl,
           },
-        };
-        await this.emailQueue.add(EmailJobType.NOTIFICATION, job);
-        this.logger.log(
-          `Notificação de onboarding enviada para o usuário ${user.id}.`,
-        );
+          sendEmail: true,
+        });
+        this.logger.log(`Notificação de onboarding enviada para ${user.id}.`);
       } else {
         this.logger.warn(
           `Nenhuma onboardingUrl encontrada para a subconta ${subAccount.asaasAccountId}.`,
@@ -232,7 +243,7 @@ export class SubaccountsService {
       }
     } catch (error) {
       this.logger.error(
-        `Falha ao buscar URL de onboarding para a subconta ${subAccount.asaasAccountId}`,
+        `Falha ao buscar URL de onboarding para ${subAccount.asaasAccountId}`,
         error,
       );
     }
@@ -260,14 +271,11 @@ export class SubaccountsService {
 
     if (!user.companyType && !user.birthDate) {
       throw new BadRequestException(
-        "É necessário fornecer o 'tipo de empresa' (companyType) para PJ ou a 'data de nascimento' (birthDate) para PF.",
+        "É necessário fornecer 'companyType' para PJ ou 'birthDate' para PF.",
       );
     }
   }
-  /**
-   * Consulta e retorna os documentos pendentes para a subconta de um usuário.
-   * Filtra para retornar apenas os que precisam de upload via API.
-   */
+
   async getPendingDocuments(userId: string): Promise<any> {
     const subAccount = await this.prisma.subAccount.findUnique({
       where: { userId },
@@ -275,7 +283,7 @@ export class SubaccountsService {
 
     if (!subAccount?.apiKey) {
       throw new NotFoundException(
-        'Conta de pagamentos não encontrada ou não configurada para este usuário.',
+        'Conta de pagamentos não encontrada ou não configurada.',
       );
     }
 
@@ -283,7 +291,6 @@ export class SubaccountsService {
       subAccount.apiKey,
     );
 
-    // Filtra para retornar apenas os documentos que precisam ser enviados via API
     const documentsForUpload = requiredDocs.data.filter(
       (doc: any) => doc.status === 'NOT_SENT' && doc.onboardingUrl === null,
     );
@@ -295,9 +302,6 @@ export class SubaccountsService {
     }));
   }
 
-  /**
-   * Processa o upload de um documento para a Asaas.
-   */
   async processDocumentUpload(
     userId: string,
     documentType: AsaasDocumentType,
@@ -307,8 +311,10 @@ export class SubaccountsService {
       where: { userId },
     });
 
-    if (!subAccount) {
-      throw new NotFoundException('Subconta não encontrada para este usuário.');
+    if (!subAccount || !subAccount.apiKey) {
+      throw new NotFoundException(
+        'Subconta não encontrada ou não configurada.',
+      );
     }
 
     const requiredDocs = await this.paymentGatewayService.getRequiredDocuments(
@@ -320,32 +326,26 @@ export class SubaccountsService {
 
     if (!docGroup) {
       throw new BadRequestException(
-        `O tipo de documento '${documentType}' não é necessário, já foi enviado ou deve ser enviado via link de onboarding.`,
+        `O tipo de documento '${documentType}' não é mais necessário ou deve ser enviado via link de onboarding.`,
       );
     }
 
     const result = await this.paymentGatewayService.uploadDocumentForSubAccount(
       subAccount.apiKey,
       docGroup.id,
-      documentType, // Passa o tipo do documento para o gateway
+      documentType,
       file,
     );
 
-    this.logger.log(
-      `Documento '${documentType}' enviado com sucesso para a subconta ${subAccount.id}.`,
-    );
-
-    // Notifica o usuário que o documento foi enviado para análise
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (user) {
-      const job: NotificationJob = {
+      await this.notificationsService.create({
+        userId: user.id,
         user: { name: user.name, email: user.email },
-        notification: {
-          title: 'Documento Enviado para Análise',
-          message: `O documento "${docGroup.title}" foi enviado com sucesso e agora está em análise pela nossa equipe. Avisaremos assim que o processo for concluído.`,
-        },
-      };
-      await this.emailQueue.add(EmailJobType.NOTIFICATION, job);
+        title: 'Documento Enviado para Análise',
+        message: `O documento "${docGroup.title}" foi enviado e está em análise. Avisaremos quando o processo for concluído.`,
+        sendEmail: true,
+      });
     }
 
     return {
@@ -370,7 +370,6 @@ export class SubaccountsService {
       );
     }
 
-    // Evita o reenvio se a conta já estiver aprovada
     if (user.subAccount.statusGeneral === 'APPROVED') {
       return {
         message:
@@ -378,22 +377,19 @@ export class SubaccountsService {
       };
     }
 
-    const job: NotificationJob = {
+    await this.notificationsService.create({
+      userId: user.id,
       user: { name: user.name, email: user.email },
-      notification: {
-        title: 'Seu Link para Envio de Documentos',
-        message: `Olá, ${user.name}. Conforme solicitado, aqui está o seu link para completar o cadastro e enviar os documentos necessários para a ativação da sua conta de recebimentos.`,
-      },
+      title: 'Seu Link para Envio de Documentos',
+      message: `Olá, ${user.name}. Conforme solicitado, aqui está o seu link para completar o cadastro e enviar os documentos necessários para a ativação da sua conta de recebimentos.`,
       action: {
         text: 'Enviar Documentos',
         url: user.subAccount.onboardingUrl,
       },
-    };
-    await this.emailQueue.add(EmailJobType.NOTIFICATION, job);
+      sendEmail: true,
+    });
 
-    this.logger.log(
-      `Reenvio do e-mail de onboarding solicitado pelo usuário ${userId}.`,
-    );
+    this.logger.log(`Reenvio do e-mail de onboarding para ${userId}.`);
 
     return {
       message: 'O e-mail com o link de onboarding foi reenviado com sucesso.',

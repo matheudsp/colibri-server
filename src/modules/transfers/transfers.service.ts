@@ -31,6 +31,7 @@ import {
   type SearchTransferDto,
 } from './dto/search-transfer.dto';
 import { LogHelperService } from '../logs/log-helper.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 type TransferWithDetails = Prisma.TransferGetPayload<{
   include: {
@@ -56,7 +57,7 @@ export class TransfersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly userService: UserService,
-    @InjectQueue(QueueName.EMAIL) private readonly emailQueue: Queue,
+    private notificationsService: NotificationsService,
     private readonly paymentGatewayService: PaymentGatewayService,
     private readonly logHelper: LogHelperService,
   ) {}
@@ -73,9 +74,9 @@ export class TransfersService {
       include: { subAccount: true, bankAccount: true },
     });
 
-    if (!user || !user.subAccount || !user.bankAccount) {
+    if (!user || !user.subAccount?.apiKey || !user.bankAccount) {
       throw new BadRequestException(
-        'A conta não possui uma conta de pagamentos aprovada para saques. Se o problema persistir, contate o suporte.',
+        'A conta não possui uma conta de pagamentos aprovada e configurada para saques. Contate o suporte.',
       );
     }
 
@@ -102,7 +103,7 @@ export class TransfersService {
       pixAddressKey: user.bankAccount.pixAddressKey,
       pixAddressKeyType: user.bankAccount
         .pixAddressKeyType as PixAddressKeyType,
-      description: dto.description || 'Saque manual de saldo Colibri',
+      description: dto.description || 'Saque manual de saldo Locaterra',
     };
 
     const transferResponse = await this.paymentGatewayService.createPixTransfer(
@@ -301,24 +302,13 @@ export class TransfersService {
       error instanceof Error ? error.message : 'Erro desconhecido';
 
     for (const admin of admins) {
-      const job: NotificationJob = {
-        user: {
-          name: admin.name,
-          email: admin.email,
-        },
-        notification: {
-          title: '⚠️ Falha no Repasse Automático de Aluguel',
-          message: `Houve uma falha ao tentar realizar a transferência automática para o locador ${landlord.name} (ID: ${landlord.id}) referente ao pagamento do contrato ${contract.id}.\n\nDetalhes:\n- Imóvel: ${property.title}\n- Valor: ${CurrencyUtils.formatCurrency(
-            paymentOrder.amountPaid?.toNumber(),
-          )}\n- Erro: ${errorMessage}\n\nPor favor, verifique os logs e, se necessário, realize a transferência manualmente.`,
-        },
-        // action: {
-        //   text: 'Ver Contrato',
-        //   path: `/contracts/${contract.id}`,
-        // },
-      };
-
-      await this.emailQueue.add(EmailJobType.NOTIFICATION, job);
+      await this.notificationsService.create({
+        userId: admin.id,
+        user: admin,
+        title: '⚠️ Falha no Repasse Automático de Aluguel',
+        message: `Houve uma falha ao tentar realizar a transferência automática para o locador ${landlord.name} (ID: ${landlord.id}) referente ao pagamento do contrato ${contract.id}.\n\nDetalhes:\n- Imóvel: ${property.title}\n- Valor: ${CurrencyUtils.formatCurrency(paymentOrder.amountPaid?.toNumber())}\n- Erro: ${errorMessage}\n\nPor favor, verifique os logs e, se necessário, realize a transferência manualmente.`,
+        sendEmail: true,
+      });
     }
 
     this.logger.log(
@@ -481,21 +471,19 @@ export class TransfersService {
     }
 
     for (const admin of admins) {
-      const job: NotificationJob = {
-        user: { name: admin.name, email: admin.email },
-        notification: {
-          title: '⚠️ Falha em Transferência Financeira',
-          message: message,
-        },
-        // Opcional: só adiciona o botão se for um repasse ligado a um contrato
+      await this.notificationsService.create({
+        userId: admin.id,
+        user: admin,
+        title: '⚠️ Falha em Transferência Financeira',
+        message: message,
         action: contractId
           ? {
               text: 'Ver Detalhes do Contrato',
               path: `/admin/contracts/${contractId}`,
             }
           : undefined,
-      };
-      await this.emailQueue.add(EmailJobType.NOTIFICATION, job);
+        sendEmail: true,
+      });
     }
 
     this.logger.log(

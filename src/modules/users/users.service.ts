@@ -82,13 +82,14 @@ export class UserService {
    * Encontra todos os usuários administradores ativos no sistema.
    * @returns Uma lista de administradores com nome e e-mail.
    */
-  async findAdmins(): Promise<Pick<User, 'name' | 'email'>[]> {
+  async findAdmins(): Promise<Pick<User, 'id' | 'name' | 'email'>[]> {
     return this.prisma.user.findMany({
       where: {
         role: ROLES.ADMIN,
         status: true,
       },
       select: {
+        id: true,
         name: true,
         email: true,
       },

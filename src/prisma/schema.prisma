@@ -201,12 +201,12 @@ model SubAccount {
   user   User   @relation(fields: [userId], references: [id])
 
   asaasWalletId     String? @unique
-  asaasAccountId    String  @unique
-  apiKey            String
+  asaasAccountId    String? @unique
+  apiKey            String?
   asaasWebhookToken String? @unique
 
   onboardingUrl         String?
-  statusGeneral         String? // 'APPROVED', 'PENDING'
+  statusGeneral         String? // 'APPROVED', 'PENDING', 'PENDING_ADMIN_APPROVAL'
   statusDocumentation   String?
   statusCommercialInfo  String?
   statusBankAccountInfo String?
