@@ -166,11 +166,11 @@ export class MailerService {
     user: { email: string; name: string },
     temporaryPassword?: string,
   ): Promise<SentMessageInfo> {
-    const loginUrl = `${this.appUrl}/login`;
+    const loginUrl = `${this.appUrl}/entrar`;
 
     return this.sendEmail(
       user.email,
-      'Sua conta no Colibri foi criada!',
+      'Sua conta no Locaterra foi criada!',
       'new-account',
       {
         name: user.name,
