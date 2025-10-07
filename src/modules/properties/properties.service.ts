@@ -23,6 +23,7 @@ import { VerificationService } from '../verification/verification.service';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { CacheService } from 'src/modules/cache/cache.service';
 import { UserPreferences } from 'src/common/interfaces/user.preferences.interface';
+import { ContractLifecycleService } from '../contracts/contracts.lifecycle.service';
 
 @Injectable()
 export class PropertiesService {
@@ -34,7 +35,7 @@ export class PropertiesService {
     @Inject(forwardRef(() => PhotosService))
     private propertyPhotosService: PhotosService,
     @Inject(forwardRef(() => ContractsService))
-    private contractsService: ContractsService,
+    private contractsLifecycleService: ContractLifecycleService,
     private readonly cacheService: CacheService,
     private verificationService: VerificationService,
   ) {}
@@ -610,7 +611,7 @@ export class PropertiesService {
     }
 
     await this.propertyPhotosService.deletePhotosByProperty(id);
-    await this.contractsService.deleteContractsByProperty(id);
+    await this.contractsLifecycleService.deleteContractsByProperty(id);
     await this.prisma.property.delete({ where: { id } });
 
     await this.logHelper.createLog(

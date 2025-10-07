@@ -1,5 +1,4 @@
 import { forwardRef, Module } from '@nestjs/common';
-import { PrismaModule } from '../../prisma/prisma.module';
 import { ContractsController } from './contracts.controller';
 import { ContractsService } from './contracts.service';
 import { PropertiesModule } from '../properties/properties.module';
@@ -13,6 +12,9 @@ import { PdfsModule } from '../pdfs/pdfs.module';
 import { ClicksignModule } from '../clicksign/clicksign.module';
 import { StorageModule } from 'src/storage/storage.module';
 import { BankSlipsModule } from '../bank-slips/bank-slips.module';
+import { ContractLifecycleService } from './contracts.lifecycle.service';
+import { ContractSignatureService } from './contracts.signature.service';
+import { ContractPaymentService } from './contracts.payment.service';
 
 @Module({
   imports: [
@@ -27,7 +29,19 @@ import { BankSlipsModule } from '../bank-slips/bank-slips.module';
     StorageModule,
   ],
   controllers: [ContractsController],
-  providers: [ContractsService, PrismaService, LogHelperService],
-  exports: [ContractsService],
+  providers: [
+    ContractsService,
+    ContractLifecycleService,
+    ContractSignatureService,
+    ContractPaymentService,
+    PrismaService,
+    LogHelperService,
+  ],
+  exports: [
+    ContractsService,
+    ContractLifecycleService,
+    ContractSignatureService,
+    ContractPaymentService,
+  ],
 })
 export class ContractsModule {}

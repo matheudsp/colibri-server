@@ -10,14 +10,10 @@ import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { ROLES } from 'src/common/constants/roles.constant';
 import {
   PaymentStatus,
-  TransferStatus,
-  type BankAccount,
   type Contract,
   type PaymentOrder,
-  type PixAddressKeyType,
   type Prisma,
   type Property,
-  type SubAccount,
   type User,
 } from '@prisma/client';
 import { addMonths } from 'date-fns';
@@ -25,12 +21,12 @@ import { RegisterPaymentDto } from './dto/register-payment.dto';
 import { Queue } from 'bull';
 import { QueueName } from 'src/queue/jobs/jobs';
 import { InjectQueue } from '@nestjs/bull';
-import { EmailJobType, type NotificationJob } from 'src/queue/jobs/email.job';
 import { DateUtils } from 'src/common/utils/date.utils';
 import { CurrencyUtils } from 'src/common/utils/currency.utils';
 import { FindUserPaymentsDto } from './dto/find-user-payments.dto';
 import { TransfersService } from '../transfers/transfers.service';
 import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class PaymentsOrdersService {
@@ -41,6 +37,7 @@ export class PaymentsOrdersService {
     @InjectQueue(QueueName.EMAIL) private emailQueue: Queue,
     private transfersService: TransfersService,
     private paymentGateway: PaymentGatewayService,
+    private notificationsService: NotificationsService,
   ) {}
   async findUserPayments(
     currentUser: JwtPayload,
@@ -310,7 +307,7 @@ export class PaymentsOrdersService {
         contract: {
           include: {
             property: { select: { title: true } },
-            tenant: { select: { name: true, email: true } },
+            tenant: { select: { id: true, name: true, email: true } },
             landlord: {
               include: {
                 bankAccount: true,
@@ -463,37 +460,37 @@ export class PaymentsOrdersService {
 
     const { contract } = paymentOrder;
 
-    const tenantJob: NotificationJob = {
+    // Notificação para o Inquilino
+    await this.notificationsService.create({
+      userId: contract.tenantId,
       user: {
         email: contract.tenant.email,
         name: contract.tenant.name,
       },
-      notification: {
-        title: '⚠️ Lembrete: Sua Fatura de Aluguel Venceu',
-        message: `Olá, ${contract.tenant.name}. Identificamos que a fatura do aluguel referente ao imóvel "${contract.property.title}", no valor de ${CurrencyUtils.formatCurrency(paymentOrder.amountDue.toNumber())}, está vencida. Para evitar encargos adicionais, por favor, regularize o pagamento o mais breve possível.`,
-      },
+      title: '⚠️ Lembrete: Sua Fatura de Aluguel Venceu',
+      message: `Olá, ${contract.tenant.name}. Identificamos que a fatura do aluguel referente ao imóvel "${contract.property.title}", no valor de ${CurrencyUtils.formatCurrency(paymentOrder.amountDue.toNumber())}, está vencida. Para evitar encargos adicionais, por favor, regularize o pagamento o mais breve possível.`,
       action: {
         text: 'Regularizar Pagamento',
         path: `/faturas`,
       },
-    };
-    await this.emailQueue.add(EmailJobType.NOTIFICATION, tenantJob);
+      sendEmail: true,
+    });
 
-    const landlordJob: NotificationJob = {
+    // Notificação para o Locador
+    await this.notificationsService.create({
+      userId: contract.landlordId,
       user: {
         email: contract.landlord.email,
         name: contract.landlord.name,
       },
-      notification: {
-        title: 'Aviso: Fatura em Atraso',
-        message: `Olá, ${contract.landlord.name}. A fatura de aluguel do imóvel "${contract.property.title}", com vencimento em ${DateUtils.formatDate(paymentOrder.dueDate)}, ainda não foi paga pelo inquilino ${contract.tenant.name}.`,
-      },
+      title: 'Aviso: Fatura em Atraso',
+      message: `Olá, ${contract.landlord.name}. A fatura de aluguel do imóvel "${contract.property.title}", com vencimento em ${DateUtils.formatDate(paymentOrder.dueDate)}, ainda não foi paga pelo inquilino ${contract.tenant.name}.`,
       action: {
         text: 'Ver Detalhes',
         path: `/faturas`,
       },
-    };
-    await this.emailQueue.add(EmailJobType.NOTIFICATION, landlordJob);
+      sendEmail: true,
+    });
 
     this.logger.log(
       `Notificações de fatura vencida enfileiradas para a ordem de pagamento ${paymentOrder.id}.`,
@@ -521,37 +518,35 @@ export class PaymentsOrdersService {
     const formattedDueDate = DateUtils.formatDate(paymentOrder.dueDate);
 
     // Notificação para o Locatário (Inquilino)
-    const tenantJob: NotificationJob = {
+    await this.notificationsService.create({
+      userId: contract.tenant.id,
       user: {
         email: contract.tenant.email,
         name: contract.tenant.name,
       },
-      notification: {
-        title: 'Seu pagamento foi confirmado!',
-        message: `Olá, ${contract.tenant.name}. Confirmamos o recebimento do seu pagamento de ${formattedAmount} referente ao aluguel do imóvel "${contract.property.title}", com vencimento em ${formattedDueDate}.`,
-      },
+      title: 'Seu pagamento foi confirmado!',
+      message: `Olá, ${contract.tenant.name}. Confirmamos o recebimento do seu pagamento de ${formattedAmount} referente ao aluguel do imóvel "${contract.property.title}", com vencimento em ${formattedDueDate}.`,
       action: {
         text: 'Ver Meus Pagamentos',
         path: `/faturas`,
       },
-    };
-    await this.emailQueue.add(EmailJobType.NOTIFICATION, tenantJob);
+      sendEmail: true,
+    });
 
     // Notificação para o Locador (Proprietário)
-    const landlordJob: NotificationJob = {
+    await this.notificationsService.create({
+      userId: contract.landlord.id,
       user: {
         email: contract.landlord.email,
         name: contract.landlord.name,
       },
-      notification: {
-        title: 'Pagamento Recebido!',
-        message: `Olá, ${contract.landlord.name}. O pagamento de ${formattedAmount} do inquilino ${contract.tenant.name}, referente ao imóvel "${contract.property.title}" (vencimento ${formattedDueDate}), foi confirmado.`,
-      },
+      title: 'Pagamento Recebido!',
+      message: `Olá, ${contract.landlord.name}. O pagamento de ${formattedAmount} do inquilino ${contract.tenant.name}, referente ao imóvel "${contract.property.title}" (vencimento ${formattedDueDate}), foi confirmado.`,
       action: {
         text: 'Ver Extrato de Pagamentos',
-        path: `/contrato/${contract.id}`,
+        path: `/contratos/${contract.id}`,
       },
-    };
-    await this.emailQueue.add(EmailJobType.NOTIFICATION, landlordJob);
+      sendEmail: true,
+    });
   }
 }

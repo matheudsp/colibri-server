@@ -186,6 +186,8 @@ export class UserService {
     } else {
       newUser = await this.createTenant(data as CreateUserDto);
     }
+    await this.logHelper.createLog(newUser.id, 'REGISTER', 'User', newUser.id);
+
     const shouldSendPassword =
       creatorRole === ROLES.LOCADOR && newUser.role === ROLES.LOCATARIO;
 
@@ -297,8 +299,14 @@ export class UserService {
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, currentUser: JwtPayload) {
     await this.validateUserExists(id);
+    await this.logHelper.createLog(
+      currentUser.sub,
+      'DEACTIVATE_USER',
+      'User',
+      id,
+    );
 
     return this.prisma.user.update({
       where: { id },
@@ -307,12 +315,21 @@ export class UserService {
     });
   }
 
-  async restore(id: string) {
-    return this.prisma.user.update({
+  async restore(id: string, currentUser: JwtPayload) {
+    const updatedUser = await this.prisma.user.update({
       where: { id },
       data: { status: true },
       select: this.userSafeFields(),
     });
+
+    await this.logHelper.createLog(
+      currentUser.sub,
+      'REACTIVATE_USER',
+      'User',
+      id,
+    );
+
+    return updatedUser;
   }
 
   async submitSurvey(userId: string, dto: SubmitSurveyDto) {

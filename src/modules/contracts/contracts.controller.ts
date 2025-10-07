@@ -6,12 +6,9 @@ import {
   Patch,
   Param,
   Delete,
-  UseGuards,
   ParseUUIDPipe,
   Query,
   Put,
-  Res,
-  NotFoundException,
 } from '@nestjs/common';
 import { ContractsService } from './contracts.service';
 import { CreateContractDto } from './dto/create-contract.dto';
@@ -25,7 +22,6 @@ import {
   ApiParam,
   ApiBody,
 } from '@nestjs/swagger';
-import { CacheKey, CacheTTL } from '@nestjs/cache-manager';
 import {
   CurrentUser,
   RequireAuth,
@@ -35,13 +31,19 @@ import { ROLES } from 'src/common/constants/roles.constant';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { ContractResponseDto } from './dto/response-contract.dto';
 import { ResendNotificationDto } from './dto/resend-notification.dto';
+import { ContractLifecycleService } from './contracts.lifecycle.service';
+import { ContractSignatureService } from './contracts.signature.service';
 
 @ApiTags('Contracts')
 @ApiBearerAuth()
 @RequireAuth()
 @Controller('contracts')
 export class ContractsController {
-  constructor(private readonly contractsService: ContractsService) {}
+  constructor(
+    private readonly contractsService: ContractsService,
+    private readonly contractLifecycleService: ContractLifecycleService,
+    private readonly contractSignatureService: ContractSignatureService,
+  ) {}
 
   @Get(':id/pdf-url')
   @ApiOperation({ summary: 'Get a signed URL to view the contract PDF' })
@@ -49,19 +51,17 @@ export class ContractsController {
     status: 200,
     description: 'Returns a temporary signed URL for the PDF file.',
   })
-  async getContractPdfUrl(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() currentUser: JwtPayload,
-  ) {
-    return this.contractsService.getContractPdfSignedUrl(id, currentUser);
+  async getContractPdfUrl(@Param('id', ParseUUIDPipe) id: string) {
+    return this.contractSignatureService.getContractPdfSignedUrl(id);
   }
+
   @Post(':id/request-signature')
   @ApiOperation({ summary: 'Request digital signatures via Clicksign' })
   async requestSignature(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() currentUser: JwtPayload,
   ) {
-    return this.contractsService.requestSignature(id, currentUser);
+    return this.contractSignatureService.requestSignature(id, currentUser);
   }
 
   @Post(':id/resend-notification')
@@ -75,7 +75,11 @@ export class ContractsController {
     @CurrentUser() currentUser: JwtPayload,
   ) {
     const { signerId } = resendNotificationDto;
-    return this.contractsService.resendNotification(id, signerId, currentUser);
+    return this.contractSignatureService.resendNotification(
+      id,
+      signerId,
+      currentUser,
+    );
   }
 
   @Post()
@@ -91,12 +95,10 @@ export class ContractsController {
     @Body() createContractDto: CreateContractDto,
     @CurrentUser() currentUser: JwtPayload,
   ) {
-    return this.contractsService.create(createContractDto, currentUser);
+    return this.contractLifecycleService.create(createContractDto, currentUser);
   }
 
   @Get()
-  // @CacheKey('contracts_all')
-  // @CacheTTL(30)
   @ApiOperation({ summary: 'List all contracts' })
   @ApiResponse({
     status: 200,
@@ -155,7 +157,11 @@ export class ContractsController {
     @Body() updateContractDto: UpdateContractDto,
     @CurrentUser() currentUser: JwtPayload,
   ) {
-    return this.contractsService.update(id, updateContractDto, currentUser);
+    return this.contractLifecycleService.update(
+      id,
+      updateContractDto,
+      currentUser,
+    );
   }
 
   @Patch(':id/activate')
@@ -166,8 +172,9 @@ export class ContractsController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() currentUser: JwtPayload,
   ) {
-    return this.contractsService.forceActivateContract(id, currentUser);
+    return this.contractLifecycleService.forceActivateContract(id, currentUser);
   }
+
   @Patch(':id/cancel')
   @Roles(ROLES.LOCADOR, ROLES.ADMIN)
   @ApiOperation({ summary: 'Cancel a contract' })
@@ -176,7 +183,7 @@ export class ContractsController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() currentUser: JwtPayload,
   ) {
-    return this.contractsService.cancelContract(id, currentUser);
+    return this.contractLifecycleService.cancelContract(id, currentUser);
   }
 
   @Delete(':id')
@@ -191,6 +198,6 @@ export class ContractsController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() currentUser: JwtPayload,
   ) {
-    return this.contractsService.remove(id, currentUser);
+    return this.contractLifecycleService.remove(id, currentUser);
   }
 }

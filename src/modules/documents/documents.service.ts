@@ -2,7 +2,6 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from 'src/storage/storage.service';
@@ -13,8 +12,8 @@ import { ROLES } from 'src/common/constants/roles.constant';
 import { InjectQueue } from '@nestjs/bull';
 import { QueueName } from 'src/queue/jobs/jobs';
 import { Queue } from 'bull';
-import { EmailJobType, type NotificationJob } from 'src/queue/jobs/email.job';
 import { SignatureJobType } from 'src/queue/jobs/signature.job';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class DocumentsService {
@@ -22,7 +21,7 @@ export class DocumentsService {
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
     private readonly logHelper: LogHelperService,
-    @InjectQueue(QueueName.EMAIL) private readonly emailQueue: Queue,
+    private readonly notificationsService: NotificationsService,
     @InjectQueue(QueueName.SIGNATURE) private readonly signatureQueue: Queue,
   ) {}
 
@@ -134,7 +133,7 @@ export class DocumentsService {
         contract: {
           include: {
             property: { select: { title: true } },
-            tenant: { select: { name: true, email: true } },
+            tenant: { select: { id: true, name: true, email: true } },
           },
         },
       },
@@ -168,21 +167,20 @@ export class DocumentsService {
     );
 
     if (status === DocumentStatus.REPROVADO) {
-      const job: NotificationJob = {
+      await this.notificationsService.create({
+        userId: document.contract.tenant.id,
         user: {
           name: document.contract.tenant.name,
           email: document.contract.tenant.email,
         },
-        notification: {
-          title: 'Seu Documento foi Reprovado',
-          message: `Olá,  ${document.contract.tenant.name}. O documento que você enviou para o contrato do imóvel "${document.contract.property.title}" foi reprovado.\nMotivo: "${rejectionReason || 'Não especificado'}".\nPor favor, acesse a plataforma para enviar um novo documento.`,
-        },
+        title: 'Seu Documento foi Reprovado',
+        message: `Olá, ${document.contract.tenant.name}. O documento que você enviou para o contrato do imóvel "${document.contract.property.title}" foi reprovado.\nMotivo: "${rejectionReason || 'Não especificado'}".\nPor favor, acesse a plataforma para enviar um novo documento.`,
         action: {
           text: 'Enviar Documento Novamente',
-          path: `/contrato/${document.contract.id}/documentos`,
+          path: `/contratos/${document.contract.id}/documentos`,
         },
-      };
-      await this.emailQueue.add(EmailJobType.NOTIFICATION, job);
+        sendEmail: true,
+      });
     }
 
     if (status === DocumentStatus.APROVADO) {
@@ -201,7 +199,7 @@ export class DocumentsService {
       where: { id: contractId },
       include: {
         documents: true,
-        landlord: { select: { name: true, email: true } },
+        landlord: { select: { id: true, name: true, email: true } },
         tenant: { select: { name: true } },
         property: { select: { title: true } },
       },
@@ -230,22 +228,20 @@ export class DocumentsService {
         data: { status: ContractStatus.EM_ANALISE },
       });
 
-      const job: NotificationJob = {
+      await this.notificationsService.create({
+        userId: contract.landlord.id,
         user: {
           name: contract.landlord.name,
           email: contract.landlord.email,
         },
-        notification: {
-          title: 'Documentos Prontos para Análise',
-          message: `Olá, ${contract.landlord.name}. O locatário ${contract.tenant.name} enviou todos os documentos necessários para o imóvel "${contract.property.title}". Por favor, acesse a plataforma para verificá-los.`,
-        },
+        title: 'Documentos Prontos para Análise',
+        message: `Olá, ${contract.landlord.name}. O locatário ${contract.tenant.name} enviou todos os documentos necessários para o imóvel "${contract.property.title}". Por favor, acesse a plataforma para verificá-los.`,
         action: {
           text: 'Verificar Documentos',
-          path: `/contrato/${contract.id}/documentos`,
+          path: `/contratos/${contract.id}/documentos`,
         },
-      };
-
-      await this.emailQueue.add(EmailJobType.NOTIFICATION, job);
+        sendEmail: true,
+      });
     }
   }
 
@@ -268,7 +264,7 @@ export class DocumentsService {
             emailVerified: true,
           },
         },
-        tenant: { select: { name: true, email: true } },
+        tenant: { select: { id: true, name: true, email: true } },
         property: { select: { title: true } },
       },
     });
@@ -313,39 +309,37 @@ export class DocumentsService {
         },
       );
 
-      // As notificações de "documento enviado para assinatura" já são tratadas pela Clicksign.
-      //    const landlordJob: NotificationJob = {
-      //   user: {
-      //     name: contract.landlord.name,
-      //     email: contract.landlord.email,
-      //   },
-      //   notification: {
-      //     title: 'Documentação Aprovada! Próximo Passo: Assinaturas',
-      //     message: `Olá, ${contract.landlord.name}. Você aprovou todos os documentos do locatário ${contract.tenant.name} para o imóvel "${contract.property.title}". O contrato agora está pronto para as assinaturas.`,
-      //   },
-      //   action: {
-      //     text: 'Ver Contrato',
-      //     path: `/contracts/${contract.id}`,
-      //   },
-      // };
-      // await this.emailQueue.add(EmailJobType.NOTIFICATION, landlordJob);
+      // Notificação para o Locador
+      await this.notificationsService.create({
+        userId: contract.landlord.id,
+        user: {
+          name: contract.landlord.name,
+          email: contract.landlord.email,
+        },
+        title: 'Documentação Aprovada! Próximo Passo: Assinaturas',
+        message: `Olá, ${contract.landlord.name}. Você aprovou todos os documentos do locatário ${contract.tenant.name} para o imóvel "${contract.property.title}". O contrato agora está pronto para as assinaturas.`,
+        action: {
+          text: 'Ver Contrato',
+          path: `/contracts/${contract.id}`,
+        },
+        sendEmail: true,
+      });
 
-      // // Notificação para o Locatário
-      // const tenantJob: NotificationJob = {
-      //   user: {
-      //     name: contract.tenant.name,
-      //     email: contract.tenant.email,
-      //   },
-      //   notification: {
-      //     title: 'Boas notícias! Sua documentação foi aprovada',
-      //     message: `Parabéns, ${contract.tenant.name}! Sua documentação para o imóvel "${contract.property.title}" foi totalmente aprovada pelo locador. O próximo passo é a assinatura do contrato.`,
-      //   },
-      //   action: {
-      //     text: 'Ver Contrato',
-      //     path: `/contracts/${contract.id}`,
-      //   },
-      // };
-      // await this.emailQueue.add(EmailJobType.NOTIFICATION, tenantJob);
+      // Notificação para o Locatário
+      await this.notificationsService.create({
+        userId: contract.tenant.id,
+        user: {
+          name: contract.tenant.name,
+          email: contract.tenant.email,
+        },
+        title: 'Boas notícias! Sua documentação foi aprovada',
+        message: `Parabéns, ${contract.tenant.name}! Sua documentação para o imóvel "${contract.property.title}" foi totalmente aprovada pelo locador. O próximo passo é a assinatura do contrato.`,
+        action: {
+          text: 'Ver Contrato',
+          path: `/contracts/${contract.id}`,
+        },
+        sendEmail: true,
+      });
     }
   }
 }

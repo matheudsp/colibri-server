@@ -31,6 +31,7 @@ import { CreateLandlordDto } from 'src/modules/users/dto/create-landlord.dto';
 import { VerificationService } from 'src/modules/verification/verification.service';
 import type { Login2FADto } from './dto/login-2fa.dto';
 import { VerificationContexts } from 'src/common/constants/verification-contexts.constant';
+import { LogHelperService } from 'src/modules/logs/log-helper.service';
 
 @Injectable()
 export class AuthService {
@@ -42,6 +43,7 @@ export class AuthService {
     private configService: ConfigService,
     @InjectQueue(QueueName.EMAIL) private emailQueue: Queue,
     private verificationService: VerificationService,
+    private logHelper: LogHelperService,
   ) {}
 
   /**
@@ -92,7 +94,7 @@ export class AuthService {
         emailVerificationTokenExpiry: null,
       },
     });
-
+    await this.logHelper.createLog(user.id, 'VERIFY_EMAIL', 'User', user.id);
     return { message: 'E-mail verificado com sucesso!' };
   }
 
@@ -355,7 +357,7 @@ export class AuthService {
         resetTokenExpiry: null,
       },
     });
-
+    await this.logHelper.createLog(user.id, 'RESET_PASSWORD', 'User', user.id);
     return { message: 'Senha redefinida com sucesso.' };
   }
 

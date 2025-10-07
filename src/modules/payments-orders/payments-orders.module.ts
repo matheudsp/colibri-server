@@ -10,6 +10,7 @@ import { BankSlipsModule } from '../bank-slips/bank-slips.module';
 import { QueueModule } from 'src/queue/queue.module';
 import { UserModule } from '../users/users.module';
 import { TransfersService } from '../transfers/transfers.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { TransfersService } from '../transfers/transfers.service';
     BankSlipsModule,
     forwardRef(() => QueueModule),
     forwardRef(() => UserModule),
+    NotificationsModule,
   ],
   providers: [
     PaymentsOrdersService,

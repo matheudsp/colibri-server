@@ -11,6 +11,7 @@ import { UserModule } from 'src/modules/users/users.module';
 import { QueueModule } from 'src/queue/queue.module';
 import { VerificationModule } from 'src/modules/verification/verification.module';
 import { FlagsModule } from 'src/feature-flags/flags.module';
+import { LogHelperService } from 'src/modules/logs/log-helper.service';
 
 @Module({
   imports: [
@@ -26,7 +27,7 @@ import { FlagsModule } from 'src/feature-flags/flags.module';
     FlagsModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, LogHelperService],
   exports: [JwtModule, JwtStrategy],
 })
 export class AuthModule {}

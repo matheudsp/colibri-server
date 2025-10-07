@@ -14,6 +14,7 @@ import { SubaccountsService } from '../subaccounts/subaccounts.service';
 import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
 import { VerificationContexts } from 'src/common/constants/verification-contexts.constant';
 import { VerificationService } from '../verification/verification.service';
+import { LogHelperService } from '../logs/log-helper.service';
 @Injectable()
 export class BankAccountsService {
   private readonly logger = new Logger(BankAccountsService.name);
@@ -23,6 +24,7 @@ export class BankAccountsService {
     private subaccountService: SubaccountsService,
     private paymentGateway: PaymentGatewayService,
     private verificationService: VerificationService,
+    private logHelper: LogHelperService,
   ) {}
 
   async create(
@@ -71,6 +73,12 @@ export class BankAccountsService {
       },
     });
 
+    await this.logHelper.createLog(
+      currentUser.sub,
+      'CREATE',
+      'BankAccount',
+      bankAccount.id,
+    );
     this.logger.log(`Chave PIX cadastrada para o usuário ${currentUser.sub}.`);
     return bankAccount;
   }
@@ -163,7 +171,12 @@ export class BankAccountsService {
       where: { userId: currentUser.sub },
       data: bankAccountData,
     });
-
+    await this.logHelper.createLog(
+      currentUser.sub,
+      'UPDATE',
+      'BankAccount',
+      updatedAccount.id,
+    );
     this.logger.log(`Chave PIX atualizada para o usuário ${currentUser.sub}.`);
     return updatedAccount;
   }

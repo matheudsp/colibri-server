@@ -153,13 +153,31 @@ export class UserController {
 
   @Delete(':id')
   @Roles(ROLES.ADMIN)
-  @ApiOperation({ summary: 'Delete user (Admin)' })
+  @ApiOperation({ summary: 'Deactivate user (Admin)' })
   @ApiParam({ name: 'id', description: 'User UUID' })
   @ApiResponse({
-    status: 204,
-    description: 'User successfully deleted',
+    status: 200,
+    description: 'User successfully deactivated',
   })
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.userService.remove(id);
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() currentUser: JwtPayload,
+  ) {
+    return this.userService.remove(id, currentUser);
+  }
+
+  @Patch(':id/restore')
+  @Roles(ROLES.ADMIN)
+  @ApiOperation({ summary: 'Restore a user (Admin)' })
+  @ApiParam({ name: 'id', description: 'User UUID' })
+  @ApiResponse({
+    status: 200,
+    description: 'User successfully restored',
+  })
+  restore(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() currentUser: JwtPayload,
+  ) {
+    return this.userService.restore(id, currentUser);
   }
 }

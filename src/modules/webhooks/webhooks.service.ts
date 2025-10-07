@@ -1,13 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PaymentsOrdersService } from '../payments-orders/payments-orders.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { ContractsService } from '../contracts/contracts.service';
 import { StorageService } from 'src/storage/storage.service';
 import { HttpService } from '@nestjs/axios';
 import { getPdfFileName } from 'src/common/utils/pdf-naming-helper.utils';
 import { firstValueFrom } from 'rxjs';
 import { SubaccountsService } from '../subaccounts/subaccounts.service';
 import { TransfersService } from '../transfers/transfers.service';
+import { ContractLifecycleService } from '../contracts/contracts.lifecycle.service';
 
 @Injectable()
 export class WebhooksService {
@@ -16,7 +16,7 @@ export class WebhooksService {
   constructor(
     private readonly paymentsService: PaymentsOrdersService,
     private readonly prisma: PrismaService,
-    private readonly contractsService: ContractsService,
+    private readonly contractLifecycleService: ContractLifecycleService,
     private readonly httpService: HttpService,
     private readonly storageService: StorageService,
     private readonly subaccountsService: SubaccountsService,
@@ -111,7 +111,7 @@ export class WebhooksService {
       this.logger.log(
         `Solicitando ativação para o contrato ${pdf.contractId}...`,
       );
-      await this.contractsService.activateContractAfterSignature(
+      await this.contractLifecycleService.activateContractAfterSignature(
         pdf.contractId,
       );
     } else {

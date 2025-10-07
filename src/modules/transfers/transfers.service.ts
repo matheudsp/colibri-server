@@ -30,6 +30,7 @@ import {
   TransferType,
   type SearchTransferDto,
 } from './dto/search-transfer.dto';
+import { LogHelperService } from '../logs/log-helper.service';
 
 type TransferWithDetails = Prisma.TransferGetPayload<{
   include: {
@@ -57,6 +58,7 @@ export class TransfersService {
     private readonly userService: UserService,
     @InjectQueue(QueueName.EMAIL) private readonly emailQueue: Queue,
     private readonly paymentGatewayService: PaymentGatewayService,
+    private readonly logHelper: LogHelperService,
   ) {}
 
   /**
@@ -77,7 +79,7 @@ export class TransfersService {
       );
     }
 
-    // 1. Buscar o saldo atual da subconta
+    //  Buscar o saldo atual da subconta
     const balanceData = await this.paymentGatewayService.getBalance(
       user.subAccount.apiKey,
     );
@@ -93,7 +95,7 @@ export class TransfersService {
       );
     }
 
-    // 2. Criar a transferência no Asaas
+    //  Criar a transferência no Asaas
     const transferPayload: CreateAsaasPixTransferDto = {
       operationType: 'PIX',
       value: availableBalance,
@@ -120,7 +122,12 @@ export class TransfersService {
     this.logger.log(
       `Saque manual ${newTransfer.id} (Asaas: ${transferResponse.id}) no valor de ${availableBalance} iniciado para o usuário ${user.id}.`,
     );
-
+    await this.logHelper.createLog(
+      currentUser.sub,
+      'CREATE_MANUAL_TRANSFER',
+      'Transfer',
+      newTransfer.id,
+    );
     return newTransfer;
   }
 
