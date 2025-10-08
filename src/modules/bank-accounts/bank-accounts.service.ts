@@ -63,7 +63,7 @@ export class BankAccountsService {
     }
 
     // Garante que a subconta no Asaas existe antes de salvar a chave PIX
-    await this.subaccountService.getOrCreateSubaccount(user);
+    const subAccount = await this.subaccountService.getOrCreateSubaccount(user);
 
     const bankAccount = await this.prisma.bankAccount.create({
       data: {
@@ -80,7 +80,7 @@ export class BankAccountsService {
       bankAccount.id,
     );
     this.logger.log(`Chave PIX cadastrada para o usuário ${currentUser.sub}.`);
-    return bankAccount;
+    return { bankAccount, subAccount };
   }
 
   async getBalance(currentUser: JwtPayload) {
@@ -119,19 +119,21 @@ export class BankAccountsService {
       throw new NotFoundException('Usuário não encontrado.');
     }
 
-    let balance = null;
-    // Se o usuário tiver uma subconta com apiKey, busca o saldo em tempo real.
-    if (user.subAccount?.apiKey) {
-      try {
-        balance = await this.paymentGateway.getBalance(user.subAccount.apiKey);
-      } catch (error) {
-        this.logger.error(
-          `Falha ao buscar saldo para o usuário ${currentUser.sub}`,
-          error,
-        );
-        // Em caso de erro, o saldo permanece nulo, mas a requisição não falha.
-      }
-    }
+    // let balance = 0;
+    // // Se o usuário tiver uma subconta com apiKey, busca o saldo em tempo real.
+    // if (user.subAccount?.apiKey) {
+    //   try {
+    //     balance = await this.paymentGateway.getBalance(user.subAccount.apiKey);
+    //   } catch (error) {
+    //     this.logger.error(
+    //       `Falha ao buscar saldo para o usuário ${currentUser.sub}`,
+    //       error,
+    //     );
+    //     // Em caso de erro, o saldo permanece nulo, mas a requisição não falha.
+    //   }
+    // } else {
+    //   balance = 0; // Se não houver subconta, o saldo é 0
+    // }
 
     return {
       // balance,
@@ -144,6 +146,9 @@ export class BankAccountsService {
             onboardingUrl: user.subAccount.onboardingUrl,
           }
         : null,
+      user: {
+        email: user.email,
+      },
     };
   }
 

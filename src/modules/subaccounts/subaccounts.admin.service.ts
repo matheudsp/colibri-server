@@ -76,7 +76,11 @@ export class SubaccountsAdminService {
       userId: subAccountRequest.user.id,
       user: subAccountRequest.user,
       title: 'Sua solicitação de conta foi aprovada!',
-      message: `Olá, ${subAccountRequest.user.name}. Sua solicitação para criar uma conta de recebimentos foi aprovada. Estamos processando a criação no gateway de pagamentos e em breve você receberá as instruções para os próximos passos.`,
+      message: `Olá, ${subAccountRequest.user.name}. Sua solicitação para criar uma conta de recebimentos foi aprovada. Estamos processando a criação no serviço de pagamentos e em breve você receberá as instruções para os próximos passos.`,
+      action: {
+        text: 'Ver Minha Conta',
+        path: '/conta?aba=conta-de-pagamentos',
+      },
       sendEmail: true,
     });
 
