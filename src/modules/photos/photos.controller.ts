@@ -52,7 +52,7 @@ export class PhotosController {
       throw new BadRequestException('Nenhum arquivo enviado');
     }
 
-    return this.photoService.uploadPhotos(files.files, propertyId);
+    return this.photoService.uploadPropertyPhotos(files.files, propertyId);
   }
 
   @Get('property/:propertyId')

@@ -10,23 +10,19 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StorageService } from '../../storage/storage.service';
-import { SupabaseClient } from '@supabase/supabase-js';
-import { InjectSupabaseClient } from 'nestjs-supabase-js';
 import { PropertiesService } from '../properties/properties.service';
 import { ROLES } from 'src/common/constants/roles.constant';
 
 @Injectable()
 export class PhotosService {
-  private readonly logger = new Logger(PhotosService.name);
   constructor(
     private prisma: PrismaService,
     private storageService: StorageService,
     @Inject(forwardRef(() => PropertiesService))
     private propertyService: PropertiesService,
-    @InjectSupabaseClient() private supabase: SupabaseClient,
   ) {}
 
-  async uploadPhotos(files: Express.Multer.File[], propertyId: string) {
+  async uploadPropertyPhotos(files: Express.Multer.File[], propertyId: string) {
     const property =
       await this.propertyService.validatePropertyExists(propertyId);
 
@@ -38,7 +34,7 @@ export class PhotosService {
 
     if (invalidFiles.length > 0) {
       throw new BadRequestException(
-        `Arquivos inválidos: tamanho máximo 10MB e apenas imagens são permitidas`,
+        `Apenas imagens são aceitas — limite de 10 MB por arquivo.`,
       );
     }
 
@@ -61,7 +57,7 @@ export class PhotosService {
             { folder: `properties/${property.id}`, bucket: 'property-images' },
           );
 
-          return this.prisma.photo.create({
+          const newPhoto = await this.prisma.photo.create({
             data: {
               name: `Foto${photoNumber}-${property.title}`,
               propertyId,
@@ -69,11 +65,16 @@ export class PhotosService {
               isCover: false,
             },
           });
+          return {
+            ...newPhoto,
+            url: this.storageService.getPublicImageUrl(newPhoto.filePath),
+          };
         }),
       );
 
       return uploadedPhotos;
-    } catch {
+    } catch (error) {
+      console.error('Falha no upload de fotos:', error);
       throw new InternalServerErrorException('Falha ao fazer upload das fotos');
     }
   }
@@ -91,7 +92,6 @@ export class PhotosService {
   }
 
   async getPhotosByProperty(propertyId: string, includePublicUrl = false) {
-    // O parâmetro foi renomeado para maior clareza
     const photos = await this.prisma.photo.findMany({
       where: { propertyId },
       include: {
@@ -128,7 +128,7 @@ export class PhotosService {
 
     const filePathsToDelete = photos.map((photo) => photo.filePath);
 
-    await this.storageService.deleteFiles(filePathsToDelete);
+    await this.storageService.deleteFiles(filePathsToDelete, 'property-images');
 
     await this.prisma.photo.deleteMany({
       where: { propertyId },
@@ -140,12 +140,6 @@ export class PhotosService {
     isCover: boolean | undefined,
     currentUser?: { role: string },
   ) {
-    if (currentUser?.role === 'vistoriador') {
-      throw new ForbiddenException(
-        'Vistoriadores não têm permissão para atualizar foto',
-      );
-    }
-
     const photo = await this.prisma.photo.update({
       where: { id },
       data: { isCover },
@@ -177,7 +171,7 @@ export class PhotosService {
       throw new NotFoundException('Foto não encontrada');
     }
 
-    await this.storageService.deleteFile(photo.filePath);
+    await this.storageService.deleteFile(photo.filePath, 'property-images');
     await this.prisma.photo.delete({ where: { id } });
 
     return { success: true, message: 'Foto deletada com sucesso' };

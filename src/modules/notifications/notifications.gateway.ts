@@ -45,28 +45,24 @@ export class NotificationsGateway
   @WebSocketServer()
   server: Server;
 
-  private readonly logger = new Logger(NotificationsGateway.name);
-
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
   ) {}
 
+  // Evento padrão: Cliente conectado
   async handleConnection(client: Socket) {
     const cookies = parseCookie(client.handshake.headers.cookie);
     const token = cookies?.accessToken;
 
     if (!token) {
-      this.logger.warn(
-        `Cliente ${client.id} tentou conectar sem o cookie 'accessToken'.`,
-      );
       client.disconnect();
       return;
     }
 
     try {
-      // 2. Verifica o token JWT extraído do cookie.
+      // Verifica o token JWT extraído do cookie.
       const payload: JwtPayload = this.jwtService.verify(token, {
         secret: this.configService.get<string>('JWT_SECRET'),
       });
@@ -79,26 +75,16 @@ export class NotificationsGateway
       }
 
       client.join(user.id);
-      this.logger.log(
-        `Cliente ${client.id} (Usuário ${user.id}) conectado e inscrito na sala.`,
-      );
     } catch (error) {
-      this.logger.error(
-        `Falha na autenticação do WebSocket para o cliente ${client.id}.`,
-        error.message,
-      );
       client.disconnect();
     }
   }
-
+  // Evento padrão: Cliente desconectado
   handleDisconnect(client: Socket) {
-    this.logger.log(`Cliente ${client.id} desconectado.`);
+    console.log(`Cliente desconectado: ${client.id}`);
   }
-
+  // Método personalizado: Enviar notificação para um usuário específico
   sendNotificationToUser(userId: string, notification: any) {
     this.server.to(userId).emit('new_notification', notification);
-    this.logger.log(
-      `Notificação em tempo real enviada para o usuário ${userId}`,
-    );
   }
 }

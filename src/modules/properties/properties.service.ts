@@ -33,8 +33,8 @@ export class PropertiesService {
     private prisma: PrismaService,
     private logHelper: LogHelperService,
     @Inject(forwardRef(() => PhotosService))
-    private propertyPhotosService: PhotosService,
-    @Inject(forwardRef(() => ContractsService))
+    private photosService: PhotosService,
+    @Inject(forwardRef(() => ContractLifecycleService))
     private contractsLifecycleService: ContractLifecycleService,
     private readonly cacheService: CacheService,
     private verificationService: VerificationService,
@@ -58,12 +58,20 @@ export class PropertiesService {
         'Apenas locadores e administradores podem criar imóveis.',
       );
     }
+
+    const { photos, ...propertyData } = createPropertyDto;
+
     const property = await this.prisma.property.create({
       data: {
-        ...createPropertyDto,
+        ...propertyData,
         landlordId: currentUser.sub,
+        createdAt: new Date(),
       },
     });
+
+    if (photos?.length) {
+      await this.photosService.uploadPropertyPhotos(photos, property.id);
+    }
 
     await this.logHelper.createLog(
       currentUser?.sub,
@@ -73,6 +81,37 @@ export class PropertiesService {
     );
     await this.clearPropertiesCache(currentUser.sub);
     return property;
+  }
+  async update(
+    id: string,
+    updatePropertyDto: Omit<UpdatePropertyDto, 'photos'>,
+    currentUser: { sub: string; role: string },
+  ) {
+    const propertyExists = await this.findOne(id);
+
+    if (
+      propertyExists.landlordId !== currentUser.sub &&
+      currentUser.role !== ROLES.ADMIN
+    ) {
+      throw new UnauthorizedException(
+        'Você não tem permissão para editar este imóvel.',
+      );
+    }
+
+    const updatedProperty = await this.prisma.property.update({
+      where: { id },
+      data: { ...updatePropertyDto },
+      select: { id: true, landlordId: true },
+    });
+    await this.logHelper.createLog(
+      currentUser?.sub,
+      'UPDATE',
+      'Property',
+      updatedProperty.id,
+    );
+    await this.clearPropertiesCache(updatedProperty.landlordId);
+
+    return updatedProperty;
   }
 
   async findAvailable({ page, limit }: { page: number; limit: number }) {
@@ -107,11 +146,10 @@ export class PropertiesService {
 
     const propertiesWithPublicUrls = await Promise.all(
       properties.map(async (property) => {
-        const photosWithUrls =
-          await this.propertyPhotosService.getPhotosByProperty(
-            property.id,
-            true,
-          );
+        const photosWithUrls = await this.photosService.getPhotosByProperty(
+          property.id,
+          true,
+        );
         const { _count } = property;
         return {
           ...property,
@@ -209,11 +247,10 @@ export class PropertiesService {
 
     const propertiesWithSignedUrls = await Promise.all(
       properties.map(async (property) => {
-        const photosWithUrls =
-          await this.propertyPhotosService.getPhotosByProperty(
-            property.id,
-            true,
-          );
+        const photosWithUrls = await this.photosService.getPhotosByProperty(
+          property.id,
+          true,
+        );
         return { ...property, photos: photosWithUrls };
       }),
     );
@@ -272,7 +309,7 @@ export class PropertiesService {
       }
     }
 
-    const photosWithUrls = await this.propertyPhotosService.getPhotosByProperty(
+    const photosWithUrls = await this.photosService.getPhotosByProperty(
       property.id,
       true,
     );
@@ -377,11 +414,10 @@ export class PropertiesService {
 
     const propertiesWithUrls = await Promise.all(
       properties.map(async (property) => {
-        const photosWithUrls =
-          await this.propertyPhotosService.getPhotosByProperty(
-            property.id,
-            true,
-          );
+        const photosWithUrls = await this.photosService.getPhotosByProperty(
+          property.id,
+          true,
+        );
         return { ...property, photos: photosWithUrls };
       }),
     );
@@ -469,11 +505,10 @@ export class PropertiesService {
 
     const propertiesWithSignedUrls = await Promise.all(
       properties.map(async (property) => {
-        const photosWithUrls =
-          await this.propertyPhotosService.getPhotosByProperty(
-            property.id,
-            true,
-          );
+        const photosWithUrls = await this.photosService.getPhotosByProperty(
+          property.id,
+          true,
+        );
         return { ...property, photos: photosWithUrls };
       }),
     );
@@ -526,11 +561,10 @@ export class PropertiesService {
     const propertiesWithUrls = await Promise.all(
       properties.map(async (p) => {
         const { _count, ...propertyData } = p;
-        const photosWithUrls =
-          await this.propertyPhotosService.getPhotosByProperty(
-            propertyData.id,
-            true,
-          );
+        const photosWithUrls = await this.photosService.getPhotosByProperty(
+          propertyData.id,
+          true,
+        );
         return {
           ...propertyData,
           interestCount: _count?.Interest || 0,
@@ -548,37 +582,6 @@ export class PropertiesService {
         totalPages: Math.ceil(total / limit),
       },
     };
-  }
-  async update(
-    id: string,
-    updatePropertyDto: UpdatePropertyDto,
-    currentUser: { sub: string; role: string },
-  ) {
-    const property = await this.findOne(id);
-
-    if (
-      property.landlordId !== currentUser.sub &&
-      currentUser.role !== ROLES.ADMIN
-    ) {
-      throw new UnauthorizedException(
-        'Você não tem permissão para editar este imóvel.',
-      );
-    }
-
-    const updatedProperty = await this.prisma.property.update({
-      where: { id },
-      data: { ...updatePropertyDto },
-      select: { id: true },
-    });
-    await this.logHelper.createLog(
-      currentUser?.sub,
-      'UPDATE',
-      'Property',
-      updatedProperty.id,
-    );
-    await this.clearPropertiesCache(property.landlordId);
-
-    return updatedProperty;
   }
 
   async remove(
@@ -610,7 +613,7 @@ export class PropertiesService {
       );
     }
 
-    await this.propertyPhotosService.deletePhotosByProperty(id);
+    await this.photosService.deletePhotosByProperty(id);
     await this.contractsLifecycleService.deleteContractsByProperty(id);
     await this.prisma.property.delete({ where: { id } });
 

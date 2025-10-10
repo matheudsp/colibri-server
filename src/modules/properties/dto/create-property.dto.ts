@@ -46,7 +46,9 @@ export class CreatePropertyDto {
   @IsOptional()
   @Min(0)
   value!: number;
-  // @Expose()
-  // @ApiProperty()
-  // photos!: Express.Multer.File[];
+
+  @Expose()
+  @ApiProperty()
+  @IsOptional()
+  photos?: Express.Multer.File[];
 }
