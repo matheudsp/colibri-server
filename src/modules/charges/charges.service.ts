@@ -10,13 +10,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DateUtils } from 'src/common/utils/date.utils';
-import { PaymentStatus } from '@prisma/client';
+import { PaymentStatus, type Prisma } from '@prisma/client';
 import { differenceInDays } from 'date-fns';
 
 @Injectable()
-export class BankSlipsService {
+export class ChargesService {
   private readonly platformWalletId: string;
-  private readonly logger = new Logger(BankSlipsService.name);
+  private readonly logger = new Logger(ChargesService.name);
   constructor(
     private prisma: PrismaService,
     private paymentGateway: PaymentGatewayService,
@@ -28,11 +28,14 @@ export class BankSlipsService {
   /**
    * Gera um boleto para uma ordem de pagamento PENDENTE.
    **/
-  async generateBankSlipForPaymentOrder(paymentOrderId: string) {
+  async generateChargeForPaymentOrder(
+    paymentOrderId: string,
+    billingType: 'BOLETO' | 'PIX',
+  ) {
     const paymentOrder = await this.prisma.paymentOrder.findUnique({
       where: { id: paymentOrderId },
       include: {
-        bankSlip: true,
+        charge: true,
         contract: {
           include: {
             tenant: true,
@@ -45,13 +48,14 @@ export class BankSlipsService {
 
     if (!paymentOrder)
       throw new NotFoundException('Ordem de pagamento não encontrada.');
+    if (paymentOrder.charge)
+      throw new ConflictException('Já existe uma cobrança para essa fatura.');
     if (paymentOrder.status === PaymentStatus.ATRASADO) {
       throw new BadRequestException(
-        'Esta fatura está vencida. Por favor, solicite a emissão de um novo boleto com valores atualizados.',
+        'Esta fatura está vencida. Por favor, solicite a emissão de uma novo cobranças cobrança.',
       );
     }
-    if (paymentOrder.bankSlip)
-      throw new ConflictException('Já existe um boleto para essa fatura.');
+
     if (paymentOrder.contract.status !== 'ATIVO')
       throw new BadRequestException('Contrato inativo.');
 
@@ -60,7 +64,7 @@ export class BankSlipsService {
 
     if (!landlord.subAccount?.apiKey || !landlord.subAccount?.asaasWalletId)
       throw new BadRequestException(
-        'O locador não possui a conta configurada para recebimento. Consulte o suporte para mais informações.',
+        'A conta do locador não está configurada para recebimentos. Entre em contato com suporte.',
       );
 
     const customerId = await this.asaasCustomerService.getOrCreate(
@@ -81,44 +85,59 @@ export class BankSlipsService {
     }
     const platformFee =
       landlord.subAccount.platformFeePercentage?.toNumber() || 5; // Usa 5% como padrão
-    const charge = await this.paymentGateway.createChargeWithSplitOnSubAccount(
-      landlord.subAccount.apiKey,
-      {
-        customer: customerId,
-        billingType: 'BOLETO',
-        dueDate,
-        value,
-        description: `Aluguel ${contract.property.title} - venc. ${DateUtils.formatDate(dueDate)}`,
-        split: [
-          // { walletId: landlord.subAccount.asaasWalletId, percentualValue: 5 },
-          { walletId: this.platformWalletId, percentualValue: platformFee },
-        ],
-        daysAfterDueDateToRegistrationCancellation: 60,
-        fine: {
-          value: 2, // Define uma multa de 2% sobre o valor do boleto em caso de atraso.
-          type: 'PERCENTAGE',
-        },
-        interest: {
-          value: 1, // Define juros de 1% ao mês (pro rata die) em caso de atraso.
-        },
-      },
-    );
 
-    return this.prisma.paymentOrder.update({
-      where: { id: paymentOrder.id },
-      data: {
-        bankSlip: {
-          create: {
-            asaasChargeId: charge.id,
-            bankSlipUrl: charge.bankSlipUrl,
-            invoiceUrl: charge.invoiceUrl,
-            nossoNumero: charge.nossoNumero,
-            dueDate: paymentOrder.dueDate,
-          },
-        },
-      },
-      include: { bankSlip: true },
+    const chargePayload = {
+      customer: customerId,
+      billingType,
+      dueDate,
+      value,
+      description: `Aluguel ${contract.property.title} - venc. ${DateUtils.formatDate(dueDate)}`,
+      split: [
+        { walletId: this.platformWalletId, percentualValue: platformFee },
+      ],
+      daysAfterDueDateToRegistrationCancellation: 60,
+      fine: { value: 2, type: 'PERCENTAGE' as const },
+      interest: { value: 1 },
+    };
+    const chargeResponse =
+      await this.paymentGateway.createChargeWithSplitOnSubAccount(
+        landlord.subAccount.apiKey,
+        chargePayload,
+      );
+    const chargeData: Prisma.ChargeCreateInput = {
+      paymentOrder: { connect: { id: paymentOrder.id } },
+      asaasChargeId: chargeResponse.id,
+      invoiceUrl: chargeResponse.invoiceUrl,
+      dueDate: paymentOrder.dueDate,
+
+      ...(billingType === 'BOLETO'
+        ? {
+            bankSlipUrl: chargeResponse.bankSlipUrl,
+            nossoNumero: chargeResponse.nossoNumero,
+          }
+        : {
+            pixQrCode: chargeResponse.pixQrCode,
+            pixPayload: chargeResponse.pixPayload,
+          }),
+    };
+    return this.prisma.charge.create({
+      data: chargeData,
     });
+    // return this.prisma.paymentOrder.update({
+    //   where: { id: paymentOrder.id },
+    //   data: {
+    //     charge: {
+    //       create: {
+    //         asaasChargeId: chargeResponse.id,
+    //         bankSlipUrl: chargeResponse.bankSlipUrl,
+    //         invoiceUrl: chargeResponse.invoiceUrl,
+    //         nossoNumero: chargeResponse.nossoNumero,
+    //         dueDate: paymentOrder.dueDate,
+    //       },
+    //     },
+    //   },
+    //   include: { charge: true },
+    // });
   }
 
   // async generateMonthlyBoleto({ contractId, dueDate }: GenerateBoletoDto) {

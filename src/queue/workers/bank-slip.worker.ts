@@ -1,27 +1,25 @@
 import { Process, Processor } from '@nestjs/bull';
 import { Injectable, Logger, ConflictException } from '@nestjs/common'; // 1. Importe ConflictException
 import { Job } from 'bull';
-import { BankSlipsService } from 'src/modules/bank-slips/bank-slips.service';
-import {
-  BankSlipJobType,
-  GenerateMonthlyBankSlipsJob,
-} from '../jobs/bank-slip';
+import { ChargesService } from 'src/modules/charges/charges.service';
+import { GenerateMonthlyChargeJob, ChargeJobType } from '../jobs/charge.job';
 import { QueueName } from '../jobs/jobs';
 
 @Injectable()
-@Processor(QueueName.BANK_SLIP)
+@Processor(QueueName.CHARGE)
 export class BankSlipWorker {
   private logger = new Logger(BankSlipWorker.name);
 
-  constructor(private bankSlipsService: BankSlipsService) {}
+  constructor(private chargesService: ChargesService) {}
 
-  @Process(BankSlipJobType.GENERATE_MONTHLY_BANK_SLIPS)
-  async handleGenerateBankSlip(job: Job<GenerateMonthlyBankSlipsJob>) {
+  @Process(ChargeJobType.GENERATE_MONTHLY_CHARGE)
+  async handleGenerateBankSlip(job: Job<GenerateMonthlyChargeJob>) {
     const { paymentOrderId } = job.data;
 
     try {
-      await this.bankSlipsService.generateBankSlipForPaymentOrder(
+      await this.chargesService.generateChargeForPaymentOrder(
         paymentOrderId,
+        'BOLETO',
       );
       this.logger.log(
         `✅ Boleto gerado com sucesso para a ordem de pagamento ${paymentOrderId}`,

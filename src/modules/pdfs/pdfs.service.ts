@@ -241,7 +241,7 @@ export class PdfsService {
         landlord: true,
         tenant: true,
         property: true,
-        paymentsOrders: { include: { bankSlip: true } },
+        paymentsOrders: { include: { charge: true } },
         documents: true,
         GeneratedPdf: { where: { pdfType: 'CONTRATO_LOCACAO' } },
       },

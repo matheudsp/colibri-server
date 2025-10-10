@@ -1,102 +1,102 @@
 services:
   traefik:
     image: traefik:v2.11
-    container_name: colibri_traefik
+    container_name: locaterra_traefik
     restart: always
     command:
-      - '--api.insecure=true' # Apenas para o dashboard, vamos segurá-lo depois
-      - '--providers.docker=true'
-      - '--entrypoints.web.address=:80'
-      - '--entrypoints.websecure.address=:443'
-      - '--certificatesresolvers.letsencrypt.acme.httpchallenge=true'
-      - '--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web'
-      - '--certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL}'
-      - '--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json'
+      - "--api.insecure=true" # Apenas para o dashboard, vamos segurá-lo depois
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
     ports:
-      - '80:80'
-      - '443:443'
+      - "80:80"
+      - "443:443"
       # - "8080:8080" # Porta para o dashboard, se for habilitar
     volumes:
-      - '/var/run/docker.sock:/var/run/docker.sock:ro'
-      - './traefik/acme.json:/letsencrypt/acme.json'
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./traefik/acme.json:/letsencrypt/acme.json"
     depends_on:
       - api
 
   api:
     build: .
-    container_name: colibri_api
+    container_name: locaterra_api
     restart: always
     env_file: .env
     labels:
-      - 'traefik.enable=true'
-      - 'traefik.http.routers.api.rule=Host(`${TRAEFIK_DOMAIN}`)'
-      - 'traefik.http.routers.api.entrypoints=websecure'
-      - 'traefik.http.services.api.loadbalancer.server.port=3000'
-      - 'traefik.http.routers.api.tls.certresolver=letsencrypt'
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`${TRAEFIK_DOMAIN}`)"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.services.api.loadbalancer.server.port=3000"
+      - "traefik.http.routers.api.tls.certresolver=letsencrypt"
     ports:
-      - '${PORT:-3000}:3000'
+      - "${PORT:-3000}:3000"
     depends_on:
       - db
       - redis
 
   db:
     image: postgres:16-alpine
-    container_name: colibri_db
+    container_name: locaterra_db
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - '5432:5432'
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
   redis:
     image: redis:7-alpine
-    container_name: colibri_redis
+    container_name: locaterra_redis
     restart: always
-    command: ['redis-server', '--requirepass', '${REDIS_PASSWORD}']
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
     ports:
-      - '6379:6379'
+      - "6379:6379"
     volumes:
       - redis_data:/data
 
   # --- Monitoramento e Logs ---
   uptime-kuma:
     image: louislam/uptime-kuma:1
-    container_name: colibri_uptime_kuma
+    container_name: locaterra_uptime_kuma
     restart: always
     ports:
-      - '3001:3001'
+      - "3001:3001"
     volumes:
       - uptime_kuma_data:/app/data
     labels:
-      - 'traefik.enable=true'
-      - 'traefik.http.routers.uptime-kuma.rule=Host(`${UPTIME_KUMA_DOMAIN}`)'
-      - 'traefik.http.routers.uptime-kuma.entrypoints=websecure'
-      - 'traefik.http.services.uptime-kuma.loadbalancer.server.port=3001'
-      - 'traefik.http.routers.uptime-kuma.tls.certresolver=letsencrypt'
+      - "traefik.enable=true"
+      - "traefik.http.routers.uptime-kuma.rule=Host(`${UPTIME_KUMA_DOMAIN}`)"
+      - "traefik.http.routers.uptime-kuma.entrypoints=websecure"
+      - "traefik.http.services.uptime-kuma.loadbalancer.server.port=3001"
+      - "traefik.http.routers.uptime-kuma.tls.certresolver=letsencrypt"
   prometheus:
     image: prom/prometheus
-    container_name: colibri_prometheus
+    container_name: locaterra_prometheus
     restart: always
     ports:
-      - '9290:9090'
+      - "9290:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.retention.time=7d'
-      - '--web.enable-lifecycle'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+      - "--web.enable-lifecycle"
 
   loki:
     image: grafana/loki:latest
-    container_name: colibri_loki
+    container_name: locaterra_loki
     restart: always
     ports:
-      - '3100:3100'
+      - "3100:3100"
     command: -config.file=/etc/loki/local-config.yaml
     volumes:
       - loki_data:/loki
@@ -104,7 +104,7 @@ services:
   # --- Adicionado o serviço Promtail ---
   promtail:
     image: grafana/promtail:latest
-    container_name: colibri_promtail
+    container_name: locaterra_promtail
     restart: always
     volumes:
       - ./monitoring/promtail-config.yml:/etc/promtail/config.yml
@@ -115,23 +115,23 @@ services:
 
   grafana:
     image: grafana/grafana-oss:latest
-    container_name: colibri_grafana
+    container_name: locaterra_grafana
     restart: always
     ports:
-      - '3002:3000'
+      - "3002:3000"
     volumes:
       - grafana_data:/var/lib/grafana
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
     labels:
-      - 'traefik.enable=true'
-      - 'traefik.http.routers.grafana.rule=Host(`${GRAFANA_DOMAIN}`)'
-      - 'traefik.http.routers.grafana.entrypoints=websecure'
-      - 'traefik.http.services.grafana.loadbalancer.server.port=3000'
-      - 'traefik.http.routers.grafana.tls.certresolver=letsencrypt'
-      - 'traefik.http.routers.grafana.middlewares=auth'
-      - 'traefik.http.middlewares.auth.basicauth.users=${TRAEFIK_AUTH_USER_PASS}'
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`${GRAFANA_DOMAIN}`)"
+      - "traefik.http.routers.grafana.entrypoints=websecure"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+      - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.grafana.middlewares=auth"
+      - "traefik.http.middlewares.auth.basicauth.users=${TRAEFIK_AUTH_USER_PASS}"
     depends_on:
       - prometheus
       - loki

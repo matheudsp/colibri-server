@@ -390,7 +390,7 @@ model PaymentOrder {
   paidAt       DateTime?      @db.Date
   status       PaymentStatus  @default(PENDENTE)
   contract     Contract       @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  bankSlip     BankSlip?
+  charge       Charge?
   transfer     Transfer?
   PaymentSplit PaymentSplit[]
 }
@@ -421,18 +421,24 @@ model PaymentSplit {
   payment PaymentOrder @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 }
 
-model BankSlip {
-  id                    String       @id @default(uuid())
-  paymentOrderId        String       @unique
-  asaasChargeId         String       @unique
-  dueDate               DateTime     @db.Date
-  bankSlipUrl           String
-  transactionReceiptUrl String?
+model Charge {
+  id             String   @id @default(uuid())
+  paymentOrderId String   @unique
+  asaasChargeId  String   @unique
+  dueDate        DateTime @db.Date
+
   invoiceUrl            String
-  nossoNumero           String
-  createdAt             DateTime     @default(now())
-  updatedAt             DateTime     @updatedAt
-  paymentOrder          PaymentOrder @relation(fields: [paymentOrderId], references: [id], onDelete: Cascade)
+  transactionReceiptUrl String?
+
+  bankSlipUrl String?
+  nossoNumero String?
+
+  pixQrCode  String? @db.Text
+  pixPayload String? @db.Text
+
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  paymentOrder PaymentOrder @relation(fields: [paymentOrderId], references: [id], onDelete: Cascade)
 }
 
 model Photo {

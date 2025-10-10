@@ -3,7 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { BankSlipJobType } from 'src/queue/jobs/bank-slip';
+import { ChargeJobType } from 'src/queue/jobs/charge.job';
 import { QueueName } from 'src/queue/jobs/jobs';
 import { startOfToday } from 'date-fns';
 import { PaymentStatus } from '@prisma/client';
@@ -14,7 +14,7 @@ export class BankSlipsScheduler {
   constructor(
     private readonly prisma: PrismaService,
 
-    @InjectQueue(QueueName.BANK_SLIP) private readonly bankSlipQueue: Queue,
+    @InjectQueue(QueueName.CHARGE) private readonly bankSlipQueue: Queue,
   ) {}
 
   /**
@@ -27,7 +27,7 @@ export class BankSlipsScheduler {
     const pendingPaymentOrders = await this.prisma.paymentOrder.findMany({
       where: {
         status: PaymentStatus.PENDENTE,
-        bankSlip: null,
+        charge: null,
         dueDate: {
           gte: today, // Garante que não pegamos faturas já vencidas
         },
@@ -47,12 +47,9 @@ export class BankSlipsScheduler {
     );
 
     for (const order of pendingPaymentOrders) {
-      await this.bankSlipQueue.add(
-        BankSlipJobType.GENERATE_MONTHLY_BANK_SLIPS,
-        {
-          paymentOrderId: order.id,
-        },
-      );
+      await this.bankSlipQueue.add(ChargeJobType.GENERATE_MONTHLY_CHARGE, {
+        paymentOrderId: order.id,
+      });
     }
   }
 }

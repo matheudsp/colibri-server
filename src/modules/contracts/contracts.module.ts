@@ -11,10 +11,11 @@ import { PaymentsOrdersModule } from '../payments-orders/payments-orders.module'
 import { PdfsModule } from '../pdfs/pdfs.module';
 import { ClicksignModule } from '../clicksign/clicksign.module';
 import { StorageModule } from 'src/storage/storage.module';
-import { BankSlipsModule } from '../bank-slips/bank-slips.module';
+
 import { ContractLifecycleService } from './contracts.lifecycle.service';
 import { ContractSignatureService } from './contracts.signature.service';
 import { ContractPaymentService } from './contracts.payment.service';
+import { ChargesModule } from '../charges/charges.module';
 
 @Module({
   imports: [
@@ -24,7 +25,7 @@ import { ContractPaymentService } from './contracts.payment.service';
     PaymentGatewayModule,
     PaymentsOrdersModule,
     forwardRef(() => PdfsModule),
-    BankSlipsModule,
+    ChargesModule,
     ClicksignModule,
     StorageModule,
   ],

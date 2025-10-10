@@ -291,7 +291,7 @@ export class ContractLifecycleService {
         property: { select: { title: true } },
         paymentsOrders: {
           where: { status: 'PENDENTE' },
-          include: { bankSlip: true },
+          include: { charge: true },
         },
       },
     });
@@ -319,7 +319,7 @@ export class ContractLifecycleService {
     }
 
     const pendingOrdersWithSlips = contract.paymentsOrders.filter(
-      (po) => po.bankSlip,
+      (po) => po.charge,
     );
 
     if (pendingOrdersWithSlips.length > 0) {
@@ -334,11 +334,11 @@ export class ContractLifecycleService {
         try {
           await this.paymentGateway.cancelCharge(
             apiKey,
-            order.bankSlip!.asaasChargeId,
+            order.charge!.asaasChargeId,
           );
         } catch (error) {
           console.error(
-            `Falha ao cancelar a cobrança ${order.bankSlip!.asaasChargeId} no gateway.`,
+            `Falha ao cancelar a cobrança ${order.charge!.asaasChargeId} no gateway.`,
             error,
           );
         }
@@ -393,7 +393,7 @@ export class ContractLifecycleService {
         landlord: { include: { subAccount: true } },
         paymentsOrders: {
           where: { status: 'PENDENTE' },
-          include: { bankSlip: true },
+          include: { charge: true },
         },
       },
     });
@@ -412,7 +412,7 @@ export class ContractLifecycleService {
     }
 
     const pendingOrdersWithSlips = contract.paymentsOrders.filter(
-      (po) => po.bankSlip,
+      (po) => po.charge,
     );
 
     if (pendingOrdersWithSlips.length > 0) {
@@ -426,11 +426,11 @@ export class ContractLifecycleService {
           try {
             await this.paymentGateway.cancelCharge(
               apiKey,
-              order.bankSlip!.asaasChargeId,
+              order.charge!.asaasChargeId,
             );
           } catch (error) {
             console.error(
-              `Falha ao cancelar a cobrança ${order.bankSlip!.asaasChargeId} no gateway durante a remoção do contrato.`,
+              `Falha ao cancelar a cobrança ${order.charge!.asaasChargeId} no gateway durante a remoção do contrato.`,
               error,
             );
           }

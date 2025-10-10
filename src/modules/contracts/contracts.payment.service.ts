@@ -1,14 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PaymentsOrdersService } from '../payments-orders/payments-orders.service';
-import { BankSlipsService } from '../bank-slips/bank-slips.service';
+import { ChargesService } from '../charges/charges.service';
 
 @Injectable()
 export class ContractPaymentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly paymentsOrdersService: PaymentsOrdersService,
-    private readonly bankSlipsService: BankSlipsService,
+    private readonly chargesService: ChargesService,
   ) {}
 
   async createPaymentsAndFirstBankSlip(contractId: string): Promise<void> {
@@ -21,8 +21,9 @@ export class ContractPaymentService {
 
     if (firstPaymentOrder) {
       try {
-        await this.bankSlipsService.generateBankSlipForPaymentOrder(
+        await this.chargesService.generateChargeForPaymentOrder(
           firstPaymentOrder.id,
+          'BOLETO',
         );
       } catch (error) {
         console.error(

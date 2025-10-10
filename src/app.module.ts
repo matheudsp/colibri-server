@@ -23,7 +23,7 @@ import { DocumentsModule } from './modules/documents/documents.module';
 import { BankAccountsModule } from './modules/bank-accounts/bank-accounts.module';
 import { AsaasCustomersModule } from './modules/asaas-customers/asaas-customers.module';
 import { SubaccountsModule } from './modules/subaccounts/subaccounts.module';
-import { BankSlipsModule } from './modules/bank-slips/bank-slips.module';
+import { ChargesModule } from './modules/charges/charges.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { PdfsModule } from './modules/pdfs/pdfs.module';
@@ -61,7 +61,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     BankAccountsModule,
     AsaasCustomersModule,
     SubaccountsModule,
-    BankSlipsModule,
+    ChargesModule,
     SchedulerModule,
     WebhooksModule,
     PdfsModule,

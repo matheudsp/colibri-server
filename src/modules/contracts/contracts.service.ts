@@ -86,7 +86,7 @@ export class ContractsService {
       include: {
         paymentsOrders: {
           include: {
-            bankSlip: {
+            charge: {
               select: { bankSlipUrl: true, transactionReceiptUrl: true },
             },
           },

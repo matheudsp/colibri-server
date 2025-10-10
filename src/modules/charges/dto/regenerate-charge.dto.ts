@@ -1,7 +1,7 @@
-import { IsDateString, IsNotEmpty, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsUUID } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class GenerateBankSlipDto {
+export class RegenerateChargeDto {
   @ApiProperty({
     description: 'ID da ordem de pagamento para o qual o boleto será gerado',
     example: 'clx123abc456def789',

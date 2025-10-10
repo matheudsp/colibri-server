@@ -79,7 +79,7 @@ export class PaymentsOrdersService {
         skip,
         take: limit,
         include: {
-          bankSlip: true,
+          charge: true,
           contract: {
             select: {
               property: { select: { id: true, title: true } },
@@ -183,7 +183,7 @@ export class PaymentsOrdersService {
     paidAt: Date,
     transactionReceiptUrl?: string,
   ) {
-    const bankSlip = await this.prisma.bankSlip.findUnique({
+    const bankSlip = await this.prisma.charge.findUnique({
       where: { asaasChargeId },
     });
     if (!bankSlip) {
@@ -225,7 +225,7 @@ export class PaymentsOrdersService {
       },
     });
     if (transactionReceiptUrl) {
-      await this.prisma.bankSlip.update({
+      await this.prisma.charge.update({
         where: { id: bankSlip.id },
         data: { transactionReceiptUrl },
       });
@@ -254,7 +254,7 @@ export class PaymentsOrdersService {
             property: true,
           },
         },
-        bankSlip: true,
+        charge: true,
       },
     });
 
@@ -277,14 +277,14 @@ export class PaymentsOrdersService {
     let logAction = 'CONFIRM_CASH_PAYMENT_MANUAL';
 
     if (
-      paymentOrder.bankSlip &&
+      paymentOrder.charge &&
       paymentOrder.contract.landlord.subAccount?.apiKey
     ) {
       this.logger.log(
-        `Boleto ${paymentOrder.bankSlip.asaasChargeId} encontrado. Notificando gateway sobre recebimento em dinheiro.`,
+        `Boleto ${paymentOrder.charge.asaasChargeId} encontrado. Notificando gateway sobre recebimento em dinheiro.`,
       );
       await this.paymentGateway.confirmCashPayment(
-        paymentOrder.bankSlip.asaasChargeId,
+        paymentOrder.charge.asaasChargeId,
         paymentDate,
         value,
         paymentOrder.contract.landlord.subAccount.apiKey,
@@ -335,7 +335,7 @@ export class PaymentsOrdersService {
     asaasChargeId: string,
     status: PaymentStatus,
   ) {
-    const bankSlip = await this.prisma.bankSlip.findUnique({
+    const bankSlip = await this.prisma.charge.findUnique({
       where: { asaasChargeId },
       select: { paymentOrderId: true },
     });
@@ -361,7 +361,7 @@ export class PaymentsOrdersService {
    * Chamado pelo webhook da Asaas quando um pagamento é marcado como vencido.
    */
   async handleOverduePayment(asaasChargeId: string) {
-    const bankSlip = await this.prisma.bankSlip.findUnique({
+    const bankSlip = await this.prisma.charge.findUnique({
       where: { asaasChargeId },
       include: {
         paymentOrder: {

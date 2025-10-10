@@ -5,7 +5,7 @@ import { EmailWorker } from './workers/email.worker';
 import { redisConfig } from '../config/redis.config';
 import { MailerModule } from '../mailer/mailer.module';
 import { BankSlipWorker } from './workers/bank-slip.worker';
-import { BankSlipsModule } from 'src/modules/bank-slips/bank-slips.module';
+import { ChargesModule } from 'src/modules/charges/charges.module';
 import { QueueName } from './jobs/jobs';
 import { SignatureWorker } from './workers/signature.worker';
 import { PdfsModule } from 'src/modules/pdfs/pdfs.module';
@@ -24,12 +24,12 @@ import { PdfWorker } from './workers/pdf.worker';
     }),
     BullModule.registerQueue(
       { name: QueueName.EMAIL },
-      { name: QueueName.BANK_SLIP },
+      { name: QueueName.CHARGE },
       { name: QueueName.SIGNATURE },
       { name: QueueName.PDF },
     ),
     MailerModule,
-    BankSlipsModule,
+    ChargesModule,
     PdfsModule,
     StorageModule,
     PrismaModule,
