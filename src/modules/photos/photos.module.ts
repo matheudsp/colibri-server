@@ -5,6 +5,7 @@ import { PropertiesModule } from '../properties/properties.module';
 import { AppConfigModule } from 'src/config/config.module';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { StorageModule } from 'src/storage/storage.module';
+import { PropertyCacheService } from '../properties/properties-cache.service';
 
 @Module({
   imports: [
@@ -14,7 +15,7 @@ import { StorageModule } from 'src/storage/storage.module';
     forwardRef(() => PropertiesModule),
   ],
   controllers: [PhotosController],
-  providers: [PhotosService],
+  providers: [PhotosService, PropertyCacheService],
   exports: [PhotosService],
 })
 export class PhotosModule {}

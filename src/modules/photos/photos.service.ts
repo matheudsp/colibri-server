@@ -12,6 +12,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { StorageService } from '../../storage/storage.service';
 import { PropertiesService } from '../properties/properties.service';
 import { ROLES } from 'src/common/constants/roles.constant';
+import { PropertyCacheService } from '../properties/properties-cache.service';
 
 @Injectable()
 export class PhotosService {
@@ -20,6 +21,7 @@ export class PhotosService {
     private storageService: StorageService,
     @Inject(forwardRef(() => PropertiesService))
     private propertyService: PropertiesService,
+    private readonly propertyCacheService: PropertyCacheService,
   ) {}
 
   async uploadPropertyPhotos(files: Express.Multer.File[], propertyId: string) {
@@ -71,7 +73,7 @@ export class PhotosService {
           };
         }),
       );
-
+      await this.propertyCacheService.clearPropertiesCache(property.landlordId);
       return uploadedPhotos;
     } catch (error) {
       console.error('Falha no upload de fotos:', error);
@@ -120,11 +122,16 @@ export class PhotosService {
   async deletePhotosByProperty(propertyId: string) {
     const photos = await this.prisma.photo.findMany({
       where: { propertyId },
+      include: {
+        property: true,
+      },
     });
 
     if (photos.length === 0) {
       return;
     }
+
+    const landlordId = photos[0]?.property?.landlordId;
 
     const filePathsToDelete = photos.map((photo) => photo.filePath);
 
@@ -133,6 +140,10 @@ export class PhotosService {
     await this.prisma.photo.deleteMany({
       where: { propertyId },
     });
+
+    if (landlordId) {
+      await this.propertyCacheService.clearPropertiesCache(landlordId);
+    }
   }
 
   async updatePhoto(
@@ -148,10 +159,16 @@ export class PhotosService {
           select: {
             id: true,
             title: true,
+            landlordId: true,
           },
         },
       },
     });
+    if (photo.property) {
+      await this.propertyCacheService.clearPropertiesCache(
+        photo.property.landlordId,
+      );
+    }
 
     return {
       ...photo,
@@ -166,13 +183,29 @@ export class PhotosService {
       );
     }
 
-    const photo = await this.prisma.photo.findUnique({ where: { id } });
+    const photo = await this.prisma.photo.findUnique({
+      where: { id },
+      include: {
+        property: {
+          select: {
+            landlordId: true,
+          },
+        },
+      },
+    });
+
     if (!photo) {
       throw new NotFoundException('Foto não encontrada');
     }
 
     await this.storageService.deleteFile(photo.filePath, 'property-images');
     await this.prisma.photo.delete({ where: { id } });
+
+    if (photo.property) {
+      await this.propertyCacheService.clearPropertiesCache(
+        photo.property.landlordId,
+      );
+    }
 
     return { success: true, message: 'Foto deletada com sucesso' };
   }

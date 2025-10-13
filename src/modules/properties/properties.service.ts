@@ -24,6 +24,7 @@ import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { CacheService } from 'src/modules/cache/cache.service';
 import { UserPreferences } from 'src/common/interfaces/user.preferences.interface';
 import { ContractLifecycleService } from '../contracts/contracts.lifecycle.service';
+import { PropertyCacheService } from './properties-cache.service';
 
 @Injectable()
 export class PropertiesService {
@@ -38,13 +39,8 @@ export class PropertiesService {
     private contractsLifecycleService: ContractLifecycleService,
     private readonly cacheService: CacheService,
     private verificationService: VerificationService,
+    private propertyCacheService: PropertyCacheService,
   ) {}
-
-  private async clearPropertiesCache(landlordId: string) {
-    this.logger.log('Limpando chaves de cache de propriedades...');
-    await this.cacheService.delFromList(this.AVAILABLE_PROPERTIES_LIST_KEY);
-    await this.cacheService.delFromList(`list:user_properties:${landlordId}`);
-  }
 
   async create(
     createPropertyDto: CreatePropertyDto,
@@ -79,7 +75,7 @@ export class PropertiesService {
       'Property',
       property.id,
     );
-    await this.clearPropertiesCache(currentUser.sub);
+    await this.propertyCacheService.clearPropertiesCache(currentUser.sub);
     return property;
   }
   async update(
@@ -109,7 +105,9 @@ export class PropertiesService {
       'Property',
       updatedProperty.id,
     );
-    await this.clearPropertiesCache(updatedProperty.landlordId);
+    await this.propertyCacheService.clearPropertiesCache(
+      updatedProperty.landlordId,
+    );
 
     return updatedProperty;
   }
@@ -624,7 +622,7 @@ export class PropertiesService {
       property.id,
     );
 
-    await this.clearPropertiesCache(property.landlordId);
+    await this.propertyCacheService.clearPropertiesCache(property.landlordId);
 
     return {
       message:

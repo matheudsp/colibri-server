@@ -7,6 +7,7 @@ import { AppConfigModule } from 'src/config/config.module';
 import { PhotosModule } from '../photos/photos.module';
 import { ContractsModule } from '../contracts/contracts.module';
 import { VerificationModule } from '../verification/verification.module';
+import { PropertyCacheService } from './properties-cache.service';
 
 @Module({
   imports: [
@@ -15,8 +16,13 @@ import { VerificationModule } from '../verification/verification.module';
     forwardRef(() => ContractsModule),
     VerificationModule,
   ],
-  providers: [PropertiesService, PrismaService, LogHelperService],
+  providers: [
+    PropertiesService,
+    PrismaService,
+    LogHelperService,
+    PropertyCacheService,
+  ],
   controllers: [PropertiesController],
-  exports: [PropertiesService],
+  exports: [PropertiesService, PropertyCacheService],
 })
 export class PropertiesModule {}
