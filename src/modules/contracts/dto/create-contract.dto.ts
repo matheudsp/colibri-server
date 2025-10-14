@@ -11,9 +11,48 @@ import {
   IsString,
   ValidateIf,
   MinLength,
+  registerDecorator,
+  ValidationOptions,
+  ValidationArguments,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
 } from 'class-validator';
 import { ContractStatus, GuaranteeType } from '@prisma/client';
 
+@ValidatorConstraint({ name: 'maxSecurityDeposit', async: false })
+export class MaxSecurityDepositConstraint
+  implements ValidatorConstraintInterface
+{
+  validate(securityDeposit: number, args: ValidationArguments) {
+    const object = args.object as CreateContractDto;
+    const rentAmount = object.rentAmount;
+
+    // Se não houver valor de aluguel ou caução, a validação passa
+    if (!rentAmount || !securityDeposit) {
+      return true;
+    }
+
+    // O valor da caução não pode exceder 3x o valor do aluguel
+    return securityDeposit <= rentAmount * 3;
+  }
+
+  defaultMessage(args: ValidationArguments) {
+    const object = args.object as CreateContractDto;
+    return `O valor do depósito caução não pode exceder 3 meses de aluguel (limite: R$ ${object.rentAmount * 3}).`;
+  }
+}
+
+export function MaxSecurityDeposit(validationOptions?: ValidationOptions) {
+  return function (object: object, propertyName: string) {
+    registerDecorator({
+      target: object.constructor,
+      propertyName: propertyName,
+      options: validationOptions,
+      constraints: [],
+      validator: MaxSecurityDepositConstraint,
+    });
+  };
+}
 export class CreateContractDto {
   @ApiProperty()
   @IsUUID()
@@ -95,5 +134,9 @@ export class CreateContractDto {
   @IsNumber()
   @IsOptional()
   @Min(0)
+  @ValidateIf((o) => o.guaranteeType === GuaranteeType.DEPOSITO_CAUCAO)
+  @MaxSecurityDeposit({
+    message: 'O valor do depósito caução não pode exceder 3 meses de aluguel.',
+  })
   securityDeposit!: number;
 }
