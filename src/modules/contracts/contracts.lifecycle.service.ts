@@ -7,26 +7,27 @@ import {
   InternalServerErrorException,
   Inject,
   forwardRef,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpdateContractDto } from './dto/update-contract.dto';
-import { Prisma, ContractStatus } from '@prisma/client';
+import { ContractStatus, GuaranteeType } from '@prisma/client';
 import { PropertiesService } from '../properties/properties.service';
 import { ROLES } from 'src/common/constants/roles.constant';
 import { UserService } from '../users/users.service';
 import { LogHelperService } from '../logs/log-helper.service';
-import { EmailJobType, type NotificationJob } from 'src/queue/jobs/email.job';
-import { InjectQueue } from '@nestjs/bull';
-import { Queue } from 'bull';
-import { QueueName } from 'src/queue/jobs/jobs';
+
 import { PdfsService } from '../pdfs/pdfs.service';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.service';
 import { ContractPaymentService } from './contracts.payment.service';
 import { CreateContractDto } from './dto/create-contract.dto';
+import { PaymentsOrdersService } from '../payments-orders/payments-orders.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ContractLifecycleService {
+  private readonly logger = new Logger(ContractLifecycleService.name);
   constructor(
     private prisma: PrismaService,
     @Inject(forwardRef(() => PropertiesService))
@@ -36,7 +37,9 @@ export class ContractLifecycleService {
     private pdfsService: PdfsService,
     private paymentGateway: PaymentGatewayService,
     private contractPaymentService: ContractPaymentService,
-    @InjectQueue(QueueName.EMAIL) private emailQueue: Queue,
+    @Inject(forwardRef(() => PaymentsOrdersService))
+    private paymentsOrdersService: PaymentsOrdersService,
+    private notificationsService: NotificationsService,
   ) {}
 
   async create(
@@ -104,19 +107,17 @@ export class ContractLifecycleService {
     );
 
     if (property && tenant) {
-      const jobPayload: NotificationJob = {
+      await this.notificationsService.create({
+        userId: tenant.id,
         user: { email: tenant.email, name: tenant.name },
-        notification: {
-          title: 'Seu contrato de aluguel foi criado!',
-          message: `O proprietário do imóvel "${property.title}" iniciou um processo de locação com você. O próximo passo é enviar seus documentos para análise.`,
-        },
+        title: 'Seu contrato de aluguel foi criado!',
+        message: `O proprietário do imóvel "${property.title}" iniciou um processo de locação com você. O próximo passo é enviar seus documentos para análise.`,
         action: {
           text: 'Acessar e Enviar Documentos',
           path: `/contratos/${contract.id}/documentos`,
         },
-      };
-
-      this.emailQueue.add(EmailJobType.NOTIFICATION, jobPayload);
+        sendEmail: true,
+      });
     }
 
     return {
@@ -135,17 +136,46 @@ export class ContractLifecycleService {
     const contract = await this.prisma.contract.findUnique({
       where: { id: contractId },
       include: {
-        tenant: { select: { name: true, email: true } },
-        landlord: { select: { name: true, email: true } },
+        tenant: { select: { id: true, name: true, email: true } },
+        landlord: { select: { id: true, name: true, email: true } },
         property: { select: { title: true } },
       },
     });
 
-    if (!contract) {
+    if (
+      !contract ||
+      contract.status !== ContractStatus.AGUARDANDO_ASSINATURAS
+    ) {
+      // Nenhuma ação se o contrato não existe ou já foi processado
       return;
     }
 
-    if (contract.status === ContractStatus.AGUARDANDO_ASSINATURAS) {
+    if (
+      contract.guaranteeType === GuaranteeType.DEPOSITO_CAUCAO &&
+      contract.securityDeposit &&
+      contract.securityDeposit?.toNumber() > 0
+    ) {
+      await this.prisma.contract.update({
+        where: { id: contractId },
+        data: { status: ContractStatus.AGUARDANDO_GARANTIA },
+      });
+
+      await this.paymentsOrdersService.createAndChargeSecurityDeposit(
+        contractId,
+      );
+      this.logger.log(`Contrato ${contractId} aguardando pagamento da caução.`);
+      await this.notificationsService.create({
+        userId: contract.tenant.id,
+        user: { name: contract.tenant.name, email: contract.tenant.email },
+        title: 'Ação Necessária: Pagar Depósito Caução',
+        message: `Seu contrato para o imóvel "${contract.property.title}" foi assinado! Para ativá-lo, o próximo passo é realizar o pagamento do depósito caução.`,
+        action: {
+          text: 'Pagar Depósito Caução',
+          path: `/contratos/${contract.id}`,
+        },
+        sendEmail: true,
+      });
+    } else {
       await this.prisma.contract.update({
         where: { id: contractId },
         data: { status: ContractStatus.ATIVO },
@@ -158,7 +188,6 @@ export class ContractLifecycleService {
       await this.contractPaymentService.createPaymentsAndFirstBankSlip(
         contractId,
       );
-
       const notification = {
         title: 'Contrato Assinado e Ativado!',
         message: `O contrato de aluguel para o imóvel "${contract.property.title}" foi assinado por todas as partes e agora está ativo.`,
@@ -169,24 +198,84 @@ export class ContractLifecycleService {
         path: `/contratos/${contract.id}`,
       };
 
-      this.emailQueue.add(EmailJobType.NOTIFICATION, {
+      this.notificationsService.create({
+        userId: contract.tenant.id,
         user: contract.tenant,
-        notification,
-        action,
+        title: notification.title,
+        message: notification.message,
+        action: action,
+        sendEmail: true,
       });
-
-      this.emailQueue.add(EmailJobType.NOTIFICATION, {
+      this.notificationsService.create({
+        userId: contract.landlord.id,
         user: contract.landlord,
-        notification,
-        action,
+        title: notification.title,
+        message: notification.message,
+        action: action,
+        sendEmail: true,
       });
 
       console.log(`Contrato ${contractId} ativado com sucesso via webhook.`);
-    } else {
-      console.log(
-        `Contrato ${contractId} já estava em um estado diferente de AGUARDANDO_ASSINATURAS. Nenhuma ação foi tomada.`,
-      );
     }
+  }
+
+  async activateContractAfterDepositPayment(contractId: string): Promise<void> {
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+      include: {
+        tenant: { select: { id: true, name: true, email: true } },
+        landlord: { select: { id: true, name: true, email: true } },
+        property: { select: { title: true } },
+      },
+    });
+
+    if (!contract || contract.status !== ContractStatus.AGUARDANDO_GARANTIA) {
+      this.logger.warn(
+        `Tentativa de ativar o contrato ${contractId} que não estava aguardando pagamento da caução.`,
+      );
+      return;
+    }
+
+    await this.prisma.contract.update({
+      where: { id: contractId },
+      data: { status: ContractStatus.ATIVO },
+    });
+
+    await this.prisma.property.update({
+      where: { id: contract.propertyId },
+      data: { isAvailable: false },
+    });
+
+    await this.contractPaymentService.createPaymentsAndFirstBankSlip(
+      contractId,
+    );
+
+    this.logger.log(
+      `Contrato ${contractId} ativado com sucesso após pagamento da caução.`,
+    );
+    const notification = {
+      title: 'Contrato Ativado!',
+      message: `O depósito caução foi confirmado e o contrato de aluguel para o imóvel "${contract.property.title}" está oficialmente ativo.`,
+    };
+    const action = { text: 'Ver Contrato', path: `/contratos/${contract.id}` };
+
+    await this.notificationsService.create({
+      userId: contract.tenant.id,
+      user: contract.tenant,
+      title: notification.title,
+      message: notification.message,
+      action: action,
+      sendEmail: true,
+    });
+
+    await this.notificationsService.create({
+      userId: contract.landlord.id,
+      user: contract.landlord,
+      title: notification.title,
+      message: notification.message,
+      action: action,
+      sendEmail: true,
+    });
   }
 
   async forceActivateContract(
@@ -196,7 +285,7 @@ export class ContractLifecycleService {
     const contract = await this.prisma.contract.findUnique({
       where: { id: contractId },
       include: {
-        tenant: { select: { name: true, email: true } },
+        tenant: { select: { id: true, name: true, email: true } },
         property: { select: { title: true } },
       },
     });
@@ -234,22 +323,21 @@ export class ContractLifecycleService {
       contractId,
     );
 
-    const jobPayload: NotificationJob = {
+    await this.notificationsService.create({
+      userId: contract.tenant.id,
       user: {
         email: contract.tenant.email,
         name: contract.tenant.name,
       },
-      notification: {
-        title: 'Contrato de aluguel foi iniciado!',
-        message: `O contrato de locação do imóvel "${contract.property.title}" foi iniciado com sucesso. Agora você pode acessar os detalhes do contrato.`,
-      },
+      title: 'Contrato de aluguel foi iniciado!',
+      message: `O contrato de locação do imóvel "${contract.property.title}" foi iniciado com sucesso. Agora você pode acessar os detalhes do contrato.`,
       action: {
         text: 'Ver contrato',
         path: `/contratos/${contract.id}`,
       },
-    };
+      sendEmail: true,
+    });
 
-    await this.emailQueue.add(EmailJobType.NOTIFICATION, jobPayload);
     return updatedContract;
   }
 
@@ -367,21 +455,20 @@ export class ContractLifecycleService {
       updatedContract.id,
     );
 
-    const job: NotificationJob = {
+    await this.notificationsService.create({
+      userId: contract.landlordId,
       user: {
         name: contract.landlord.name,
         email: contract.landlord.email,
       },
-      notification: {
-        title: 'Contrato Cancelado com Sucesso',
-        message: `O contrato para o imóvel "${contract.property.title}" foi cancelado. Todas as cobranças pendentes associadas a ele também foram canceladas.`,
-      },
+      title: 'Contrato Cancelado com Sucesso',
+      message: `O contrato para o imóvel "${contract.property.title}" foi cancelado. Todas as cobranças pendentes associadas a ele também foram canceladas.`,
       action: {
         text: 'Ver Meus Contratos',
         path: '/contratos',
       },
-    };
-    await this.emailQueue.add(EmailJobType.NOTIFICATION, job);
+      sendEmail: true,
+    });
 
     return updatedContract;
   }

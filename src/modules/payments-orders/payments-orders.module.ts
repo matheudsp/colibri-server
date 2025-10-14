@@ -12,6 +12,8 @@ import { UserModule } from '../users/users.module';
 import { TransfersService } from '../transfers/transfers.service';
 import { NotificationsModule } from '../notifications/notifications.module';
 
+import { ContractsModule } from '../contracts/contracts.module';
+
 @Module({
   imports: [
     PaymentGatewayModule,
@@ -20,6 +22,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     forwardRef(() => QueueModule),
     forwardRef(() => UserModule),
     NotificationsModule,
+    forwardRef(() => ContractsModule),
   ],
   providers: [
     PaymentsOrdersService,

@@ -155,8 +155,8 @@ export class ClicksignService {
         type: 'requirements',
         attributes: {
           action: 'provide_evidence',
-          auth: 'selfie' as const,
-          //  auth: 'whatsapp' as const
+          // auth: 'selfie' as const, // em produção usar 'selfie' para segurança
+          auth: 'whatsapp' as const, // em testes usar 'whatsapp' para evitar dor de cabeça
         },
         relationships: commonRelationships,
       },

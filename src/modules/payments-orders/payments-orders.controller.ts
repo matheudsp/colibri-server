@@ -35,6 +35,40 @@ import { FindUserPaymentsDto } from './dto/find-user-payments.dto';
 export class PaymentsOrdersController {
   constructor(private readonly paymentsService: PaymentsOrdersService) {}
 
+  @Get(':id')
+  @Roles(ROLES.LOCATARIO, ROLES.LOCADOR, ROLES.ADMIN)
+  @ApiOperation({ summary: 'Busca uma ordem de pagamento pelo seu ID' })
+  @ApiResponse({ status: 200, type: PaymentResponseDto })
+  @ApiResponse({
+    status: 404,
+    description: 'Ordem de pagamento não encontrada.',
+  })
+  @ApiResponse({ status: 403, description: 'Acesso não autorizado.' })
+  findById(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() currentUser: JwtPayload,
+  ) {
+    return this.paymentsService.findById(id, currentUser);
+  }
+
+  @Post(':paymentOrderId/confirm-deposit-cash')
+  @Roles(ROLES.LOCADOR)
+  @ApiOperation({
+    summary: 'Registra o recebimento do Depósito Caução em dinheiro',
+  })
+  @ApiResponse({ status: 200, type: PaymentResponseDto })
+  confirmSecurityDepositInCash(
+    @Param('paymentOrderId', ParseUUIDPipe) paymentOrderId: string,
+    @CurrentUser() currentUser: JwtPayload,
+    @Body() registerPaymentDto: RegisterPaymentDto,
+  ) {
+    return this.paymentsService.confirmSecurityDepositInCash(
+      paymentOrderId,
+      currentUser,
+      registerPaymentDto,
+    );
+  }
+
   @Get('contracts/:contractId')
   @Roles(ROLES.LOCADOR, ROLES.LOCATARIO, ROLES.ADMIN)
   @ApiOperation({ summary: 'List all payments for a contract' })

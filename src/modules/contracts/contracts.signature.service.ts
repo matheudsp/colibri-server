@@ -9,7 +9,7 @@ import { ROLES } from 'src/common/constants/roles.constant';
 import { PdfsService } from '../pdfs/pdfs.service';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { ClicksignService } from '../clicksign/clicksign.service';
-import { ContractStatus } from '@prisma/client';
+import { ContractStatus, PdfType } from '@prisma/client';
 
 @Injectable()
 export class ContractSignatureService {
@@ -21,7 +21,7 @@ export class ContractSignatureService {
 
   async getContractPdfSignedUrl(contractId: string) {
     const pdf = await this.prisma.generatedPdf.findFirst({
-      where: { contractId: contractId, pdfType: 'CONTRATO_LOCACAO' },
+      where: { contractId: contractId, pdfType: PdfType.CONTRATO_LOCACAO },
       orderBy: { generatedAt: 'desc' },
     });
 

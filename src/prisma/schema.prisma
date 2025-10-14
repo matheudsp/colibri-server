@@ -52,6 +52,7 @@ enum ContractStatus {
   PENDENTE_DOCUMENTACAO
   EM_ANALISE
   AGUARDANDO_ASSINATURAS
+  AGUARDANDO_GARANTIA // Se for garantia de caução
   ATIVO
   FINALIZADO
   CANCELADO
@@ -324,9 +325,10 @@ model Contract {
   endDate          DateTime
   durationInMonths Int
   guaranteeType    GuaranteeType  @default(SEM_GARANTIA)
-  securityDeposit  Decimal?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+
+  securityDeposit Decimal?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
@@ -381,18 +383,20 @@ model SignatureRequest {
 }
 
 model PaymentOrder {
-  id           String         @id @default(uuid())
-  contractId   String
-  amountDue    Decimal
-  amountPaid   Decimal?
-  netValue     Decimal?
-  dueDate      DateTime       @default(now()) @db.Date
-  paidAt       DateTime?      @db.Date
-  status       PaymentStatus  @default(PENDENTE)
-  contract     Contract       @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  charge       Charge?
-  transfer     Transfer?
-  PaymentSplit PaymentSplit[]
+  id         String        @id @default(uuid())
+  contractId String
+  amountDue  Decimal
+  amountPaid Decimal?
+  netValue   Decimal?
+  dueDate    DateTime      @default(now()) @db.Date
+  paidAt     DateTime?     @db.Date
+  status     PaymentStatus @default(PENDENTE)
+  contract   Contract      @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  isSecurityDeposit Boolean        @default(false)
+  charge            Charge?
+  transfer          Transfer?
+  PaymentSplit      PaymentSplit[]
 }
 
 model Transfer {

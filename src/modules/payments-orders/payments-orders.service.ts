@@ -1,5 +1,8 @@
 import {
+  BadRequestException,
   ForbiddenException,
+  forwardRef,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -18,15 +21,14 @@ import {
 } from '@prisma/client';
 import { addMonths } from 'date-fns';
 import { RegisterPaymentDto } from './dto/register-payment.dto';
-import { Queue } from 'bull';
-import { QueueName } from 'src/queue/jobs/jobs';
-import { InjectQueue } from '@nestjs/bull';
+
 import { DateUtils } from 'src/common/utils/date.utils';
 import { CurrencyUtils } from 'src/common/utils/currency.utils';
 import { FindUserPaymentsDto } from './dto/find-user-payments.dto';
 import { TransfersService } from '../transfers/transfers.service';
 import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ContractLifecycleService } from '../contracts/contracts.lifecycle.service';
 
 @Injectable()
 export class PaymentsOrdersService {
@@ -34,11 +36,160 @@ export class PaymentsOrdersService {
   constructor(
     private prisma: PrismaService,
     private logHelper: LogHelperService,
-    @InjectQueue(QueueName.EMAIL) private emailQueue: Queue,
     private transfersService: TransfersService,
     private paymentGateway: PaymentGatewayService,
     private notificationsService: NotificationsService,
+    @Inject(forwardRef(() => ContractLifecycleService))
+    private contractLifecycleService: ContractLifecycleService,
+    // private chargesService: ChargesService,
   ) {}
+
+  /**
+   * Encontra uma PaymentOrder específica pelo ID, com verificação de permissão.
+   */
+  async findById(paymentOrderId: string, currentUser: JwtPayload) {
+    const paymentOrder = await this.prisma.paymentOrder.findUnique({
+      where: { id: paymentOrderId },
+      include: {
+        charge: true,
+        contract: {
+          select: {
+            id: true,
+            tenantId: true,
+            landlordId: true,
+            property: { select: { id: true, title: true } },
+          },
+        },
+      },
+    });
+
+    if (!paymentOrder) {
+      throw new NotFoundException('Ordem de pagamento não encontrada.');
+    }
+
+    const isTenant = paymentOrder.contract.tenantId === currentUser.sub;
+    const isLandlord = paymentOrder.contract.landlordId === currentUser.sub;
+    const isAdmin = currentUser.role === ROLES.ADMIN;
+
+    if (!isTenant && !isLandlord && !isAdmin) {
+      throw new ForbiddenException(
+        'Você não tem permissão para visualizar esta ordem de pagamento.',
+      );
+    }
+
+    return paymentOrder;
+  }
+
+  /**
+   * Registra o recebimento manual (em dinheiro) do depósito caução, feito pelo locador.
+   */
+  async confirmSecurityDepositInCash(
+    paymentOrderId: string,
+    currentUser: JwtPayload,
+    registerPaymentDto: RegisterPaymentDto,
+  ) {
+    const securityDepositOrder = await this.prisma.paymentOrder.findUnique({
+      where: {
+        id: paymentOrderId,
+      },
+      include: {
+        contract: true,
+      },
+    });
+
+    if (!securityDepositOrder) {
+      throw new NotFoundException('Ordem de pagamento não encontrada.');
+    }
+
+    // Validação adicional para garantir que esta rota só afete a caução
+    if (!securityDepositOrder.isSecurityDeposit) {
+      throw new BadRequestException(
+        'Esta ordem de pagamento não se refere a um depósito caução.',
+      );
+    }
+
+    if (securityDepositOrder.contract.landlordId !== currentUser.sub) {
+      throw new ForbiddenException(
+        'Você não tem permissão para registrar este pagamento.',
+      );
+    }
+
+    if (securityDepositOrder.status !== PaymentStatus.PENDENTE) {
+      throw new BadRequestException(
+        `Esta cobrança de caução não está pendente (status atual: ${securityDepositOrder.status}).`,
+      );
+    }
+
+    const { amountPaid, paidAt } = registerPaymentDto;
+    const value = amountPaid ?? securityDepositOrder.amountDue.toNumber();
+    const paymentDate = paidAt ?? new Date();
+
+    const updatedPaymentOrder = await this.prisma.paymentOrder.update({
+      where: { id: securityDepositOrder.id },
+      data: {
+        status: PaymentStatus.PAGO,
+        amountPaid: value,
+        paidAt: paymentDate,
+      },
+    });
+
+    await this.logHelper.createLog(
+      currentUser.sub,
+      'CONFIRM_SECURITY_DEPOSIT_CASH',
+      'PaymentOrder',
+      updatedPaymentOrder.id,
+    );
+
+    // Usa o contractId da ordem de pagamento para ativar o contrato
+    await this.contractLifecycleService.activateContractAfterDepositPayment(
+      securityDepositOrder.contractId,
+    );
+
+    this.logger.log(
+      `Depósito caução para o contrato ${securityDepositOrder.contractId} foi confirmado manualmente pelo locador ${currentUser.sub}.`,
+    );
+
+    return updatedPaymentOrder;
+  }
+
+  async createAndChargeSecurityDeposit(contractId: string): Promise<void> {
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+    });
+
+    if (
+      !contract ||
+      !contract.securityDeposit ||
+      contract.securityDeposit.toNumber() <= 0
+    ) {
+      throw new BadRequestException(
+        'Contrato não encontrado ou sem valor de depósito caução definido.',
+      );
+    }
+
+    // Cria a Ordem de Pagamento específica para a caução
+    // const securityDepositPaymentOrder =
+    await this.prisma.paymentOrder.create({
+      data: {
+        contractId: contract.id,
+        amountDue: contract.securityDeposit,
+        dueDate: new Date(), // Vencimento imediato
+        status: PaymentStatus.PENDENTE,
+        isSecurityDeposit: true, // Identificador
+      },
+    });
+
+    // await this.chargesService.generateChargeForPaymentOrder(
+    //   securityDepositPaymentOrder.id,
+    //   'BOLETO', // ou 'PIX' conforme regra de negócio
+    // );
+
+    this.logger.log(
+      `Cobrança do depósito caução gerada para o contrato ${contractId}.`,
+    );
+    // enviar uma notificação para o locatário informando que ele precisa pagar a caução.
+  }
+
   async findUserPayments(
     currentUser: JwtPayload,
     filters: FindUserPaymentsDto,
@@ -183,21 +334,21 @@ export class PaymentsOrdersService {
     paidAt: Date,
     transactionReceiptUrl?: string,
   ) {
-    const bankSlip = await this.prisma.charge.findUnique({
+    const charge = await this.prisma.charge.findUnique({
       where: { asaasChargeId },
+      include: {
+        paymentOrder: true,
+      },
     });
-    if (!bankSlip) {
+    if (!charge || !charge.paymentOrder) {
       this.logger.warn(
-        `Boleto com asaasChargeId ${asaasChargeId} não encontrado. Webhook ignorado.`,
+        `Cobrança com asaasChargeId ${asaasChargeId} não encontrada. Webhook ignorado.`,
       );
       return;
     }
+    const { paymentOrder } = charge;
 
-    const paymentOrder = await this.prisma.paymentOrder.findUnique({
-      where: { id: bankSlip.paymentOrderId },
-    });
-
-    if (!paymentOrder || paymentOrder.status === PaymentStatus.PAGO) {
+    if (paymentOrder.status === PaymentStatus.PAGO) {
       return;
     }
 
@@ -226,13 +377,24 @@ export class PaymentsOrdersService {
     });
     if (transactionReceiptUrl) {
       await this.prisma.charge.update({
-        where: { id: bankSlip.id },
+        where: { id: charge.id },
         data: { transactionReceiptUrl },
       });
     }
-    await this.notifyUsersOfPayment(updatedPaymentOrder);
+    if (paymentOrder.isSecurityDeposit) {
+      // Se for o pagamento da caução, ativa o contrato
+      await this.contractLifecycleService.activateContractAfterDepositPayment(
+        paymentOrder.contractId,
+      );
 
-    await this.transfersService.initiateAutomaticTransfer(updatedPaymentOrder);
+      // Notifique as partes que o contrato está ativo
+    } else {
+      // Se for um pagamento de aluguel normal, segue o fluxo padrão
+      await this.notifyUsersOfPayment(updatedPaymentOrder);
+      await this.transfersService.initiateAutomaticTransfer(
+        updatedPaymentOrder,
+      );
+    }
   }
 
   async confirmCashPayment(
