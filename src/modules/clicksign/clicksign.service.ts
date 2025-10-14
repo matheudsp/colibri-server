@@ -105,9 +105,11 @@ export class ClicksignService {
           ...signer,
           has_documentation: !!signer.documentation,
           communicate_events: {
-            signature_request: 'whatsapp',
+            // signature_request: 'whatsapp',
+            signature_request: 'email',
             signature_reminder: 'email',
-            document_signed: 'whatsapp',
+            // document_signed: 'whatsapp',
+            document_signed: 'email',
           },
         },
       },
@@ -156,13 +158,14 @@ export class ClicksignService {
         attributes: {
           action: 'provide_evidence',
           // auth: 'selfie' as const, // em produção usar 'selfie' para segurança
-          auth: 'whatsapp' as const, // em testes usar 'whatsapp' para evitar dor de cabeça
+          // auth: 'whatsapp' as const, // em testes usar 'whatsapp' para evitar dor de cabeça
+          auth: 'email' as const, // em testes usar 'email' para evitar dor de cabeça
         },
         relationships: commonRelationships,
       },
     };
     this.logger.log(
-      `PASSO 4b: Adicionando Requisito de AUTENTICAÇÃO ('whatsapp') para o signatário ${signerId}.`,
+      `PASSO 4b: Adicionando Requisito de AUTENTICAÇÃO para o signatário ${signerId}.`,
     );
     await firstValueFrom(
       this.httpService.post(url, authenticationPayload, {
