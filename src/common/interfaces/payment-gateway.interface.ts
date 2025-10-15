@@ -71,7 +71,7 @@ export interface CreateAsaasCustomerDto {
 
 export interface CreateAsaasChargeDto {
   customer: string; // ID do cliente Asaas
-  billingType: 'BOLETO' | 'PIX';
+  billingType: 'BOLETO' | 'PIX' | 'UNDEFINED';
   dueDate: string;
   value: number;
   description?: string;

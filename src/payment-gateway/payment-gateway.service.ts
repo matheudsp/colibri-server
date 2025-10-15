@@ -298,4 +298,82 @@ export class PaymentGatewayService {
       );
     }
   }
+
+  async getPixKeyById(apiKey: string, keyId: string): Promise<any> {
+    this.logger.log(`Buscando chave PIX por ID: ${keyId}`);
+    return this.request<any>(
+      'get',
+      `${this.asaasApiUrl}/pix/addressKeys/${keyId}`,
+      apiKey,
+    );
+  }
+
+  /**
+   * Cria uma nova chave PIX do tipo EVP para a subconta no Asaas.
+   * @returns O objeto da nova chave PIX criada.
+   */
+  async createEvpPixKey(apiKey: string): Promise<any> {
+    this.logger.log('Criando nova chave PIX EVP na Asaas...');
+    const response = await this.request<any>(
+      'post',
+      `${this.asaasApiUrl}/pix/addressKeys`,
+      apiKey,
+      { type: 'EVP' },
+    );
+    this.logger.log(`Chave PIX EVP criada com sucesso: ${response.id}`);
+    return response;
+  }
+
+  /**
+   * Busca uma chave PIX EVP ativa listando todas as chaves da subconta.
+   * @returns O objeto da chave PIX se encontrado, caso contrário null.
+   */
+  async findActiveEvpPixKey(apiKey: string): Promise<any | null> {
+    this.logger.log('Buscando por chave PIX EVP ativa na Asaas...');
+    const response = await this.request<any>(
+      'get',
+      `${this.asaasApiUrl}/pix/addressKeys`,
+      apiKey,
+    );
+
+    if (response && Array.isArray(response.data)) {
+      const evpKey = response.data.find(
+        (key: any) => key.type === 'EVP' && key.status === 'ACTIVE',
+      );
+      if (evpKey) {
+        this.logger.log(`Chave PIX EVP ativa encontrada: ${evpKey.id}`);
+        return evpKey;
+      }
+    }
+
+    this.logger.log('Nenhuma chave PIX EVP ativa encontrada.');
+    return null;
+  }
+
+  /**
+   * Obtém os dados do QR Code PIX para uma cobrança existente.
+   * @param apiKey Chave de API da subconta.
+   * @param chargeId Identificador único da cobrança no Asaas.
+   * @returns Objeto com a imagem em base64 e o payload (copia e cola).
+   */
+  async getPixQrCode(apiKey: string, chargeId: string): Promise<any> {
+    this.logger.log(`Obtendo QR Code PIX para a cobrança: ${chargeId}`);
+    const endpoint = `${this.asaasApiUrl}/payments/${chargeId}/pixQrCode`;
+    return this.request<any>('get', endpoint, apiKey);
+  }
+
+  /**
+   * Obtém a linha digitável (identification field) de um boleto existente.
+   * @param apiKey Chave de API da subconta.
+   * @param chargeId Identificador único da cobrança no Asaas.
+   * @returns Objeto com a linha digitável.
+   */
+  async getBankSlipIdentificationField(
+    apiKey: string,
+    chargeId: string,
+  ): Promise<any> {
+    this.logger.log(`Obtendo linha digitável para a cobrança: ${chargeId}`);
+    const endpoint = `${this.asaasApiUrl}/payments/${chargeId}/identificationField`;
+    return this.request<any>('get', endpoint, apiKey);
+  }
 }

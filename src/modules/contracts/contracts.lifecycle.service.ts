@@ -16,7 +16,7 @@ import { PropertiesService } from '../properties/properties.service';
 import { ROLES } from 'src/common/constants/roles.constant';
 import { UserService } from '../users/users.service';
 import { LogHelperService } from '../logs/log-helper.service';
-
+import { ClicksignService } from '../clicksign/clicksign.service';
 import { PdfsService } from '../pdfs/pdfs.service';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.service';
@@ -40,6 +40,7 @@ export class ContractLifecycleService {
     @Inject(forwardRef(() => PaymentsOrdersService))
     private paymentsOrdersService: PaymentsOrdersService,
     private notificationsService: NotificationsService,
+    private clicksignService: ClicksignService,
   ) {}
 
   async create(
@@ -381,6 +382,10 @@ export class ContractLifecycleService {
           where: { status: 'PENDENTE' },
           include: { charge: true },
         },
+        GeneratedPdf: {
+          orderBy: { generatedAt: 'desc' },
+          take: 1,
+        },
       },
     });
 
@@ -404,6 +409,27 @@ export class ContractLifecycleService {
       throw new BadRequestException(
         `Este contrato já está '${contract.status}' e não pode ser cancelado.`,
       );
+    }
+    if (contract.status === ContractStatus.AGUARDANDO_ASSINATURAS) {
+      const activePdf = contract.GeneratedPdf[0];
+      if (activePdf && activePdf.clicksignEnvelopeId) {
+        this.logger.log(
+          `Contrato ${contractId} está sendo cancelado. Solicitando exclusão do envelope ${activePdf.clicksignEnvelopeId} na Clicksign.`,
+        );
+        try {
+          await this.clicksignService.deleteEnvelope(
+            activePdf.clicksignEnvelopeId,
+          );
+          this.logger.log(
+            `Envelope ${activePdf.clicksignEnvelopeId} excluído com sucesso.`,
+          );
+        } catch (error) {
+          this.logger.error(
+            `Falha ao excluir o envelope ${activePdf.clicksignEnvelopeId} na Clicksign. O processo de cancelamento do contrato continuará.`,
+            error,
+          );
+        }
+      }
     }
 
     const pendingOrdersWithSlips = contract.paymentsOrders.filter(
@@ -447,6 +473,10 @@ export class ContractLifecycleService {
       where: { id: contractId },
       data: { status: ContractStatus.CANCELADO },
     });
+    this.logger.log(
+      `Iniciando exclusão dos PDFs associados ao contrato cancelado ${contractId}.`,
+    );
+    await this.pdfsService.deletePdfsByContract(contractId);
 
     await this.logHelper.createLog(
       currentUser.sub,

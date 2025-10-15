@@ -73,8 +73,7 @@ export class PdfsService {
       const originalFileName = getPdfFileName(pdf.pdfType, contract.id);
 
       // PASSO 1: Criar Envelope
-      const envelope =
-        await this.clicksignService.createEnvelope(originalFileName);
+      const envelope = await this.clicksignService.createEnvelope(contract.id);
 
       // PASSO 2: Adicionar Documento
       const document = await this.clicksignService.addDocumentToEnvelope(

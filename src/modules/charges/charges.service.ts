@@ -6,6 +6,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
@@ -25,12 +26,65 @@ export class ChargesService {
   ) {
     this.platformWalletId = this.configService.getOrThrow('ASSAS_WALLET_ID');
   }
+  private async getOrCreateEvpPixKey(subAccount: {
+    id: string;
+    apiKey: string;
+    asaasPixKeyId: string | null;
+  }): Promise<string> {
+    if (subAccount.asaasPixKeyId) {
+      try {
+        const keyDetails = await this.paymentGateway.getPixKeyById(
+          subAccount.apiKey,
+          subAccount.asaasPixKeyId,
+        );
+        if (keyDetails && keyDetails.status === 'ACTIVE') {
+          this.logger.log(
+            `Chave PIX ${keyDetails.id} recuperada do DB e validada.`,
+          );
+          return keyDetails.id;
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Chave PIX ${subAccount.asaasPixKeyId} do DB é inválida ou foi removida. Buscando alternativa.`,
+        );
+      }
+    }
+
+    let existingKey = await this.paymentGateway.findActiveEvpPixKey(
+      subAccount.apiKey,
+    );
+
+    if (!existingKey) {
+      existingKey = await this.paymentGateway.createEvpPixKey(
+        subAccount.apiKey,
+      );
+    }
+
+    if (existingKey && existingKey.id !== subAccount.asaasPixKeyId) {
+      await this.prisma.subAccount.update({
+        where: { id: subAccount.id },
+        data: { asaasPixKeyId: existingKey.id },
+      });
+      this.logger.log(
+        `ID da chave PIX ${existingKey.id} salvo para a subconta ${subAccount.id}.`,
+      );
+    }
+
+    if (!existingKey?.id) {
+      throw new InternalServerErrorException(
+        'Não foi possível obter ou criar uma chave PIX EVP.',
+      );
+    }
+
+    return existingKey.id;
+  }
+
   /**
-   * Gera um boleto para uma ordem de pagamento PENDENTE.
+   * Gera uma cobrança para uma ordem de pagamento PENDENTE.
    **/
   async generateChargeForPaymentOrder(
     paymentOrderId: string,
-    billingType: 'BOLETO' | 'PIX',
+    billingType: 'BOLETO' | 'PIX' | 'UNDEFINED',
   ) {
     const paymentOrder = await this.prisma.paymentOrder.findUnique({
       where: { id: paymentOrderId },
@@ -56,8 +110,21 @@ export class ChargesService {
       );
     }
 
-    if (paymentOrder.contract.status !== 'ATIVO')
-      throw new BadRequestException('Contrato inativo.');
+    if (paymentOrder.isSecurityDeposit) {
+      // Se for a fatura da caução, só pode gerar se o contrato estiver AGUARDANDO_GARANTIA
+      if (paymentOrder.contract.status !== 'AGUARDANDO_GARANTIA') {
+        throw new BadRequestException(
+          'A cobrança da caução só pode ser gerada enquanto o contrato aguarda o pagamento da garantia.',
+        );
+      }
+    } else {
+      // Para todas as outras faturas (aluguel), o contrato DEVE estar ATIVO
+      if (paymentOrder.contract.status !== 'ATIVO') {
+        throw new BadRequestException(
+          'Cobranças de aluguel só podem ser geradas para contratos ativos.',
+        );
+      }
+    }
 
     const { contract } = paymentOrder;
     const landlord = contract.landlord;
@@ -67,31 +134,46 @@ export class ChargesService {
         'A conta do locador não está configurada para recebimentos. Entre em contato com suporte.',
       );
 
+    if (billingType === 'PIX') {
+      await this.getOrCreateEvpPixKey({
+        id: landlord.subAccount.id,
+        apiKey: landlord.subAccount.apiKey,
+        asaasPixKeyId: landlord.subAccount.asaasPixKeyId,
+      });
+    }
     const customerId = await this.asaasCustomerService.getOrCreate(
       contract.tenant.id,
       landlord.subAccount.id,
     );
 
-    const value =
-      contract.rentAmount.toNumber() +
-      (contract.condoFee?.toNumber() ?? 0) +
-      (contract.iptuFee?.toNumber() ?? 0);
+    const value = paymentOrder.isSecurityDeposit
+      ? (contract.securityDeposit?.toNumber() ?? 0)
+      : contract.rentAmount.toNumber() +
+        (contract.condoFee?.toNumber() ?? 0) +
+        (contract.iptuFee?.toNumber() ?? 0);
 
     const dueDate = paymentOrder.dueDate.toISOString().split('T')[0];
     if (new Date(dueDate) < new Date(new Date().toISOString().split('T')[0])) {
       throw new BadRequestException(
-        'Não é permitido gerar um boleto com data de vencimento no passado.',
+        'Não é permitido gerar uma cobrança com data de vencimento no passado.',
       );
     }
+    const dueDateObj = new Date(paymentOrder.dueDate);
+    const referenceMonth = (dueDateObj.getUTCMonth() + 1)
+      .toString()
+      .padStart(2, '0');
+    const referenceYear = dueDateObj.getUTCFullYear();
     const platformFee =
       landlord.subAccount.platformFeePercentage?.toNumber() || 5; // Usa 5% como padrão
-
+    const description = paymentOrder.isSecurityDeposit
+      ? `Pagamento da Garantia (Depósito Caução) referente ao contrato do imóvel "${contract.property.title}".`
+      : `Aluguel referente a ${referenceMonth}/${referenceYear} do imóvel "${contract.property.title}". Inquilino: ${contract.tenant.name}.`;
     const chargePayload = {
       customer: customerId,
       billingType,
       dueDate,
       value,
-      description: `Aluguel ${contract.property.title} - venc. ${DateUtils.formatDate(dueDate)}`,
+      description: description,
       split: [
         { walletId: this.platformWalletId, percentualValue: platformFee },
       ],
@@ -109,129 +191,98 @@ export class ChargesService {
       asaasChargeId: chargeResponse.id,
       invoiceUrl: chargeResponse.invoiceUrl,
       dueDate: paymentOrder.dueDate,
-
-      ...(billingType === 'BOLETO'
-        ? {
-            bankSlipUrl: chargeResponse.bankSlipUrl,
-            nossoNumero: chargeResponse.nossoNumero,
-          }
-        : {
-            pixQrCode: chargeResponse.pixQrCode,
-            pixPayload: chargeResponse.pixPayload,
-          }),
+      bankSlipUrl: chargeResponse.bankSlipUrl,
+      nossoNumero: chargeResponse.nossoNumero,
     };
+
     return this.prisma.charge.create({
       data: chargeData,
     });
-    // return this.prisma.paymentOrder.update({
-    //   where: { id: paymentOrder.id },
-    //   data: {
-    //     charge: {
-    //       create: {
-    //         asaasChargeId: chargeResponse.id,
-    //         bankSlipUrl: chargeResponse.bankSlipUrl,
-    //         invoiceUrl: chargeResponse.invoiceUrl,
-    //         nossoNumero: chargeResponse.nossoNumero,
-    //         dueDate: paymentOrder.dueDate,
-    //       },
-    //     },
-    //   },
-    //   include: { charge: true },
-    // });
   }
 
-  // async generateMonthlyBoleto({ contractId, dueDate }: GenerateBoletoDto) {
-  //   const targetDate = new Date(dueDate);
-  //   if (isNaN(targetDate.getTime())) {
-  //     throw new BadRequestException('Formato de data inválido.');
-  //   }
-  //   const startOfDueDate = startOfDay(targetDate);
-  //   const endOfDueDate = endOfDay(targetDate);
-  //   const contract = await this.prisma.contract.findUnique({
-  //     where: { id: contractId },
-  //     include: {
-  //       tenant: true,
-  //       landlord: { include: { subAccount: true, bankAccount: true } },
-  //       paymentsOrders: true,
-  //       property: true,
-  //     },
-  //   });
+  /**
+   * Obtém os dados do QR Code PIX diretamente do gateway de pagamento.
+   */
+  async getPixQrCodeForCharge(paymentOrderId: string) {
+    const paymentOrder = await this.prisma.paymentOrder.findUnique({
+      where: { id: paymentOrderId },
+      include: {
+        charge: true,
+        contract: { include: { landlord: { include: { subAccount: true } } } },
+      },
+    });
 
-  //   if (!contract || contract.status !== 'ATIVO') {
-  //     throw new BadRequestException('Contrato não encontrado ou inativo.');
-  //   }
+    if (!paymentOrder?.charge) {
+      throw new BadRequestException(
+        'Esta fatura ainda não possui uma cobrança gerada.',
+      );
+    }
 
-  //   const existing = await this.prisma.paymentOrder.findFirst({
-  //     where: {
-  //       contractId,
-  //       dueDate: {
-  //         gte: startOfDueDate, // Maior ou igual ao início do dia
-  //         lte: endOfDueDate, // Menor ou igual ao final do dia
-  //       },
-  //     },
-  //     // include: {
-  //     //   contract: {
-  //     //     include: {
-  //     //       tenant: true,
-  //     //       property: true,
-  //     //     },
-  //     //   },
-  //     // },
-  //   });
+    const landlordApiKey = paymentOrder.contract.landlord.subAccount?.apiKey;
+    if (!landlordApiKey) {
+      throw new BadRequestException(
+        'A conta do locador não está configurada para recebimentos.',
+      );
+    }
 
-  //   if (existing) return existing;
+    this.logger.log(
+      `Buscando dados de PIX na Asaas para a cobrança ${paymentOrder.charge.asaasChargeId}.`,
+    );
 
-  //   const landlordSubaccount = contract.landlord.subAccount;
-  //   const landlordBankAccount = contract.landlord.bankAccount;
+    return this.paymentGateway.getPixQrCode(
+      landlordApiKey,
+      paymentOrder.charge.asaasChargeId,
+    );
+  }
 
-  //   if (!landlordSubaccount?.apiKey || !landlordBankAccount?.asaasWalletId) {
-  //     throw new BadRequestException(
-  //       'O locador não possui a conta configurada para recebimento. Consulte o locador e tente novamente.',
-  //     );
-  //   }
+  /**
+   * Obtém a linha digitável de um boleto de uma cobrança existente.
+   */
+  async getBankSlipIdentificationField(paymentOrderId: string) {
+    const paymentOrder = await this.prisma.paymentOrder.findUnique({
+      where: { id: paymentOrderId },
+      include: {
+        charge: true,
+        contract: {
+          include: {
+            landlord: { include: { subAccount: true } },
+          },
+        },
+      },
+    });
 
-  //   const customerId = await this.asaasCustomerService.getOrCreate(
-  //     contract.tenant.id,
-  //     landlordSubaccount.id,
-  //   );
-  //   const value =
-  //     contract.rentAmount.toNumber() +
-  //     (contract.condoFee?.toNumber() ?? 0) +
-  //     (contract.iptuFee?.toNumber() ?? 0);
+    if (!paymentOrder) {
+      throw new NotFoundException('Ordem de pagamento não encontrada.');
+    }
+    if (!paymentOrder.charge) {
+      throw new BadRequestException(
+        'Esta fatura ainda não possui uma cobrança gerada.',
+      );
+    }
+    if (!paymentOrder.charge.bankSlipUrl) {
+      throw new BadRequestException('Esta cobrança não é um boleto.');
+    }
 
-  //   const charge = await this.paymentGateway.createChargeWithSplitOnSubAccount(
-  //     landlordSubaccount.apiKey as string,
-  //     {
-  //       customer: customerId,
-  //       billingType: 'BOLETO',
-  //       dueDate: dueDate,
-  //       value,
-  //       description: `Aluguel ${contract.property.title} - venc. ${DateUtils.formatDate(dueDate)}`,
-  //       split: [
-  //         { walletId: landlordBankAccount.asaasWalletId, percentualValue: 97 },
-  //         { walletId: this.platformWalletId, percentualValue: 3 },
-  //       ],
-  //     },
-  //   );
+    const landlordApiKey = paymentOrder.contract.landlord.subAccount?.apiKey;
+    if (!landlordApiKey) {
+      throw new BadRequestException(
+        'A conta do locador não está configurada para recebimentos.',
+      );
+    }
 
-  //   const payment = await this.prisma.paymentOrder.create({
-  //     data: {
-  //       contractId,
-  //       dueDate: new Date(dueDate),
-  //       amountDue: value,
-  //       status: 'PENDENTE',
-  //       boleto: {
-  //         create: {
-  //           asaasChargeId: charge.id,
-  //           bankSlipUrl: charge.bankSlipUrl,
-  //           invoiceUrl: charge.invoiceUrl,
-  //           nossoNumero: charge.nossoNumero,
-  //         },
-  //       },
-  //     },
-  //     include: { boleto: true },
-  //   });
+    // Chama o gateway para obter os dados da linha digitável
+    const identificationFieldData =
+      await this.paymentGateway.getBankSlipIdentificationField(
+        landlordApiKey,
+        paymentOrder.charge.asaasChargeId,
+      );
 
-  //   return payment;
-  // }
+    // Opcional: Salvar a linha digitável no banco de dados se houver um campo para isso.
+    // await this.prisma.charge.update({
+    //   where: { id: paymentOrder.charge.id },
+    //   data: { identificationField: identificationFieldData.identificationField },
+    // });
+
+    return identificationFieldData;
+  }
 }

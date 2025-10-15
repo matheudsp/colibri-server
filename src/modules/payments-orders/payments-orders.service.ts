@@ -29,6 +29,7 @@ import { TransfersService } from '../transfers/transfers.service';
 import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ContractLifecycleService } from '../contracts/contracts.lifecycle.service';
+import { ChargesService } from '../charges/charges.service';
 
 @Injectable()
 export class PaymentsOrdersService {
@@ -41,7 +42,7 @@ export class PaymentsOrdersService {
     private notificationsService: NotificationsService,
     @Inject(forwardRef(() => ContractLifecycleService))
     private contractLifecycleService: ContractLifecycleService,
-    // private chargesService: ChargesService,
+    private chargesService: ChargesService,
   ) {}
 
   /**
@@ -55,8 +56,11 @@ export class PaymentsOrdersService {
         contract: {
           select: {
             id: true,
-            tenantId: true,
-            landlordId: true,
+            tenant: { select: { name: true, id: true } },
+            landlord: { select: { name: true, id: true } },
+            condoFee: true,
+            rentAmount: true,
+            iptuFee: true,
             property: { select: { id: true, title: true } },
           },
         },
@@ -67,8 +71,8 @@ export class PaymentsOrdersService {
       throw new NotFoundException('Ordem de pagamento não encontrada.');
     }
 
-    const isTenant = paymentOrder.contract.tenantId === currentUser.sub;
-    const isLandlord = paymentOrder.contract.landlordId === currentUser.sub;
+    const isTenant = paymentOrder.contract.tenant.id === currentUser.sub;
+    const isLandlord = paymentOrder.contract.landlord.id === currentUser.sub;
     const isAdmin = currentUser.role === ROLES.ADMIN;
 
     if (!isTenant && !isLandlord && !isAdmin) {
@@ -155,6 +159,9 @@ export class PaymentsOrdersService {
   async createAndChargeSecurityDeposit(contractId: string): Promise<void> {
     const contract = await this.prisma.contract.findUnique({
       where: { id: contractId },
+      include: {
+        property: { select: { title: true } },
+      },
     });
 
     if (
@@ -166,23 +173,25 @@ export class PaymentsOrdersService {
         'Contrato não encontrado ou sem valor de depósito caução definido.',
       );
     }
-
+    const description = `Pagamento da Garantia (Depósito Caução) referente ao contrato do imóvel "${contract.property.title}".`;
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 3);
     // Cria a Ordem de Pagamento específica para a caução
-    // const securityDepositPaymentOrder =
-    await this.prisma.paymentOrder.create({
+    const securityDepositPaymentOrder = await this.prisma.paymentOrder.create({
       data: {
         contractId: contract.id,
         amountDue: contract.securityDeposit,
-        dueDate: new Date(), // Vencimento imediato
+        dueDate: dueDate, // Vencimento em D+3
         status: PaymentStatus.PENDENTE,
         isSecurityDeposit: true, // Identificador
+        description,
       },
     });
 
-    // await this.chargesService.generateChargeForPaymentOrder(
-    //   securityDepositPaymentOrder.id,
-    //   'BOLETO', // ou 'PIX' conforme regra de negócio
-    // );
+    await this.chargesService.generateChargeForPaymentOrder(
+      securityDepositPaymentOrder.id,
+      'BOLETO', // ou 'PIX' conforme regra de negócio
+    );
 
     this.logger.log(
       `Cobrança do depósito caução gerada para o contrato ${contractId}.`,
@@ -284,6 +293,10 @@ export class PaymentsOrdersService {
   async createPaymentsForContract(contractId: string): Promise<void> {
     const contract = await this.prisma.contract.findUnique({
       where: { id: contractId },
+      include: {
+        property: { select: { title: true } },
+        tenant: { select: { name: true } },
+      },
     });
 
     if (!contract) {
@@ -293,12 +306,12 @@ export class PaymentsOrdersService {
     }
 
     const existingPayments = await this.prisma.paymentOrder.count({
-      where: { contractId },
+      where: { contractId, isSecurityDeposit: false }, // Garante que não estamos contando a caução
     });
 
     if (existingPayments > 0) {
-      console.log(
-        `Pagamentos para o contrato ${contractId} já existem. Nenhuma ação foi tomada.`,
+      this.logger.log(
+        `Pagamentos de aluguel para o contrato ${contractId} já existem. Nenhuma ação foi tomada.`,
       );
       return;
     }
@@ -311,12 +324,20 @@ export class PaymentsOrdersService {
 
     for (let i = 0; i < contract.durationInMonths; i++) {
       const dueDate = addMonths(contract.startDate, i + 1);
+      const dueDateObj = new Date(dueDate);
+      const referenceMonth = (dueDateObj.getUTCMonth() + 1)
+        .toString()
+        .padStart(2, '0');
+      const referenceYear = dueDateObj.getUTCFullYear();
+      const description = `Aluguel referente a ${referenceMonth}/${referenceYear} do imóvel "${contract.property.title}". Inquilino: ${contract.tenant.name}.`;
+
       paymentsToCreate.push({
         contractId: contract.id,
         dueDate: dueDate,
         amountDue: totalAmount,
         status: 'PENDENTE',
         paidAt: null,
+        description,
       });
     }
 
@@ -621,42 +642,60 @@ export class PaymentsOrdersService {
     );
 
     const { contract } = paymentOrder;
+    if (paymentOrder.isSecurityDeposit) {
+      this.logger.log(
+        `Pagamento da caução ${paymentOrder.id} está vencido. Notificando o locador.`,
+      );
 
-    // Notificação para o Inquilino
-    await this.notificationsService.create({
-      userId: contract.tenantId,
-      user: {
-        email: contract.tenant.email,
-        name: contract.tenant.name,
-      },
-      title: '⚠️ Lembrete: Sua Fatura de Aluguel Venceu',
-      message: `Olá, ${contract.tenant.name}. Identificamos que a fatura do aluguel referente ao imóvel "${contract.property.title}", no valor de ${CurrencyUtils.formatCurrency(paymentOrder.amountDue.toNumber())}, está vencida. Para evitar encargos adicionais, por favor, regularize o pagamento o mais breve possível.`,
-      action: {
-        text: 'Regularizar Pagamento',
-        path: `/faturas`,
-      },
-      sendEmail: true,
-    });
+      // Notificação para o Locador com as ações
+      await this.notificationsService.create({
+        userId: contract.landlordId,
+        user: { email: contract.landlord.email, name: contract.landlord.name },
+        title: '⚠️ Ação Necessária: Depósito Caução Não Foi Pago',
+        message: `O locatário ${contract.tenant.name} não efetuou o pagamento do depósito caução para o contrato do imóvel "${contract.property.title}". O contrato não pode ser ativado. Por favor, escolha uma das opções abaixo:`,
+        action: {
+          text: 'Ver Opções',
+          path: `/contratos/${contract.id}/acoes-caucao`,
+        },
+        sendEmail: true,
+      });
+    } else {
+      // Notificação para o Inquilino
+      await this.notificationsService.create({
+        userId: contract.tenantId,
+        user: {
+          email: contract.tenant.email,
+          name: contract.tenant.name,
+        },
+        title: '⚠️ Lembrete: Sua Fatura de Aluguel Venceu',
+        message: `Olá, ${contract.tenant.name}. Identificamos que a fatura do aluguel referente ao imóvel "${contract.property.title}", no valor de ${CurrencyUtils.formatCurrency(paymentOrder.amountDue.toNumber())}, está vencida. Para evitar encargos adicionais, por favor, regularize o pagamento o mais breve possível.`,
+        action: {
+          text: 'Regularizar Pagamento',
+          path: `/faturas`,
+        },
+        sendEmail: true,
+      });
 
-    // Notificação para o Locador
-    await this.notificationsService.create({
-      userId: contract.landlordId,
-      user: {
-        email: contract.landlord.email,
-        name: contract.landlord.name,
-      },
-      title: 'Aviso: Fatura em Atraso',
-      message: `Olá, ${contract.landlord.name}. A fatura de aluguel do imóvel "${contract.property.title}", com vencimento em ${DateUtils.formatDate(paymentOrder.dueDate)}, ainda não foi paga pelo inquilino ${contract.tenant.name}.`,
-      action: {
-        text: 'Ver Detalhes',
-        path: `/faturas`,
-      },
-      sendEmail: true,
-    });
+      // Notificação para o Locador
+      await this.notificationsService.create({
+        userId: contract.landlordId,
+        user: {
+          email: contract.landlord.email,
+          name: contract.landlord.name,
+        },
+        title: 'Aviso: Fatura em Atraso',
+        message: `Olá, ${contract.landlord.name}. A fatura de aluguel do imóvel "${contract.property.title}", com vencimento em ${DateUtils.formatDate(paymentOrder.dueDate)}, ainda não foi paga pelo inquilino ${contract.tenant.name}.`,
+        action: {
+          text: 'Ver Detalhes',
+          path: `/faturas`,
+        },
+        sendEmail: true,
+      });
 
-    this.logger.log(
-      `Notificações de fatura vencida enfileiradas para a ordem de pagamento ${paymentOrder.id}.`,
-    );
+      this.logger.log(
+        `Notificações de fatura vencida enfileiradas para a ordem de pagamento ${paymentOrder.id}.`,
+      );
+    }
   }
   async handleDeletedPayment(asaasChargeId: string) {
     await this.updatePaymentStatusByChargeId(

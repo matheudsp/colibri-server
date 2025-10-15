@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Get, Controller, Param, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RequireAuth } from 'src/common/decorator/current-user.decorator';
 import { CreateChargeDto } from './dto/create-charge.dto';
@@ -25,5 +25,27 @@ export class ChargesController {
       generateDto.paymentOrderId,
       generateDto.billingType,
     );
+  }
+
+  @Get(':paymentOrderId/pix')
+  @ApiOperation({
+    summary: 'Obtém os dados do QR Code PIX para uma cobrança existente',
+    description:
+      'Busca os dados do PIX diretamente no gateway de pagamento. Não armazena os dados.',
+  })
+  @Roles(ROLES.ADMIN, ROLES.LOCATARIO, ROLES.LOCADOR)
+  async getPixData(@Param('paymentOrderId') paymentOrderId: string) {
+    return this.chargesService.getPixQrCodeForCharge(paymentOrderId);
+  }
+
+  @Get(':paymentOrderId/identificationField')
+  @ApiOperation({
+    summary: 'Obtém a linha digitável de um boleto para uma cobrança existente',
+  })
+  @Roles(ROLES.ADMIN, ROLES.LOCATARIO, ROLES.LOCADOR)
+  async getBoletoIdentificationField(
+    @Param('paymentOrderId') paymentOrderId: string,
+  ) {
+    return this.chargesService.getBankSlipIdentificationField(paymentOrderId);
   }
 }

@@ -45,13 +45,13 @@ export class ClicksignService {
     };
   }
 
-  async createEnvelope(originalFileName: string): Promise<any> {
+  async createEnvelope(contractId: string): Promise<any> {
     const url = `${this.apiUrl}/api/v3/envelopes`;
     const payload = {
       data: {
         type: 'envelopes',
         attributes: {
-          name: `Contrato de Locação - ${originalFileName}`,
+          name: `Contrato de Locação - ${contractId}`,
           remind_interval: 14,
           locale: 'pt-BR',
           auto_close: true,
@@ -218,6 +218,27 @@ export class ClicksignService {
       }
       this.logger.error(
         `Falha ao consultar o envelope ${envelopeId}`,
+        anyError.response?.data,
+      );
+      throw error;
+    }
+  }
+
+  async deleteEnvelope(envelopeId: string): Promise<any> {
+    const url = `${this.apiUrl}/api/v3/envelopes/${envelopeId}`;
+    this.logger.log(`Excluindo envelope ${envelopeId}`);
+    try {
+      await firstValueFrom(
+        this.httpService.delete(url, { headers: this.getHeaders() }),
+      );
+    } catch (error) {
+      const anyError = error as any;
+      if (anyError.response?.status === 404) {
+        this.logger.warn(`Envelope ${envelopeId} não encontrado na Clicksign.`);
+        return null;
+      }
+      this.logger.error(
+        `Falha ao deletar o envelope ${envelopeId}`,
         anyError.response?.data,
       );
       throw error;

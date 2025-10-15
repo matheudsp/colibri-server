@@ -204,6 +204,7 @@ model SubAccount {
   asaasWalletId     String? @unique
   asaasAccountId    String? @unique
   apiKey            String?
+  asaasPixKeyId     String?
   asaasWebhookToken String? @unique
 
   onboardingUrl         String?
@@ -383,20 +384,23 @@ model SignatureRequest {
 }
 
 model PaymentOrder {
-  id         String        @id @default(uuid())
+  id         String    @id @default(uuid())
   contractId String
   amountDue  Decimal
   amountPaid Decimal?
   netValue   Decimal?
-  dueDate    DateTime      @default(now()) @db.Date
-  paidAt     DateTime?     @db.Date
-  status     PaymentStatus @default(PENDENTE)
-  contract   Contract      @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  dueDate    DateTime  @default(now()) @db.Date
+  paidAt     DateTime? @db.Date
 
-  isSecurityDeposit Boolean        @default(false)
-  charge            Charge?
-  transfer          Transfer?
-  PaymentSplit      PaymentSplit[]
+  isSecurityDeposit Boolean @default(false)
+  description       String?
+
+  status   PaymentStatus @default(PENDENTE)
+  contract Contract      @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  charge       Charge?
+  transfer     Transfer?
+  PaymentSplit PaymentSplit[]
 }
 
 model Transfer {
@@ -436,9 +440,6 @@ model Charge {
 
   bankSlipUrl String?
   nossoNumero String?
-
-  pixQrCode  String? @db.Text
-  pixPayload String? @db.Text
 
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
