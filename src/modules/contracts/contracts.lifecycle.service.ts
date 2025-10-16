@@ -585,4 +585,102 @@ export class ContractLifecycleService {
       await this.pdfsService.deletePdfsByContract(contract.id);
     }
   }
+
+  // /**
+  //  * [Ação do Locador] Cancela um contrato que está aguardando o pagamento da caução.
+  //  * Realiza uma limpeza completa: cancela cobranças, envelopes de assinatura e arquivos.
+  //  */
+  // async cancelForDepositNonPayment(
+  //   contractId: string,
+  //   currentUser: JwtPayload,
+  // ) {
+  //   const contract = await this.prisma.contract.findUnique({
+  //     where: { id: contractId },
+  //     include: {
+  //       landlord: true,
+  //       paymentsOrders: {
+  //         where: { isSecurityDeposit: true },
+  //         include: { charge: true },
+  //       },
+  //       GeneratedPdf: { orderBy: { generatedAt: 'desc' }, take: 1 },
+  //     },
+  //   });
+
+  //   if (!contract || contract.landlordId !== currentUser.sub) {
+  //     throw new ForbiddenException(
+  //       'Você não tem permissão para cancelar este contrato.',
+  //     );
+  //   }
+  //   if (contract.status !== ContractStatus.AGUARDANDO_GARANTIA) {
+  //     throw new BadRequestException(
+  //       'Esta ação só é permitida para contratos que estão aguardando o pagamento da caução.',
+  //     );
+  //   }
+
+  //   this.logger.log(
+  //     `Iniciando cancelamento por não pagamento da caução para o contrato ${contractId}.`,
+  //   );
+
+  //   const activePdf = contract.GeneratedPdf[0];
+  //   if (activePdf?.clicksignEnvelopeId) {
+  //     try {
+  //       await this.clicksignService.deleteEnvelope(
+  //         activePdf.clicksignEnvelopeId,
+  //       );
+  //       this.logger.log(
+  //         `Envelope ${activePdf.clicksignEnvelopeId} na Clicksign foi cancelado.`,
+  //       );
+  //     } catch (error) {
+  //       this.logger.error(
+  //         `Falha ao cancelar envelope ${activePdf.clicksignEnvelopeId} na Clicksign. Continuando o processo.`,
+  //         error,
+  //       );
+  //     }
+  //   }
+
+  //   // 2. Cancela cobrança da caução no Asaas
+  //   const depositOrder = contract.paymentsOrders[0];
+  //   if (depositOrder?.charge && contract.landlord.subAccount?.apiKey) {
+  //     try {
+  //       await this.paymentGateway.cancelCharge(
+  //         contract.landlord.subAccount.apiKey,
+  //         depositOrder.charge.asaasChargeId,
+  //       );
+  //       this.logger.log(
+  //         `Cobrança da caução ${depositOrder.charge.asaasChargeId} cancelada no gateway.`,
+  //       );
+  //     } catch (error) {
+  //       this.logger.error(
+  //         `Falha ao cancelar a cobrança da caução ${depositOrder.charge.asaasChargeId}. Continuando.`,
+  //         error,
+  //       );
+  //     }
+  //   }
+
+  //   await this.pdfsService.deletePdfsByContract(contractId);
+  //   this.logger.log(`PDFs do contrato ${contractId} removidos do storage.`);
+
+  //   const updatedContract = await this.prisma.contract.update({
+  //     where: { id: contractId },
+  //     data: { status: ContractStatus.CANCELADO },
+  //   });
+
+  //   await this.logHelper.createLog(
+  //     currentUser.sub,
+  //     'CANCEL_DEPOSIT_NON_PAYMENT',
+  //     'Contract',
+  //     contractId,
+  //   );
+
+  //   await this.notificationsService.create({
+  //     userId: currentUser.sub,
+  //     user: { name: contract.landlord.name, email: contract.landlord.email },
+  //     title: 'Contrato Cancelado',
+  //     message: `Você cancelou o contrato do imóvel "${contract.property.title}" devido ao não pagamento do depósito caução.`,
+  //     action: { text: 'Ver Contratos', path: '/contratos' },
+  //     sendEmail: false, // Apenas notificação na plataforma
+  //   });
+
+  //   return updatedContract;
+  // }
 }

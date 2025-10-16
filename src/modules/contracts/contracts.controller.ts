@@ -186,6 +186,23 @@ export class ContractsController {
     return this.contractLifecycleService.cancelContract(id, currentUser);
   }
 
+  // @Patch(':id/cancel-for-deposit-non-payment')
+  // @Roles(ROLES.LOCADOR, ROLES.ADMIN)
+  // @ApiOperation({
+  //   summary:
+  //     '[Ação do Locador] Cancela um contrato por não pagamento da caução',
+  // })
+  // @ApiResponse({ status: 200, description: 'Contrato cancelado com sucesso.' })
+  // cancelForDepositNonPayment(
+  //   @Param('id', ParseUUIDPipe) id: string,
+  //   @CurrentUser() currentUser: JwtPayload,
+  // ) {
+  //   return this.contractLifecycleService.cancelForDepositNonPayment(
+  //     id,
+  //     currentUser,
+  //   );
+  // }
+
   @Delete(':id')
   @Roles(ROLES.ADMIN, ROLES.LOCADOR)
   @ApiOperation({ summary: 'Delete an contract' })

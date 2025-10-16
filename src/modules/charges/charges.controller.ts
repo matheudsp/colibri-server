@@ -1,11 +1,28 @@
-import { Body, Get, Controller, Param, Post } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { RequireAuth } from 'src/common/decorator/current-user.decorator';
+import {
+  Body,
+  Get,
+  Controller,
+  Param,
+  Post,
+  ParseUUIDPipe,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import {
+  CurrentUser,
+  RequireAuth,
+} from 'src/common/decorator/current-user.decorator';
 import { CreateChargeDto } from './dto/create-charge.dto';
 import { ChargesService } from './charges.service';
 import { ROLES } from 'src/common/constants/roles.constant';
 import { Roles } from 'src/common/decorator/roles.decorator';
 import type { RegenerateChargeDto } from './dto/regenerate-charge.dto';
+import type { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 
 @Controller('charges')
 @RequireAuth()
@@ -47,5 +64,25 @@ export class ChargesController {
     @Param('paymentOrderId') paymentOrderId: string,
   ) {
     return this.chargesService.getBankSlipIdentificationField(paymentOrderId);
+  }
+
+  @Post(':paymentOrderId/regenerate-deposit-charge')
+  @Roles(ROLES.LOCADOR, ROLES.ADMIN)
+  @ApiOperation({
+    summary:
+      '[Ação do Locador] Gera uma nova cobrança para um depósito caução vencido',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Nova cobrança gerada e locatário notificado.',
+  })
+  regenerateDepositCharge(
+    @Param('paymentOrderId', ParseUUIDPipe) paymentOrderId: string,
+    @CurrentUser() currentUser: JwtPayload,
+  ) {
+    return this.chargesService.regenerateDepositCharge(
+      paymentOrderId,
+      currentUser,
+    );
   }
 }

@@ -8,6 +8,7 @@ import { RemindersScheduler } from './tasks/reminders.scheduler';
 import { PaymentsOrdersModule } from 'src/modules/payments-orders/payments-orders.module';
 import { PdfsScheduler } from './tasks/pdfs.scheduler';
 import { StorageModule } from 'src/storage/storage.module';
+import { NotificationsModule } from 'src/modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { StorageModule } from 'src/storage/storage.module';
     QueueModule,
     PaymentsOrdersModule,
     StorageModule,
+    NotificationsModule,
   ],
   providers: [
     BankSlipsScheduler,

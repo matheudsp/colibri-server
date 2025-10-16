@@ -175,6 +175,7 @@ export class PaymentsOrdersService {
     }
     const description = `Pagamento da Garantia (Depósito Caução) referente ao contrato do imóvel "${contract.property.title}".`;
     const dueDate = new Date();
+    // Adiciona 3 dias à data atual para o vencimento
     dueDate.setDate(dueDate.getDate() + 3);
     // Cria a Ordem de Pagamento específica para a caução
     const securityDepositPaymentOrder = await this.prisma.paymentOrder.create({
@@ -654,7 +655,7 @@ export class PaymentsOrdersService {
         title: '⚠️ Ação Necessária: Depósito Caução Não Foi Pago',
         message: `O locatário ${contract.tenant.name} não efetuou o pagamento do depósito caução para o contrato do imóvel "${contract.property.title}". O contrato não pode ser ativado. Por favor, escolha uma das opções abaixo:`,
         action: {
-          text: 'Ver Opções',
+          text: 'Ver Ações',
           path: `/contratos/${contract.id}/acoes-caucao`,
         },
         sendEmail: true,

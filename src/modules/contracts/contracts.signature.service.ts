@@ -102,7 +102,15 @@ export class ContractSignatureService {
         `A solicitação de assinatura só pode ser feita para contratos com status 'AGUARDANDO_ASSINATURAS'. O status atual é '${contract.status}'.`,
       );
     }
-
+    const latestPdf = await this.prisma.generatedPdf.findFirst({
+      where: { contractId },
+      orderBy: { generatedAt: 'desc' },
+    });
+    if (latestPdf && latestPdf.clicksignEnvelopeId) {
+      throw new BadRequestException(
+        'Um processo de assinatura já está em andamento para este contrato. Por favor, aguarde as notificações por e-mail ou verifique o status dos signatários.',
+      );
+    }
     return this.pdfsService.initiateSignatureProcess(contractId, currentUser);
   }
 }

@@ -5,6 +5,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -12,7 +13,10 @@ import {
 } from '@nestjs/common';
 import { DateUtils } from 'src/common/utils/date.utils';
 import { PaymentStatus, type Prisma } from '@prisma/client';
-import { differenceInDays } from 'date-fns';
+import { addDays, differenceInDays } from 'date-fns';
+import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
+import { LogHelperService } from '../logs/log-helper.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ChargesService {
@@ -23,6 +27,8 @@ export class ChargesService {
     private paymentGateway: PaymentGatewayService,
     private asaasCustomerService: AsaasCustomersService,
     private configService: ConfigService,
+    private logHelper: LogHelperService,
+    private notificationsService: NotificationsService,
   ) {
     this.platformWalletId = this.configService.getOrThrow('ASSAS_WALLET_ID');
   }
@@ -284,5 +290,101 @@ export class ChargesService {
     // });
 
     return identificationFieldData;
+  }
+
+  /**
+   * [Ação do Locador] Cancela a cobrança antiga de uma caução vencida e
+   * prepara a Ordem de Pagamento para uma nova geração de cobrança pelo inquilino.
+   */
+  async regenerateDepositCharge(
+    paymentOrderId: string,
+    currentUser: JwtPayload,
+  ) {
+    const paymentOrder = await this.prisma.paymentOrder.findUnique({
+      where: { id: paymentOrderId },
+      include: {
+        charge: true,
+        contract: {
+          include: {
+            landlord: { include: { subAccount: true } },
+            tenant: { select: { id: true, name: true, email: true } },
+            property: { select: { title: true } },
+          },
+        },
+      },
+    });
+
+    if (!paymentOrder)
+      throw new NotFoundException('Ordem de pagamento não encontrada.');
+    if (
+      !paymentOrder.isSecurityDeposit ||
+      paymentOrder.status !== PaymentStatus.ATRASADO
+    ) {
+      throw new BadRequestException(
+        'Esta ação é válida apenas para cobranças de caução atrasadas.',
+      );
+    }
+    if (paymentOrder.contract.landlordId !== currentUser.sub) {
+      throw new ForbiddenException(
+        'Você não tem permissão para executar esta ação.',
+      );
+    }
+
+    if (
+      paymentOrder.charge &&
+      paymentOrder.contract.landlord.subAccount?.apiKey
+    ) {
+      try {
+        await this.paymentGateway.cancelCharge(
+          paymentOrder.contract.landlord.subAccount.apiKey,
+          paymentOrder.charge.asaasChargeId,
+        );
+        await this.prisma.charge.delete({
+          where: { id: paymentOrder.charge.id },
+        });
+        this.logger.log(
+          `Cobrança antiga ${paymentOrder.charge.asaasChargeId} cancelada e removida.`,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Falha ao cancelar cobrança antiga ${paymentOrder.charge.asaasChargeId}. Continuando...`,
+          error,
+        );
+      }
+    }
+
+    // 2. Atualiza a ordem de pagamento com novo vencimento e status PENDENTE
+    const newDueDate = addDays(new Date(), 3);
+    const updatedPaymentOrder = await this.prisma.paymentOrder.update({
+      where: { id: paymentOrderId },
+      data: {
+        status: PaymentStatus.PENDENTE,
+        dueDate: newDueDate,
+      },
+    });
+
+    await this.logHelper.createLog(
+      currentUser.sub,
+      'REGENERATE_DEPOSIT_CHARGE',
+      'PaymentOrder',
+      paymentOrderId,
+    );
+
+    await this.notificationsService.create({
+      userId: paymentOrder.contract.tenant.id,
+      user: paymentOrder.contract.tenant,
+      title: 'Nova Oportunidade de Pagamento da Caução',
+      message: `O locador do imóvel "${paymentOrder.contract.property.title}" gerou uma nova cobrança para o seu depósito caução com vencimento em ${DateUtils.formatDate(newDueDate)}. Por favor, realize o pagamento para ativar seu contrato.`,
+      action: {
+        text: 'Realizar pagamento',
+        path: `/pagamentos/${paymentOrderId}`,
+      },
+      sendEmail: true,
+    });
+
+    return {
+      message: 'Nova cobrança de caução disponibilizada para o locatário.',
+      paymentOrder: updatedPaymentOrder,
+    };
   }
 }
