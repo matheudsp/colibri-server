@@ -49,6 +49,8 @@ enum CompanyType {
 }
 
 enum ContractStatus {
+  EM_ELABORACAO
+  AGUARDANDO_ACEITE_INQUILINO
   PENDENTE_DOCUMENTACAO
   EM_ANALISE
   AGUARDANDO_ASSINATURAS
@@ -71,7 +73,6 @@ enum PropertyType {
 }
 
 enum PdfType {
-  CONTRATO_LOCACAO
   RELATORIO_JUDICIAL
 }
 
@@ -318,7 +319,7 @@ model Property {
 
 model Contract {
   id               String         @id @default(uuid())
-  status           ContractStatus @default(PENDENTE_DOCUMENTACAO)
+  status           ContractStatus @default(EM_ELABORACAO)
   rentAmount       Decimal
   condoFee         Decimal?
   iptuFee          Decimal?
@@ -326,6 +327,11 @@ model Contract {
   endDate          DateTime
   durationInMonths Int
   guaranteeType    GuaranteeType  @default(SEM_GARANTIA)
+
+  contractHtml           String? @db.Text
+  contractFilePath       String?
+  signedContractFilePath String?
+  clicksignEnvelopeId    String? @unique
 
   securityDeposit Decimal?
   createdAt       DateTime @default(now())
@@ -340,24 +346,23 @@ model Contract {
   tenantId String
   tenant   User   @relation("TenantContracts", fields: [tenantId], references: [id])
 
-  paymentsOrders PaymentOrder[]
-  documents      Document[]
-  GeneratedPdf   GeneratedPdf[]
+  paymentsOrders    PaymentOrder[]
+  documents         Document[]
+  GeneratedPdf      GeneratedPdf[]
+  signatureRequests SignatureRequest[]
 }
 
 model GeneratedPdf {
-  id                  String             @id @default(uuid())
-  filePath            String
-  pdfType             PdfType
-  generatedAt         DateTime
-  signedFilePath      String?
-  clicksignEnvelopeId String?            @unique
-  contractId          String
-  contract            Contract           @relation(fields: [contractId], references: [id])
-  signatureRequests   SignatureRequest[]
+  id          String   @id @default(uuid())
+  filePath    String
+  pdfType     PdfType
+  generatedAt DateTime
+  contractId  String
+  contract    Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  SignatureRequest SignatureRequest[]
 }
 
 model SignatureRequest {
@@ -368,16 +373,17 @@ model SignatureRequest {
   status              SignatureStatus @default(PENDING)
   signedAt            DateTime?
   closedAt            DateTime?
-  finalPdfUrl         String?
 
-  generatedPdfId String
-  generatedPdf   GeneratedPdf @relation(fields: [generatedPdfId], references: [id], onDelete: Cascade)
+  contractId String
+  contract   Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
 
   signerId String
   user     User   @relation(fields: [signerId], references: [id])
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  GeneratedPdf   GeneratedPdf? @relation(fields: [generatedPdfId], references: [id])
+  generatedPdfId String?
 
   @@index([clicksignDocumentId])
   @@index([clicksignEnvelopeId])

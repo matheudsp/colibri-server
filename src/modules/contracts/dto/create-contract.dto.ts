@@ -16,8 +16,21 @@ import {
   ValidationArguments,
   ValidatorConstraint,
   ValidatorConstraintInterface,
+  IsArray,
+  ValidateNested,
 } from 'class-validator';
 import { ContractStatus, GuaranteeType } from '@prisma/client';
+import { Type } from 'class-transformer';
+
+class ContractClauseDto {
+  @IsUUID()
+  @IsNotEmpty()
+  clauseId: string;
+
+  @IsNumber()
+  @IsNotEmpty()
+  order: number;
+}
 
 @ValidatorConstraint({ name: 'maxSecurityDeposit', async: false })
 export class MaxSecurityDepositConstraint

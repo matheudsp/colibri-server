@@ -24,23 +24,27 @@ import { ContractPaymentService } from './contracts.payment.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { PaymentsOrdersService } from '../payments-orders/payments-orders.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { StorageService } from 'src/storage/storage.service';
+import type { UpdateContractHtmlDto } from './dto/update-contract-html.dto';
 
 @Injectable()
 export class ContractLifecycleService {
   private readonly logger = new Logger(ContractLifecycleService.name);
   constructor(
-    private prisma: PrismaService,
+    private readonly prisma: PrismaService,
     @Inject(forwardRef(() => PropertiesService))
-    private propertiesService: PropertiesService,
-    private userService: UserService,
-    private logHelper: LogHelperService,
-    private pdfsService: PdfsService,
-    private paymentGateway: PaymentGatewayService,
-    private contractPaymentService: ContractPaymentService,
+    private readonly propertiesService: PropertiesService,
+    private readonly userService: UserService,
+    private readonly logHelper: LogHelperService,
+    @Inject(forwardRef(() => PdfsService))
+    private readonly pdfsService: PdfsService,
+    private readonly paymentGateway: PaymentGatewayService,
+    private readonly contractPaymentService: ContractPaymentService,
     @Inject(forwardRef(() => PaymentsOrdersService))
-    private paymentsOrdersService: PaymentsOrdersService,
-    private notificationsService: NotificationsService,
-    private clicksignService: ClicksignService,
+    private readonly paymentsOrdersService: PaymentsOrdersService,
+    private readonly notificationsService: NotificationsService,
+    private readonly clicksignService: ClicksignService,
+    private readonly storageService: StorageService,
   ) {}
 
   async create(
@@ -96,7 +100,7 @@ export class ContractLifecycleService {
         tenantId: tenant.id,
         startDate,
         endDate,
-        status: ContractStatus.PENDENTE_DOCUMENTACAO,
+        status: ContractStatus.EM_ELABORACAO,
       },
     });
 
@@ -107,19 +111,19 @@ export class ContractLifecycleService {
       contract.id,
     );
 
-    if (property && tenant) {
-      await this.notificationsService.create({
-        userId: tenant.id,
-        user: { email: tenant.email, name: tenant.name },
-        title: 'Seu contrato de aluguel foi criado!',
-        message: `O proprietário do imóvel "${property.title}" iniciou um processo de locação com você. O próximo passo é enviar seus documentos para análise.`,
-        action: {
-          text: 'Acessar e Enviar Documentos',
-          path: `/contratos/${contract.id}/documentos`,
-        },
-        sendEmail: true,
-      });
-    }
+    // if (property && tenant) {
+    //   await this.notificationsService.create({
+    //     userId: tenant.id,
+    //     user: { email: tenant.email, name: tenant.name },
+    //     title: 'Seu contrato de aluguel foi criado!',
+    //     message: `O proprietário do imóvel "${property.title}" iniciou um processo de locação com você. O próximo passo é enviar seus documentos para análise.`,
+    //     action: {
+    //       text: 'Acessar e Enviar Documentos',
+    //       path: `/contratos/${contract.id}/documentos`,
+    //     },
+    //     sendEmail: true,
+    //   });
+    // }
 
     return {
       ...contract,
@@ -147,7 +151,6 @@ export class ContractLifecycleService {
       !contract ||
       contract.status !== ContractStatus.AGUARDANDO_ASSINATURAS
     ) {
-      // Nenhuma ação se o contrato não existe ou já foi processado
       return;
     }
 
@@ -199,7 +202,7 @@ export class ContractLifecycleService {
         path: `/contratos/${contract.id}`,
       };
 
-      this.notificationsService.create({
+      await this.notificationsService.create({
         userId: contract.tenant.id,
         user: contract.tenant,
         title: notification.title,
@@ -207,7 +210,7 @@ export class ContractLifecycleService {
         action: action,
         sendEmail: true,
       });
-      this.notificationsService.create({
+      await this.notificationsService.create({
         userId: contract.landlord.id,
         user: contract.landlord,
         title: notification.title,
@@ -216,7 +219,9 @@ export class ContractLifecycleService {
         sendEmail: true,
       });
 
-      console.log(`Contrato ${contractId} ativado com sucesso via webhook.`);
+      this.logger.log(
+        `Contrato ${contractId} ativado com sucesso via webhook.`,
+      );
     }
   }
 
@@ -382,10 +387,6 @@ export class ContractLifecycleService {
           where: { status: 'PENDENTE' },
           include: { charge: true },
         },
-        GeneratedPdf: {
-          orderBy: { generatedAt: 'desc' },
-          take: 1,
-        },
       },
     });
 
@@ -410,33 +411,32 @@ export class ContractLifecycleService {
         `Este contrato já está '${contract.status}' e não pode ser cancelado.`,
       );
     }
-    if (contract.status === ContractStatus.AGUARDANDO_ASSINATURAS) {
-      const activePdf = contract.GeneratedPdf[0];
-      if (activePdf && activePdf.clicksignEnvelopeId) {
-        this.logger.log(
-          `Contrato ${contractId} está sendo cancelado. Solicitando exclusão do envelope ${activePdf.clicksignEnvelopeId} na Clicksign.`,
+
+    // Se o contrato estiver aguardando assinaturas, cancela o envelope na Clicksign
+    if (
+      contract.status === ContractStatus.AGUARDANDO_ASSINATURAS &&
+      contract.clicksignEnvelopeId
+    ) {
+      this.logger.log(
+        `Cancelando envelope ${contract.clicksignEnvelopeId} na Clicksign.`,
+      );
+      try {
+        await this.clicksignService.deleteEnvelope(
+          contract.clicksignEnvelopeId,
         );
-        try {
-          await this.clicksignService.deleteEnvelope(
-            activePdf.clicksignEnvelopeId,
-          );
-          this.logger.log(
-            `Envelope ${activePdf.clicksignEnvelopeId} excluído com sucesso.`,
-          );
-        } catch (error) {
-          this.logger.error(
-            `Falha ao excluir o envelope ${activePdf.clicksignEnvelopeId} na Clicksign. O processo de cancelamento do contrato continuará.`,
-            error,
-          );
-        }
+      } catch (error) {
+        this.logger.error(
+          `Falha ao excluir o envelope na Clicksign. O processo continuará.`,
+          error,
+        );
       }
     }
 
-    const pendingOrdersWithSlips = contract.paymentsOrders.filter(
+    const pendingOrdersWithCharges = contract.paymentsOrders.filter(
       (po) => po.charge,
     );
 
-    if (pendingOrdersWithSlips.length > 0) {
+    if (pendingOrdersWithCharges.length > 0) {
       if (!contract.landlord.subAccount?.apiKey) {
         throw new InternalServerErrorException(
           'A API Key da subconta do locador não foi encontrada para cancelar as cobranças.',
@@ -444,14 +444,14 @@ export class ContractLifecycleService {
       }
       const apiKey = contract.landlord.subAccount.apiKey;
 
-      for (const order of pendingOrdersWithSlips) {
+      for (const order of pendingOrdersWithCharges) {
         try {
           await this.paymentGateway.cancelCharge(
             apiKey,
             order.charge!.asaasChargeId,
           );
         } catch (error) {
-          console.error(
+          this.logger.error(
             `Falha ao cancelar a cobrança ${order.charge!.asaasChargeId} no gateway.`,
             error,
           );
@@ -460,23 +460,17 @@ export class ContractLifecycleService {
     }
 
     await this.prisma.paymentOrder.updateMany({
-      where: {
-        contractId: contractId,
-        status: 'PENDENTE',
-      },
-      data: {
-        status: 'CANCELADO',
-      },
+      where: { contractId: contractId, status: 'PENDENTE' },
+      data: { status: 'CANCELADO' },
     });
 
     const updatedContract = await this.prisma.contract.update({
       where: { id: contractId },
       data: { status: ContractStatus.CANCELADO },
     });
-    this.logger.log(
-      `Iniciando exclusão dos PDFs associados ao contrato cancelado ${contractId}.`,
-    );
-    await this.pdfsService.deletePdfsByContract(contractId);
+
+    await this.deleteContractPdfsFromStorage(contract);
+    await this.pdfsService.deleteAccessoryPdfsByContract(contractId);
 
     await this.logHelper.createLog(
       currentUser.sub,
@@ -487,16 +481,10 @@ export class ContractLifecycleService {
 
     await this.notificationsService.create({
       userId: contract.landlordId,
-      user: {
-        name: contract.landlord.name,
-        email: contract.landlord.email,
-      },
+      user: { name: contract.landlord.name, email: contract.landlord.email },
       title: 'Contrato Cancelado com Sucesso',
       message: `O contrato para o imóvel "${contract.property.title}" foi cancelado. Todas as cobranças pendentes associadas a ele também foram canceladas.`,
-      action: {
-        text: 'Ver Meus Contratos',
-        path: '/contratos',
-      },
+      action: { text: 'Ver Meus Contratos', path: '/contratos' },
       sendEmail: true,
     });
 
@@ -528,35 +516,13 @@ export class ContractLifecycleService {
       );
     }
 
-    const pendingOrdersWithSlips = contract.paymentsOrders.filter(
-      (po) => po.charge,
-    );
+    // Deleta os arquivos de PDF do storage
+    await this.deleteContractPdfsFromStorage(contract);
 
-    if (pendingOrdersWithSlips.length > 0) {
-      const apiKey = contract.landlord.subAccount?.apiKey;
-      if (!apiKey) {
-        console.warn(
-          `API Key da subconta do locador não encontrada para o contrato ${id}. Não foi possível cancelar as cobranças no gateway.`,
-        );
-      } else {
-        for (const order of pendingOrdersWithSlips) {
-          try {
-            await this.paymentGateway.cancelCharge(
-              apiKey,
-              order.charge!.asaasChargeId,
-            );
-          } catch (error) {
-            console.error(
-              `Falha ao cancelar a cobrança ${order.charge!.asaasChargeId} no gateway durante a remoção do contrato.`,
-              error,
-            );
-          }
-        }
-      }
-    }
+    // Deleta os PDFs acessórios (relatórios)
+    await this.pdfsService.deleteAccessoryPdfsByContract(id);
 
-    await this.pdfsService.deletePdfsByContract(id);
-    await this.prisma.paymentOrder.deleteMany({ where: { contractId: id } });
+    // As outras deleções (PaymentOrder, etc.) ocorrerão em cascata devido ao schema
     await this.prisma.contract.delete({ where: { id } });
 
     await this.logHelper.createLog(
@@ -568,8 +534,24 @@ export class ContractLifecycleService {
 
     return {
       message:
-        'Contrato e todas as suas cobranças associadas foram removidos com sucesso.',
+        'Contrato e todos os seus dados associados foram removidos com sucesso.',
     };
+  }
+
+  private async deleteContractPdfsFromStorage(contract: any) {
+    const filesToDelete: string[] = [];
+    if (contract.contractFilePath) {
+      filesToDelete.push(contract.contractFilePath);
+    }
+    if (contract.signedContractFilePath) {
+      filesToDelete.push(contract.signedContractFilePath);
+    }
+    if (filesToDelete.length > 0) {
+      this.logger.log(
+        `Deletando ${filesToDelete.length} arquivos de contrato do storage para o contrato ${contract.id}`,
+      );
+      await this.storageService.deleteFiles(filesToDelete);
+    }
   }
 
   async deleteContractsByProperty(propertyId: string) {
@@ -581,106 +563,124 @@ export class ContractLifecycleService {
       return;
     }
 
+    // Deleta todos os arquivos associados a cada contrato antes de deletar o contrato
     for (const contract of contracts) {
-      await this.pdfsService.deletePdfsByContract(contract.id);
+      await this.deleteContractPdfsFromStorage(contract);
+      await this.pdfsService.deleteAccessoryPdfsByContract(contract.id);
     }
+
+    // O Prisma irá deletar os contratos em cascata quando a propriedade for deletada
   }
 
-  // /**
-  //  * [Ação do Locador] Cancela um contrato que está aguardando o pagamento da caução.
-  //  * Realiza uma limpeza completa: cancela cobranças, envelopes de assinatura e arquivos.
-  //  */
-  // async cancelForDepositNonPayment(
-  //   contractId: string,
-  //   currentUser: JwtPayload,
-  // ) {
-  //   const contract = await this.prisma.contract.findUnique({
-  //     where: { id: contractId },
-  //     include: {
-  //       landlord: true,
-  //       paymentsOrders: {
-  //         where: { isSecurityDeposit: true },
-  //         include: { charge: true },
-  //       },
-  //       GeneratedPdf: { orderBy: { generatedAt: 'desc' }, take: 1 },
-  //     },
-  //   });
+  async updateContractHtml(
+    contractId: string,
+    dto: UpdateContractHtmlDto,
+    currentUser: JwtPayload,
+  ) {
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+      include: {
+        property: { select: { title: true } },
+        tenant: { select: { id: true, name: true, email: true } },
+      },
+    });
 
-  //   if (!contract || contract.landlordId !== currentUser.sub) {
-  //     throw new ForbiddenException(
-  //       'Você não tem permissão para cancelar este contrato.',
-  //     );
-  //   }
-  //   if (contract.status !== ContractStatus.AGUARDANDO_GARANTIA) {
-  //     throw new BadRequestException(
-  //       'Esta ação só é permitida para contratos que estão aguardando o pagamento da caução.',
-  //     );
-  //   }
+    if (!contract) throw new NotFoundException('Contrato não encontrado.');
+    if (contract.landlordId !== currentUser.sub)
+      throw new ForbiddenException(
+        'Apenas o locador pode editar este contrato.',
+      );
+    if (contract.status !== ContractStatus.EM_ELABORACAO) {
+      throw new BadRequestException(
+        `O contrato não está mais na fase de elaboração (Status atual: ${contract.status}).`,
+      );
+    }
 
-  //   this.logger.log(
-  //     `Iniciando cancelamento por não pagamento da caução para o contrato ${contractId}.`,
-  //   );
+    await this.prisma.contract.update({
+      where: { id: contractId },
+      data: {
+        contractHtml: dto.contractHtml,
+        status: ContractStatus.AGUARDANDO_ACEITE_INQUILINO,
+      },
+    });
 
-  //   const activePdf = contract.GeneratedPdf[0];
-  //   if (activePdf?.clicksignEnvelopeId) {
-  //     try {
-  //       await this.clicksignService.deleteEnvelope(
-  //         activePdf.clicksignEnvelopeId,
-  //       );
-  //       this.logger.log(
-  //         `Envelope ${activePdf.clicksignEnvelopeId} na Clicksign foi cancelado.`,
-  //       );
-  //     } catch (error) {
-  //       this.logger.error(
-  //         `Falha ao cancelar envelope ${activePdf.clicksignEnvelopeId} na Clicksign. Continuando o processo.`,
-  //         error,
-  //       );
-  //     }
-  //   }
+    await this.logHelper.createLog(
+      currentUser.sub,
+      'FINALIZE_CONTRACT_DRAFT',
+      'Contract',
+      contractId,
+    );
 
-  //   // 2. Cancela cobrança da caução no Asaas
-  //   const depositOrder = contract.paymentsOrders[0];
-  //   if (depositOrder?.charge && contract.landlord.subAccount?.apiKey) {
-  //     try {
-  //       await this.paymentGateway.cancelCharge(
-  //         contract.landlord.subAccount.apiKey,
-  //         depositOrder.charge.asaasChargeId,
-  //       );
-  //       this.logger.log(
-  //         `Cobrança da caução ${depositOrder.charge.asaasChargeId} cancelada no gateway.`,
-  //       );
-  //     } catch (error) {
-  //       this.logger.error(
-  //         `Falha ao cancelar a cobrança da caução ${depositOrder.charge.asaasChargeId}. Continuando.`,
-  //         error,
-  //       );
-  //     }
-  //   }
+    await this.notificationsService.create({
+      userId: contract.tenant.id,
+      user: { email: contract.tenant.email, name: contract.tenant.name },
+      title: 'Seu contrato está pronto para revisão',
+      message: `O locador do imóvel "${contract.property.title}" finalizou a elaboração do contrato. Por favor, leia os termos e aceite-os para podermos prosseguir para a fase de documentação.`,
+      action: {
+        text: 'Revisar e Aceitar Contrato',
+        path: `/contratos/${contract.id}/revisar`,
+      },
+      sendEmail: true,
+    });
 
-  //   await this.pdfsService.deletePdfsByContract(contractId);
-  //   this.logger.log(`PDFs do contrato ${contractId} removidos do storage.`);
+    return {
+      message:
+        'Contrato salvo. Aguardando aceite do inquilino para prosseguir.',
+    };
+  }
 
-  //   const updatedContract = await this.prisma.contract.update({
-  //     where: { id: contractId },
-  //     data: { status: ContractStatus.CANCELADO },
-  //   });
+  /**
+   * NOVO MÉTODO: Chamado quando o inquilino aceita os termos do contrato.
+   */
+  async tenantAcceptsContract(contractId: string, currentUser: JwtPayload) {
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+      include: {
+        property: { select: { title: true } },
+        tenant: { select: { id: true, name: true, email: true } },
+      },
+    });
 
-  //   await this.logHelper.createLog(
-  //     currentUser.sub,
-  //     'CANCEL_DEPOSIT_NON_PAYMENT',
-  //     'Contract',
-  //     contractId,
-  //   );
+    if (!contract) throw new NotFoundException('Contrato não encontrado.');
+    if (contract.tenantId !== currentUser.sub)
+      throw new ForbiddenException(
+        'Apenas o inquilino deste contrato pode aceitá-lo.',
+      );
+    if (contract.status !== ContractStatus.AGUARDANDO_ACEITE_INQUILINO) {
+      throw new BadRequestException(
+        `O contrato não está aguardando seu aceite (Status atual: ${contract.status}).`,
+      );
+    }
 
-  //   await this.notificationsService.create({
-  //     userId: currentUser.sub,
-  //     user: { name: contract.landlord.name, email: contract.landlord.email },
-  //     title: 'Contrato Cancelado',
-  //     message: `Você cancelou o contrato do imóvel "${contract.property.title}" devido ao não pagamento do depósito caução.`,
-  //     action: { text: 'Ver Contratos', path: '/contratos' },
-  //     sendEmail: false, // Apenas notificação na plataforma
-  //   });
+    await this.prisma.contract.update({
+      where: { id: contractId },
+      data: {
+        status: ContractStatus.PENDENTE_DOCUMENTACAO, // Avança para a próxima fase
+      },
+    });
 
-  //   return updatedContract;
-  // }
+    await this.logHelper.createLog(
+      currentUser.sub,
+      'TENANT_ACCEPTS_CONTRACT',
+      'Contract',
+      contractId,
+    );
+
+    await this.notificationsService.create({
+      userId: contract.tenant.id,
+      user: { email: contract.tenant.email, name: contract.tenant.name },
+      title: 'Ação necessária: Envie seus documentos',
+      message: `Oba! Notamos que você aceitou os termos do contrato para o imóvel "${contract.property.title}". O próximo passo é o envio dos seus documentos para análise do locador.`,
+      action: {
+        text: 'Enviar Documentos',
+        path: `/contratos/${contract.id}/documentos`,
+      },
+      sendEmail: true,
+    });
+
+    return {
+      message:
+        'Contrato aceito com sucesso! Agora você pode enviar seus documentos.',
+    };
+  }
 }

@@ -7,13 +7,14 @@ import {
   SignatureJobType,
 } from '../jobs/signature.job';
 import { QueueName } from '../jobs/jobs';
+import { PdfsSignatureService } from 'src/modules/pdfs/pdfs.signature.service';
 
 @Injectable()
 @Processor(QueueName.SIGNATURE)
 export class SignatureWorker {
   private readonly logger = new Logger(SignatureWorker.name);
 
-  constructor(private readonly pdfsService: PdfsService) {}
+  constructor(private readonly pdfsService: PdfsSignatureService) {}
 
   @Process(SignatureJobType.INITIATE_SIGNATURE_PROCESS)
   async handleInitiateSignature(job: Job<InitiateSignatureProcessJob>) {

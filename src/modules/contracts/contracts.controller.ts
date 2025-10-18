@@ -9,6 +9,8 @@ import {
   ParseUUIDPipe,
   Query,
   Put,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { ContractsService } from './contracts.service';
 import { CreateContractDto } from './dto/create-contract.dto';
@@ -33,6 +35,7 @@ import { ContractResponseDto } from './dto/response-contract.dto';
 import { ResendNotificationDto } from './dto/resend-notification.dto';
 import { ContractLifecycleService } from './contracts.lifecycle.service';
 import { ContractSignatureService } from './contracts.signature.service';
+import { UpdateContractHtmlDto } from './dto/update-contract-html.dto';
 
 @ApiTags('Contracts')
 @ApiBearerAuth()
@@ -51,8 +54,14 @@ export class ContractsController {
     status: 200,
     description: 'Returns a temporary signed URL for the PDF file.',
   })
-  async getContractPdfUrl(@Param('id', ParseUUIDPipe) id: string) {
-    return this.contractSignatureService.getContractPdfSignedUrl(id);
+  async getContractPdfUrl(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() currentUser: JwtPayload,
+  ) {
+    return this.contractSignatureService.getContractPdfSignedUrl(
+      id,
+      currentUser,
+    );
   }
 
   @Post(':id/request-signature')
@@ -186,23 +195,6 @@ export class ContractsController {
     return this.contractLifecycleService.cancelContract(id, currentUser);
   }
 
-  // @Patch(':id/cancel-for-deposit-non-payment')
-  // @Roles(ROLES.LOCADOR, ROLES.ADMIN)
-  // @ApiOperation({
-  //   summary:
-  //     '[Ação do Locador] Cancela um contrato por não pagamento da caução',
-  // })
-  // @ApiResponse({ status: 200, description: 'Contrato cancelado com sucesso.' })
-  // cancelForDepositNonPayment(
-  //   @Param('id', ParseUUIDPipe) id: string,
-  //   @CurrentUser() currentUser: JwtPayload,
-  // ) {
-  //   return this.contractLifecycleService.cancelForDepositNonPayment(
-  //     id,
-  //     currentUser,
-  //   );
-  // }
-
   @Delete(':id')
   @Roles(ROLES.ADMIN, ROLES.LOCADOR)
   @ApiOperation({ summary: 'Delete an contract' })
@@ -216,5 +208,33 @@ export class ContractsController {
     @CurrentUser() currentUser: JwtPayload,
   ) {
     return this.contractLifecycleService.remove(id, currentUser);
+  }
+
+  @Patch(':id/contract-html')
+  @Roles(ROLES.LOCADOR, ROLES.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Save the edited HTML content for a contract' })
+  @ApiBody({ type: UpdateContractHtmlDto })
+  updateContractHtml(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateDto: UpdateContractHtmlDto,
+    @CurrentUser() currentUser: JwtPayload,
+  ) {
+    return this.contractLifecycleService.updateContractHtml(
+      id,
+      updateDto,
+      currentUser,
+    );
+  }
+
+  @Patch(':id/accept')
+  @Roles(ROLES.LOCATARIO)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Inquilino aceita os termos do contrato' })
+  tenantAcceptsContract(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() currentUser: JwtPayload,
+  ) {
+    return this.contractLifecycleService.tenantAcceptsContract(id, currentUser);
   }
 }

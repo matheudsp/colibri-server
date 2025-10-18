@@ -9,18 +9,37 @@ import { StorageModule } from 'src/storage/storage.module';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { ClicksignModule } from '../clicksign/clicksign.module';
 import { QueueModule } from 'src/queue/queue.module';
+import { PdfsGeneratorService } from './pdfs.generator.service';
+import { PropertiesModule } from '../properties/properties.module';
+import { UserModule } from '../users/users.module';
+import { PdfsSignatureService } from './pdfs.signature.service';
+import { PdfsTemplateService } from './pdfs.template.service';
 
 @Module({
   imports: [
     AppConfigModule,
     PrismaModule,
-    ContractsModule,
+    forwardRef(() => ContractsModule),
     StorageModule,
     ClicksignModule,
     forwardRef(() => QueueModule),
+    forwardRef(() => PropertiesModule),
+    forwardRef(() => UserModule),
   ],
-  providers: [PdfsService, LogHelperService],
+  providers: [
+    PdfsService,
+    PdfsGeneratorService,
+    PdfsSignatureService,
+    PdfsTemplateService,
+    LogHelperService,
+    PrismaService,
+  ],
   controllers: [PdfsController],
-  exports: [PdfsModule, PdfsService],
+  exports: [
+    PdfsService,
+    PdfsGeneratorService,
+    PdfsSignatureService,
+    PdfsTemplateService,
+  ],
 })
 export class PdfsModule {}

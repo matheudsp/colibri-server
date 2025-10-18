@@ -6,11 +6,10 @@ import {
   Param,
   ParseUUIDPipe,
   Delete,
-  UploadedFile,
-  UseInterceptors,
   InternalServerErrorException,
   NotFoundException,
   Res,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -19,202 +18,124 @@ import {
   ApiBearerAuth,
   ApiParam,
   ApiBody,
-  ApiConsumes,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { PdfsService } from './pdfs.service';
 import { CreatePdfDto } from './dto/create-pdf.dto';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { CurrentUser } from 'src/common/decorator/current-user.decorator';
-import { StorageService } from 'src/storage/storage.service';
-import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { PdfResponseDto } from './dto/response-pdf.dto';
 import { Roles } from 'src/common/decorator/roles.decorator';
 import { ROLES } from 'src/common/constants/roles.constant';
+import { GetContractTemplateResponseDto } from './dto/get-contract-template-response.dto';
+import { PdfsTemplateService } from './pdfs.template.service';
 
 @ApiTags('PDFs')
 @Controller('pdfs')
 export class PdfsController {
   constructor(
-    private readonly pdfService: PdfsService,
-    private readonly storageService: StorageService,
+    private readonly pdfsService: PdfsService,
+    private readonly pdfsTemplateService: PdfsTemplateService,
   ) {}
 
-  @Post('generate')
+  @Post('accessory-pdfs/generate')
   @Roles(ROLES.LOCADOR, ROLES.ADMIN)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Generate a new document PDF for a contract' })
-  @ApiResponse({
-    status: 201,
-    description: 'PDF generation has been queued.',
-    type: PdfResponseDto,
+  @ApiOperation({
+    summary:
+      'Generate a new accessory PDF for a contract (e.g., Judicial Report)',
   })
+  @ApiResponse({ status: 201, type: PdfResponseDto })
   @ApiBody({ type: CreatePdfDto })
-  async generatePdf(
+  async generateAccessoryPdf(
     @Body() createPdfDto: CreatePdfDto,
     @CurrentUser() currentUser: JwtPayload,
   ) {
-    return this.pdfService.generatePdf(
+    return this.pdfsService.generateAndSaveAccessoryPdf(
       createPdfDto.contractId,
       createPdfDto.pdfType,
       currentUser,
     );
   }
 
-  @Post(':id/sign')
-  @ApiOperation({ summary: 'Upload signed PDF version' })
-  @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
-  async signPdf(
-    @Param('id', ParseUUIDPipe) id: string,
-    @UploadedFile() signedFile: Express.Multer.File,
-    @CurrentUser() currentUser: JwtPayload,
-  ) {
-    return this.pdfService.signPdf(id, signedFile, currentUser);
-  }
-
-  @Get('contract/:contractId')
-  @ApiOperation({ summary: 'Get all PDFs for a contract' })
-  @ApiParam({
-    name: 'contractId',
-    description: 'Contract UUID',
-    type: String,
-  })
-  @ApiResponse({
-    status: 200,
-    type: [PdfResponseDto],
-    description: 'List of PDFs for the project',
-  })
-  async findByProject(
+  @Get('accessory-pdfs/contract/:contractId')
+  @Roles(ROLES.LOCADOR, ROLES.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all accessory PDFs for a contract' })
+  @ApiResponse({ status: 200, type: [PdfResponseDto] })
+  async findAccessoryPdfsByContract(
     @Param('contractId', ParseUUIDPipe) contractId: string,
     @CurrentUser() currentUser: JwtPayload,
   ) {
-    return this.pdfService.findByContract(contractId, currentUser);
+    return this.pdfsService.findAccessoryPdfsByContract(
+      contractId,
+      currentUser,
+    );
   }
 
-  @Get(':id/signed-url')
-  @ApiOperation({ summary: 'Get signed Url for a PDF' })
-  @ApiResponse({
-    status: 200,
-    description: 'URL signed generated successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        url: { type: 'string' },
-      },
-    },
-  })
-  async getSignedUrl(
-    @Param('id', ParseUUIDPipe) id: string,
-    // @CurrentUser() currentUser: JwtPayload,
-  ) {
-    const pdf = await this.pdfService.getPdfById(id);
-
-    const pathToUse = pdf.signedFilePath || pdf.filePath;
-    const signedUrl = await this.storageService.getSignedUrl(pathToUse);
-    return { url: signedUrl };
+  @Get('accessory-pdfs/:id')
+  @Roles(ROLES.LOCADOR, ROLES.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get accessory PDF document details' })
+  @ApiResponse({ status: 200, type: PdfResponseDto })
+  async findOneAccessoryPdf(@Param('id', ParseUUIDPipe) id: string) {
+    return this.pdfsService.getAccessoryPdfById(id);
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Get PDF document details' })
-  @ApiParam({
-    name: 'id',
-    description: 'PDF document UUID',
-    type: String,
-  })
-  @ApiResponse({
-    status: 200,
-    type: PdfResponseDto,
-    description: 'PDF document details',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'PDF document not found',
-  })
-  async findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.pdfService.getPdfById(id);
+  @Get('accessory-pdfs/:id/signed-url')
+  @Roles(ROLES.LOCADOR, ROLES.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get signed Url for an accessory PDF' })
+  async getAccessoryPdfSignedUrl(@Param('id', ParseUUIDPipe) id: string) {
+    return this.pdfsService.getAccessoryPdfSignedUrl(id);
   }
 
-  @Get(':id/download')
-  @ApiOperation({ summary: 'Download PDF document' })
-  @ApiParam({
-    name: 'id',
-    description: 'PDF document UUID',
-    type: String,
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'PDF file download',
-    content: {
-      'application/pdf': {
-        schema: {
-          type: 'string',
-          format: 'binary',
-        },
-      },
-    },
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'PDF document not found',
-  })
-  async downloadPdf(
+  @Get('accessory-pdfs/:id/download')
+  @Roles(ROLES.LOCADOR, ROLES.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Download an accessory PDF document' })
+  async downloadAccessoryPdf(
     @Param('id', ParseUUIDPipe) id: string,
     @Res() res: Response,
   ) {
     try {
-      const result = await this.pdfService.downloadPdf(id);
-
-      if (!result) {
-        throw new NotFoundException('PDF não encontrado');
-      }
-
+      const result = await this.pdfsService.downloadAccessoryPdf(id);
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader(
         'Content-Disposition',
         `attachment; filename="${result.filename}"`,
       );
-
       result.fileStream.stream.pipe(res);
     } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new InternalServerErrorException(
-        error instanceof Error
-          ? error.message
-          : 'Erro desconhecido ao baixar PDF',
-      );
+      if (error instanceof NotFoundException) throw error;
+      throw new InternalServerErrorException('Erro ao baixar o PDF.');
     }
   }
 
-  @Delete(':id')
-  @ApiOperation({ summary: 'Delete PDF document' })
-  @ApiParam({
-    name: 'id',
-    description: 'PDF document UUID',
-    type: String,
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'PDF file download',
-    content: {
-      'application/pdf': {
-        schema: {
-          type: 'string',
-          format: 'binary',
-        },
-      },
-    },
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'PDF document not found',
-  })
-  async deletePdf(
+  @Delete('accessory-pdfs/:id')
+  @Roles(ROLES.LOCADOR, ROLES.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete an accessory PDF document' })
+  async deleteAccessoryPdf(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() currentUser: JwtPayload,
   ) {
-    return this.pdfService.deletePdf(id, currentUser);
+    return this.pdfsService.deleteAccessoryPdf(id, currentUser);
+  }
+
+  @Get('templates/contract-data')
+  @Roles(ROLES.LOCADOR, ROLES.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Returns the HTML template and dynamic data for the contract editor.',
+  })
+  @ApiResponse({ status: 200, type: GetContractTemplateResponseDto })
+  @ApiQuery({ name: 'contractId', required: true })
+  async getLeaseContractTemplateWithData(
+    @Query('contractId', ParseUUIDPipe) contractId: string,
+  ): Promise<GetContractTemplateResponseDto> {
+    return this.pdfsTemplateService.getContractTemplateWithData(contractId);
   }
 }

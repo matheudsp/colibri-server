@@ -1,87 +1,37 @@
 import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
   BadRequestException,
+  ForbiddenException,
+  Injectable,
   InternalServerErrorException,
   Logger,
-  forwardRef,
-  Inject,
+  NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ROLES } from 'src/common/constants/roles.constant';
-import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { ClicksignService } from '../clicksign/clicksign.service';
-import { ContractStatus, User } from '@prisma/client';
-import { PdfsService } from '../pdfs/pdfs.service';
-import { getPdfFileName } from 'src/common/utils/pdf-naming-helper.utils';
+import { PdfsGeneratorService } from './pdfs.generator.service';
+import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
+import { getPdfFileName } from '../../common/utils/pdf-naming-helper.utils';
+import { PdfsService } from './pdfs.service';
 
 @Injectable()
-export class ContractSignatureService {
-  private readonly logger = new Logger(ContractSignatureService.name);
+export class PdfsSignatureService {
+  private readonly logger = new Logger(PdfsSignatureService.name);
 
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(forwardRef(() => PdfsService))
     private readonly pdfsService: PdfsService,
+    private readonly pdfGeneratorService: PdfsGeneratorService,
     private readonly clicksignService: ClicksignService,
   ) {}
 
-  async getContractPdfSignedUrl(contractId: string, currentUser: JwtPayload) {
-    return this.pdfsService.getContractSignedUrl(contractId, currentUser);
-  }
-
-  async resendNotification(
+  async initiateSignatureProcess(
     contractId: string,
-    signerId: string,
-    currentUser: JwtPayload,
+    currentUser: { sub: string; role: string },
   ) {
-    if (
-      currentUser.role !== ROLES.LOCADOR &&
-      currentUser.role !== ROLES.ADMIN
-    ) {
-      throw new ForbiddenException(
-        'Apenas locadores ou administradores podem reenviar notificações.',
-      );
-    }
-
-    const contract = await this.prisma.contract.findUnique({
-      where: { id: contractId },
-    });
-
-    if (!contract || !contract.clicksignEnvelopeId) {
-      throw new NotFoundException(
-        'Nenhum processo de assinatura ativo (envelope) encontrado para este contrato.',
-      );
-    }
-
-    const signatureRequest = await this.prisma.signatureRequest.findFirst({
-      where: {
-        contractId: contractId,
-        signerId: signerId,
-      },
-    });
-
-    if (!signatureRequest || !signatureRequest.clicksignSignerId) {
-      throw new NotFoundException(
-        'Solicitação de assinatura não encontrada para este usuário no contrato.',
-      );
-    }
-
-    await this.clicksignService.notifySigner(
-      contract.clicksignEnvelopeId,
-      signatureRequest.clicksignSignerId,
-    );
-
-    return {
-      message: `Solicitação de notificação para o signatário foi enviada com sucesso.`,
-    };
-  }
-
-  async requestSignature(contractId: string, currentUser: JwtPayload) {
     if (currentUser.role === ROLES.LOCATARIO) {
       throw new ForbiddenException(
-        'Locatários não têm permissão para solicitar assinaturas.',
+        'Locatários não têm permissão para iniciar um processo de assinatura.',
       );
     }
 
@@ -94,31 +44,9 @@ export class ContractSignatureService {
       throw new NotFoundException('Contrato não encontrado.');
     }
 
-    if (contract.status !== ContractStatus.AGUARDANDO_ASSINATURAS) {
-      throw new BadRequestException(
-        `A solicitação de assinatura só pode ser feita para contratos com status 'AGUARDANDO_ASSINATURAS'. O status atual é '${contract.status}'.`,
-      );
-    }
-
-    // Verifica se já existe um processo ativo na Clicksign
-    if (contract.clicksignEnvelopeId) {
-      const envelope = await this.clicksignService.getEnvelope(
-        contract.clicksignEnvelopeId,
-      );
-      if (
-        envelope &&
-        ['running', 'in_progress'].includes(envelope.data.attributes.status)
-      ) {
-        throw new BadRequestException(
-          'Um processo de assinatura já está em andamento para este contrato. Para notificar os signatários, use a função de reenviar notificação.',
-        );
-      }
-    }
-
-    // Garante que o PDF do contrato exista antes de prosseguir
     if (!contract.contractFilePath) {
       this.logger.log(
-        `Gerando PDF para o contrato ${contractId} antes de iniciar a assinatura.`,
+        `Nenhum PDF encontrado para o contrato ${contractId}. Gerando um novo...`,
       );
       const { filePath } = await this.pdfsService.generateAndSaveContractPdf(
         contractId,
@@ -127,14 +55,24 @@ export class ContractSignatureService {
       contract.contractFilePath = filePath;
     }
 
-    // Inicia o processo de assinatura
-    return this.initiateClicksignProcess(contract, currentUser);
+    if (contract.clicksignEnvelopeId) {
+      const envelope = await this.clicksignService.getEnvelope(
+        contract.clicksignEnvelopeId,
+      );
+      if (envelope && envelope.data.attributes.status === 'in_progress') {
+        throw new BadRequestException(
+          'Este contrato já possui um processo de assinatura em andamento.',
+        );
+      }
+    }
+
+    this.logger.log(
+      `Iniciando um novo processo de assinatura para o contrato ${contract.id}...`,
+    );
+    return this.requestSignature(contract);
   }
 
-  private async initiateClicksignProcess(
-    contract: any, // Tipo any para acomodar os includes
-    currentUser: JwtPayload,
-  ) {
+  private async requestSignature(contract: any) {
     if (!contract.landlord.phone || !contract.tenant.phone) {
       throw new BadRequestException(
         'O locador e o locatário devem ter um número de telefone cadastrado.',
@@ -144,7 +82,6 @@ export class ContractSignatureService {
     try {
       const originalFileName = getPdfFileName('CONTRATO_LOCACAO', contract.id);
       const envelope = await this.clicksignService.createEnvelope(contract.id);
-
       const document = await this.clicksignService.addDocumentToEnvelope(
         envelope.id,
         contract.contractFilePath,
@@ -168,11 +105,6 @@ export class ContractSignatureService {
         contract.tenant,
         'lessee',
       );
-
-      // Limpa registros antigos antes de criar novos para evitar conflitos
-      await this.prisma.signatureRequest.deleteMany({
-        where: { contractId: contract.id },
-      });
 
       await this.prisma.signatureRequest.createMany({
         data: [
@@ -214,7 +146,7 @@ export class ContractSignatureService {
   private async addSignerAndRequirements(
     envelopeId: string,
     documentId: string,
-    user: User,
+    user: any,
     role: 'lessor' | 'lessee',
   ) {
     const isPF = user.cpfCnpj.length === 11;
@@ -226,10 +158,7 @@ export class ContractSignatureService {
       documentation: isPF
         ? user.cpfCnpj.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
         : undefined,
-      birthday:
-        isPF && user.birthDate
-          ? user.birthDate.toISOString().split('T')[0]
-          : undefined,
+      birthday: isPF ? user.birthDate?.toISOString().split('T')[0] : undefined,
     };
 
     const signer = await this.clicksignService.addSignerToEnvelope(

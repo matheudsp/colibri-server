@@ -91,12 +91,7 @@ export class ContractsService {
             },
           },
         },
-
-        GeneratedPdf: {
-          include: {
-            signatureRequests: true,
-          },
-        },
+        signatureRequests: true, // Relação direta com as solicitações de assinatura
         property: {
           include: {
             photos: true,
@@ -107,9 +102,11 @@ export class ContractsService {
         documents: { select: { id: true, status: true, type: true } },
       },
     });
+
     if (!contract) {
       throw new NotFoundException(`Contrato com ID "${id}" não encontrado.`);
     }
+
     if (
       contract.landlordId !== currentUser.sub &&
       contract.tenantId !== currentUser.sub &&
@@ -131,8 +128,10 @@ export class ContractsService {
       });
     }
 
+    const { ...contractWithoutGeneratedPdf } = contract;
+
     return {
-      ...contract,
+      ...contractWithoutGeneratedPdf,
       property: {
         ...contract.property,
         photos: photosWithUrl,

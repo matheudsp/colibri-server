@@ -1,7 +1,7 @@
 import { PdfType } from '@prisma/client';
 
 export const getPdfFileName = (
-  pdfType: PdfType,
+  pdfType: PdfType | 'CONTRATO_LOCACAO',
   contractId: string, // Usaremos o ID do contrato para garantir unicidade
 ): string => {
   switch (pdfType) {

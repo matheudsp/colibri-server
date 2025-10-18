@@ -54,30 +54,22 @@ export class WebhooksService {
         );
         return;
       }
-      const { generatedPdfId, clicksignEnvelopeId } = signatureRequest;
 
-      const pdf = await this.prisma.generatedPdf.findUnique({
-        where: { id: generatedPdfId },
-      });
-
-      if (!pdf) {
-        this.logger.warn(
-          `Nenhum PDF encontrado para a SignatureRequest: ${signatureRequest.id}`,
-        );
-        return;
-      }
-
+      const { contractId, clicksignEnvelopeId } = signatureRequest;
       const signedUrl = payload?.document?.downloads?.signed_file_url;
+
       if (signedUrl) {
         try {
           this.logger.log(
-            `Iniciando download do documento assinado para o contrato ${pdf.contractId}.`,
+            `Iniciando download do documento assinado para o contrato ${contractId}.`,
           );
           const response = await firstValueFrom(
             this.httpService.get(signedUrl, { responseType: 'arraybuffer' }),
           );
           const fileBuffer = Buffer.from(response.data);
-          const signedFileName = `assinado-${getPdfFileName(pdf.pdfType, pdf.contractId)}`;
+
+          const signedFileName = `CONTRATO_LOCACAO_ASSINADO.pdf`;
+
           const { key } = await this.storageService.uploadFile(
             {
               buffer: fileBuffer,
@@ -85,16 +77,16 @@ export class WebhooksService {
               mimetype: 'application/pdf',
               size: fileBuffer.length,
             },
-            { folder: `contracts/${pdf.contractId}` },
+            { folder: `contracts/${contractId}` },
           );
 
-          await this.prisma.generatedPdf.update({
-            where: { id: pdf.id },
-            data: { signedFilePath: key },
+          await this.prisma.contract.update({
+            where: { id: contractId },
+            data: { signedContractFilePath: key },
           });
 
           this.logger.log(
-            `Documento assinado para o contrato ${pdf.contractId} salvo em: ${key}.`,
+            `Documento assinado para o contrato ${contractId} salvo em: ${key}.`,
           );
         } catch (error) {
           this.logger.error(
@@ -108,11 +100,9 @@ export class WebhooksService {
         );
       }
 
-      this.logger.log(
-        `Solicitando ativação para o contrato ${pdf.contractId}...`,
-      );
+      this.logger.log(`Solicitando ativação para o contrato ${contractId}...`);
       await this.contractLifecycleService.activateContractAfterSignature(
-        pdf.contractId,
+        contractId,
       );
     } else {
       this.logger.log(
@@ -120,7 +110,6 @@ export class WebhooksService {
       );
     }
   }
-
   async processAsaasEvent(payload: {
     event: string;
     payment?: any;
