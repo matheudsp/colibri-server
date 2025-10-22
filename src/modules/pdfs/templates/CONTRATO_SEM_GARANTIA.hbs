@@ -1,12 +1,184 @@
 <html>
+  <head>
+    <meta charset='UTF-8' />
+    <title>Contrato de Locação de {{property.propertyType}}</title>
+  </head>
   <body>
+
     <h1>Contrato de Locação Residencial</h1>
+
+    <div class='party-block'>
+      <h2>1. AS PARTES</h2>
+      <p>
+        <strong>LOCADOR(A):</strong>
+        {{landlord.name}}, inscrito(a) no CPF/CNPJ sob o nº
+        {{landlord.cpfCnpj}}, com endereço na
+        {{landlord.street}}, nº
+        {{landlord.number}},
+        {{landlord.province}},
+        {{landlord.city}}
+        -
+        {{landlord.state}}.
+      </p>
+      <p>
+        <strong>LOCATÁRIO(A):</strong>
+        {{tenant.name}}, inscrito(a) no CPF/CNPJ sob o nº
+        {{tenant.cpfCnpj}}, com e-mail para contato
+        {{tenant.email}}.
+      </p>
+    </div>
+
+    <p>As partes acima qualificadas celebram o presente Contrato de Locação,
+      regido pela Lei nº 8.245/91 e pelas seguintes cláusulas e condições:</p>
+
+    <h2>2. CLÁUSULAS CONTRATUAIS</h2>
     <ol>
       <li>
-        <strong class='clausula-titulo'>GARANTIA</strong>
-        <p>A presente locação é firmada na modalidade
-          <strong>Sem Garantia</strong>, baseada na confiança entre as partes.</p>
+        <strong class='clausula-titulo'>OBJETO DA LOCAÇÃO</strong>
+        <p>O presente contrato tem como objeto a locação do imóvel residencial
+          localizado na
+          <strong>{{property.street}}, nº
+            {{property.number}}, Compl.:
+            {{property.complement}}, Bairro
+            {{property.district}}, Cidade
+            {{property.city}}/{{property.state}}, CEP
+            {{property.cep}}</strong>.
+        </p>
+        <p><strong>Parágrafo Único:</strong>
+          O(A) LOCATÁRIO(A) declara receber o imóvel em perfeitas condições de
+          uso, conforme Laudo de Vistoria assinado em anexo.</p>
+      </li>
+
+      <li>
+        <strong class='clausula-titulo'>PRAZO DE VIGÊNCIA</strong>
+        <p>O prazo de locação é de
+          <strong>{{contract.durationInMonths}} meses</strong>, com início em
+          <strong>{{contract.startDate}}</strong>
+          e término previsto para
+          <strong>{{contract.endDate}}</strong>. Ao final do prazo, o(a)
+          LOCATÁRIO(A) deverá restituir o imóvel, independentemente de
+          notificação.
+        </p>
+      </li>
+
+      <li>
+        <strong class='clausula-titulo'>VALOR E PAGAMENTO</strong>
+        <p>O valor mensal total da locação é composto pelos seguintes valores, a
+          ser pago até o
+          <strong>dia {{contract.startDateDay}}</strong>
+          de cada mês:
+        </p>
+        <ul>
+          <li>Aluguel: <strong>{{contract.rentAmount}}</strong></li>
+          <li>(+)Condomínio:<strong>{{contract.condoFee}}</strong></li>
+          <li>(+)IPTU: <strong>{{contract.iptuFee}}</strong></li>
+        </ul>
+        <p><strong>Parágrafo Primeiro:</strong>
+          O não pagamento do valor total até a data de vencimento implicará em
+          <strong>multa de 2% (dois por cento)</strong>
+          sobre o montante devido, acrescido de
+          <strong>juros de mora de 1% (um por cento) ao mês</strong>, calculados
+          pro rata die.
+        </p>
+        <p><strong>Parágrafo Segundo:</strong>
+          Além dos valores acima, são de responsabilidade do(a) LOCATÁRIO(A) as
+          contas de consumo como água, energia elétrica, gás e outras que venham
+          a incidir sobre o imóvel.</p>
+      </li>
+
+      <li>
+        <strong class='clausula-titulo'>DA EFETIVAÇÃO DO CONTRATO</strong>
+       
+      <li>
+        <strong class='clausula-titulo'>USO DO IMÓVEL</strong>
+        <p>O imóvel destina-se a fins exclusivamente residenciais, não sendo
+          permitida a sublocação, cessão ou empréstimo a terceiros sem
+          autorização prévia e por escrito do(a) LOCADOR(A).</p>
+      </li>
+
+      <li>
+        <strong class='clausula-titulo'>CONSERVAÇÃO E BENFEITORIAS</strong>
+        <p>O(A) LOCATÁRIO(A) se compromete a manter o imóvel em perfeito estado
+          de conservação. Quaisquer benfeitorias ou alterações estruturais
+          dependerão de autorização expressa do(a) LOCADOR(A) e não gerarão
+          direito a indenização.
+        </p>
+      </li>
+
+      <li>
+        <strong class='clausula-titulo'>DIREITO DE PREFERÊNCIA</strong>
+        <p>
+          Caso o imóvel seja posto à venda, será concedido ao(à) LOCATÁRIO(A) o
+          direito de preferência para adquiri-lo em igualdade de condições com
+          terceiros, devendo o(a) LOCADOR(A) notificá-lo(a) por escrito para que
+          exerça sua decisão no prazo de 30 (trinta) dias.
+        </p>
+      </li>
+
+      <li>
+        <strong class='clausula-titulo'>DA RESCISÃO CONTRATUAL</strong>
+        <p>
+          A rescisão deste contrato antes do prazo estipulado sujeitará a parte
+          infratora ao pagamento de multa contratual.
+        </p>
+        <p>
+          <strong>Parágrafo Primeiro:</strong>
+          Caso o(a)
+          <strong>LOCATÁRIO(A)</strong>
+          decida rescindir o contrato antecipadamente, deverá notificar o(a)
+          LOCADOR(A) com antecedência mínima de 30 (trinta) dias e pagará multa
+          no valor equivalente a
+          <strong>3 (três) meses de aluguel</strong>, calculada
+          proporcionalmente ao período restante do contrato, conforme o Art. 4º
+          da Lei nº 8.245/91.
+        </p>
+        <p>
+          <strong>Parágrafo Segundo:</strong>
+          Fica o(a) LOCATÁRIO(A) dispensado(a) da multa caso a rescisão decorra
+          de transferência profissional para outra localidade, desde que
+          notifique o(a) LOCADOR(A) por escrito com 30 (trinta) dias de
+          antecedência.
+        </p>
+        <p>
+          <strong>Parágrafo Terceiro:</strong>
+          O descumprimento de qualquer cláusula deste contrato por qualquer uma
+          das partes ensejará a sua rescisão de pleno direito, independentemente
+          de notificação, sujeitando a parte infratora à multa estipulada no
+          Parágrafo Primeiro, além das demais sanções legais e contratuais
+          cabíveis.
+        </p>
+      </li>
+
+      <li>
+        <strong class='clausula-titulo'>FORO</strong>
+        <p>Fica eleito o foro da comarca de
+          <strong>{{property.city}} - {{property.state}}</strong>
+          para resolver quaisquer questões decorrentes deste contrato.</p>
       </li>
     </ol>
+
+    <p>E, por estarem de pleno acordo, as partes assinam este contrato em duas
+      vias de igual teor.</p>
+
+    <div class='signature-block'>
+      <p style='text-align: center;'>{{property.city}}, {{todayDate}}.</p>
+
+      <div class='signature-line'>
+        <p></p>
+      </div>
+      <div class='signature-info'>
+        <strong>{{landlord.name}}</strong><br />
+        (LOCADOR(A))
+      </div>
+
+      <div class='signature-line'>
+        <p></p>
+      </div>
+      <div class='signature-info'>
+        <strong>{{tenant.name}}</strong><br />
+        (LOCATÁRIO(A))
+      </div>
+    </div>
+
   </body>
 </html>

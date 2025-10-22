@@ -3,6 +3,8 @@ import * as path from 'path';
 import * as puppeteer from 'puppeteer';
 import Handlebars from '../../../config/handlebars.config';
 import { DateUtils } from 'src/common/utils/date.utils';
+import { InternalServerErrorException, Logger } from '@nestjs/common';
+const logger = new Logger('PdfGeneratorUtils');
 
 async function generatePdf(html: string): Promise<Buffer> {
   let logoBase64 = '';
@@ -60,6 +62,32 @@ async function generatePdf(html: string): Promise<Buffer> {
   const pdfUint8Array = await page.pdf(pdfOptions);
   await browser.close();
   return Buffer.from(pdfUint8Array);
+}
+
+/**
+ * * Renderiza uma string HTML contendo placeholders Handlebars com os dados fornecidos.
+ * @param htmlString A string HTML com placeholders (ex: vinda do banco de dados).
+ * @param data Os dados para preencher os placeholders.
+ * @returns A string HTML renderizada.
+ */
+export function renderHtmlFromTemplateString(
+  htmlString: string,
+  data: any,
+): string {
+  try {
+    const template = Handlebars.compile(htmlString);
+    const renderedHtml = template(data);
+    return renderedHtml;
+  } catch (error) {
+    logger.error(
+      `Falha ao compilar ou renderizar a string HTML com Handlebars.`,
+      error,
+    );
+
+    throw new InternalServerErrorException(
+      'Ocorreu um erro ao processar o template do contrato.',
+    );
+  }
 }
 
 /**

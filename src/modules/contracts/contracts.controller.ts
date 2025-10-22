@@ -36,6 +36,7 @@ import { ResendNotificationDto } from './dto/resend-notification.dto';
 import { ContractLifecycleService } from './contracts.lifecycle.service';
 import { ContractSignatureService } from './contracts.signature.service';
 import { UpdateContractHtmlDto } from './dto/update-contract-html.dto';
+import { RequestContractAlterationDto } from './dto/request-contract-alteration.dto';
 
 @ApiTags('Contracts')
 @ApiBearerAuth()
@@ -236,5 +237,42 @@ export class ContractsController {
     @CurrentUser() currentUser: JwtPayload,
   ) {
     return this.contractLifecycleService.tenantAcceptsContract(id, currentUser);
+  }
+
+  @Patch(':id/request-alteration')
+  @Roles(ROLES.LOCATARIO)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Inquilino solicita alteração no contrato' })
+  @ApiBody({ type: RequestContractAlterationDto })
+  tenantRequestsAlteration(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() currentUser: JwtPayload,
+    @Body() dto: RequestContractAlterationDto,
+  ) {
+    return this.contractLifecycleService.tenantRequestsAlteration(
+      id,
+      currentUser,
+      dto,
+    );
+  }
+
+  @Get(':id/review')
+  @Roles(ROLES.LOCATARIO)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Obtém o HTML do contrato para revisão e aceite do inquilino',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'HTML do contrato renderizado com os dados.',
+  })
+  async getContractForReview(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() currentUser: JwtPayload,
+  ): Promise<{ renderedHtml: string }> {
+    return this.contractsService.getContractHtmlForTenantAcceptance(
+      id,
+      currentUser.sub,
+    );
   }
 }

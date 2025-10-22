@@ -51,6 +51,7 @@ enum CompanyType {
 enum ContractStatus {
   EM_ELABORACAO
   AGUARDANDO_ACEITE_INQUILINO
+  SOLICITANDO_ALTERACAO
   PENDENTE_DOCUMENTACAO
   EM_ANALISE
   AGUARDANDO_ASSINATURAS
@@ -328,10 +329,11 @@ model Contract {
   durationInMonths Int
   guaranteeType    GuaranteeType  @default(SEM_GARANTIA)
 
-  contractHtml           String? @db.Text
-  contractFilePath       String?
-  signedContractFilePath String?
-  clicksignEnvelopeId    String? @unique
+  contractHtml            String? @db.Text
+  alterationRequestReason String? @db.Text
+  contractFilePath        String?
+  signedContractFilePath  String?
+  clicksignEnvelopeId     String? @unique
 
   securityDeposit Decimal?
   createdAt       DateTime @default(now())

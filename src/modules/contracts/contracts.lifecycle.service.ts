@@ -26,6 +26,7 @@ import { PaymentsOrdersService } from '../payments-orders/payments-orders.servic
 import { NotificationsService } from '../notifications/notifications.service';
 import { StorageService } from 'src/storage/storage.service';
 import type { UpdateContractHtmlDto } from './dto/update-contract-html.dto';
+import type { RequestContractAlterationDto } from './dto/request-contract-alteration.dto';
 
 @Injectable()
 export class ContractLifecycleService {
@@ -572,6 +573,10 @@ export class ContractLifecycleService {
     // O Prisma irá deletar os contratos em cascata quando a propriedade for deletada
   }
 
+  /**
+   *  Salva o HTML editado e, se veio de uma solicitação de alteração,
+   * retorna para AGUARDANDO_ACEITE_INQUILINO e notifica o inquilino.
+   */
   async updateContractHtml(
     contractId: string,
     dto: UpdateContractHtmlDto,
@@ -590,32 +595,56 @@ export class ContractLifecycleService {
       throw new ForbiddenException(
         'Apenas o locador pode editar este contrato.',
       );
-    if (contract.status !== ContractStatus.EM_ELABORACAO) {
+
+    if (
+      contract.status !== ContractStatus.EM_ELABORACAO &&
+      contract.status !== ContractStatus.SOLICITANDO_ALTERACAO
+    ) {
       throw new BadRequestException(
-        `O contrato não está mais na fase de elaboração (Status atual: ${contract.status}).`,
+        `O contrato não pode ser editado neste status (Status atual: ${contract.status}).`,
       );
     }
+
+    const previousStatus = contract.status;
 
     await this.prisma.contract.update({
       where: { id: contractId },
       data: {
         contractHtml: dto.contractHtml,
         status: ContractStatus.AGUARDANDO_ACEITE_INQUILINO,
+
+        alterationRequestReason:
+          previousStatus === ContractStatus.SOLICITANDO_ALTERACAO
+            ? null
+            : contract.alterationRequestReason,
       },
     });
 
+    const logAction =
+      previousStatus === ContractStatus.SOLICITANDO_ALTERACAO
+        ? 'UPDATE_CONTRACT_AFTER_ALTERATION_REQUEST'
+        : 'FINALIZE_CONTRACT_DRAFT';
+
     await this.logHelper.createLog(
       currentUser.sub,
-      'FINALIZE_CONTRACT_DRAFT',
+      logAction,
       'Contract',
       contractId,
     );
 
+    let notificationTitle = 'Seu contrato está pronto!';
+    let notificationMessage = `O locador do imóvel "${contract.property.title}" finalizou a elaboração do contrato. Por favor, leia os termos e aceite-os para podermos prosseguir.`;
+
+    if (previousStatus === ContractStatus.SOLICITANDO_ALTERACAO) {
+      notificationTitle = 'O Contrato foi Atualizado';
+      notificationMessage = `O locador do imóvel "${contract.property.title}" atualizou o contrato conforme sua solicitação (ou fez outros ajustes). Por favor, revise a nova versão e aceite os termos para prosseguir.`;
+    }
+
     await this.notificationsService.create({
       userId: contract.tenant.id,
       user: { email: contract.tenant.email, name: contract.tenant.name },
-      title: 'Seu contrato está pronto para revisão',
-      message: `O locador do imóvel "${contract.property.title}" finalizou a elaboração do contrato. Por favor, leia os termos e aceite-os para podermos prosseguir para a fase de documentação.`,
+      title: notificationTitle,
+      message: notificationMessage,
       action: {
         text: 'Revisar e Aceitar Contrato',
         path: `/contratos/${contract.id}/revisar`,
@@ -629,9 +658,6 @@ export class ContractLifecycleService {
     };
   }
 
-  /**
-   * NOVO MÉTODO: Chamado quando o inquilino aceita os termos do contrato.
-   */
   async tenantAcceptsContract(contractId: string, currentUser: JwtPayload) {
     const contract = await this.prisma.contract.findUnique({
       where: { id: contractId },
@@ -646,6 +672,7 @@ export class ContractLifecycleService {
       throw new ForbiddenException(
         'Apenas o inquilino deste contrato pode aceitá-lo.',
       );
+    // Verifica o Status correto antes de permitir o aceite
     if (contract.status !== ContractStatus.AGUARDANDO_ACEITE_INQUILINO) {
       throw new BadRequestException(
         `O contrato não está aguardando seu aceite (Status atual: ${contract.status}).`,
@@ -655,7 +682,7 @@ export class ContractLifecycleService {
     await this.prisma.contract.update({
       where: { id: contractId },
       data: {
-        status: ContractStatus.PENDENTE_DOCUMENTACAO, // Avança para a próxima fase
+        status: ContractStatus.PENDENTE_DOCUMENTACAO,
       },
     });
 
@@ -681,6 +708,69 @@ export class ContractLifecycleService {
     return {
       message:
         'Contrato aceito com sucesso! Agora você pode enviar seus documentos.',
+    };
+  }
+
+  /**
+   *  Chamado quando o inquilino solicita alteração no contrato.
+   * Muda o status para SOLICITANDO_ALTERACAO e notifica o locador para editar.
+   */
+  async tenantRequestsAlteration(
+    contractId: string,
+    currentUser: JwtPayload,
+    dto: RequestContractAlterationDto,
+  ) {
+    const contract = await this.prisma.contract.findUnique({
+      where: { id: contractId },
+      include: {
+        property: { select: { title: true } },
+        tenant: { select: { id: true, name: true, email: true } },
+        landlord: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    if (!contract) throw new NotFoundException('Contrato não encontrado.');
+    if (contract.tenantId !== currentUser.sub)
+      throw new ForbiddenException(
+        'Apenas o inquilino deste contrato pode solicitar alterações.',
+      );
+
+    if (contract.status !== ContractStatus.AGUARDANDO_ACEITE_INQUILINO) {
+      throw new BadRequestException(
+        `Não é possível solicitar alteração neste momento (Status atual: ${contract.status}). A solicitação só pode ser feita quando o contrato está 'Aguardando Aceite'.`,
+      );
+    }
+
+    await this.prisma.contract.update({
+      where: { id: contractId },
+      data: {
+        status: ContractStatus.SOLICITANDO_ALTERACAO,
+        alterationRequestReason: dto.reason,
+      },
+    });
+
+    await this.logHelper.createLog(
+      currentUser.sub,
+      'TENANT_REQUESTS_ALTERATION',
+      'Contract',
+      contractId,
+    );
+
+    await this.notificationsService.create({
+      userId: contract.landlord.id,
+      user: { email: contract.landlord.email, name: contract.landlord.name },
+      title: 'Solicitação de Alteração no Contrato',
+      message: `O inquilino ${contract.tenant.name} solicitou alterações no contrato do imóvel "${contract.property.title}" e informou o seguinte motivo:\n"${dto.reason}"\n\nPor favor, acesse a plataforma para editar o contrato conforme necessário.`,
+      action: {
+        text: 'Editar Contrato',
+        path: `/contratos/${contract.id}/editor`,
+      },
+      sendEmail: true,
+    });
+
+    return {
+      message:
+        'Solicitação de alteração enviada. O locador foi notificado para revisar e editar o contrato.',
     };
   }
 }

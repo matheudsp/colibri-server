@@ -14,6 +14,11 @@ import {
 } from './utils/pdf-generator';
 import type { JudicialReportTemplateData } from './types/judicial-report-template.interface';
 import Handlebars from 'handlebars';
+import { CurrencyUtils } from 'src/common/utils/currency.utils';
+import { format } from 'date-fns';
+import { EnumUtils } from 'src/common/utils/enum.utils';
+import { cpfCnpjUtils } from 'src/common/utils/cpfCnpj.utils';
+import type { ContractTemplateData } from './types/contract-template.interface';
 
 @Injectable()
 export class PdfsGeneratorService {
@@ -69,41 +74,78 @@ export class PdfsGeneratorService {
         'O conteúdo do contrato (contractHtml) não foi encontrado. Ele precisa ser salvo a partir do editor antes da geração do PDF.',
       );
     }
-
+    if (!contract.landlord || !contract.tenant || !contract.property) {
+      this.logger.error(
+        `Dados relacionados (locador, locatário ou imóvel) ausentes para o contrato ${contractId}.`,
+      );
+      throw new InternalServerErrorException(
+        'Falha ao carregar dados completos do contrato para gerar o PDF.',
+      );
+    }
     // Prepara os dados mais atuais para preencher os placeholders
-    const templateData = {
-      landlord: contract.landlord,
-      tenant: contract.tenant,
-      property: contract.property,
-      startDate: contract.startDate,
-      endDate: contract.endDate,
-      durationInMonths: contract.durationInMonths,
-      rentAmount: contract.rentAmount.toNumber(),
-      condoFee: contract.condoFee?.toNumber(),
-      iptuFee: contract.iptuFee?.toNumber(),
-      totalAmount:
-        contract.rentAmount.toNumber() +
-        (contract.condoFee?.toNumber() ?? 0) +
-        (contract.iptuFee?.toNumber() ?? 0),
-      guaranteeType: contract.guaranteeType,
-      securityDeposit: contract.securityDeposit?.toNumber(),
-      now: new Date(),
+    const templateData: ContractTemplateData = {
+      landlord: {
+        name: contract.landlord.name,
+        cpfCnpj: cpfCnpjUtils.formatCpfCnpj(contract.landlord.cpfCnpj),
+        street: contract.landlord.street,
+        number: contract.landlord.number,
+        province: contract.landlord.province,
+        city: contract.landlord.city,
+        state: contract.landlord.state,
+        email: contract.landlord.email,
+      },
+      property: {
+        title: contract.property.title,
+        street: contract.property.street,
+        number: contract.property.number,
+        complement: contract.property.complement?.toString() || '',
+        district: contract.property.district,
+        city: contract.property.city,
+        state: contract.property.state,
+        cep: contract.property.cep,
+        propertyType: contract.property.propertyType,
+      },
+      tenant: {
+        name: contract.tenant.name,
+        cpfCnpj: cpfCnpjUtils.formatCpfCnpj(contract.tenant.cpfCnpj),
+        email: contract.tenant.email,
+      },
+      contract: {
+        totalAmount:
+          CurrencyUtils.formatCurrency(
+            contract.rentAmount.toNumber() +
+              (contract.condoFee?.toNumber() ?? 0) +
+              (contract.iptuFee?.toNumber() ?? 0),
+          ) || 'R$ 0,00',
+        rentAmount:
+          CurrencyUtils.formatCurrency(contract.rentAmount.toNumber()) ||
+          'R$ 0,00',
+        condoFee: CurrencyUtils.formatCurrency(contract.condoFee?.toNumber()),
+        iptuFee: CurrencyUtils.formatCurrency(contract.iptuFee?.toNumber()),
+        securityDeposit: CurrencyUtils.formatCurrency(
+          contract.securityDeposit?.toNumber(),
+        ),
+        durationInMonths: contract.durationInMonths.toString(),
+        guaranteeType: EnumUtils.formatGuaranteeType(contract.guaranteeType),
+        startDateDay: format(new Date(contract.startDate), 'dd'),
+        startDate: format(new Date(contract.startDate), 'dd/MM/yyyy'),
+        endDate: format(new Date(contract.endDate), 'dd/MM/yyyy'),
+      },
+      todayDate: format(new Date(), 'dd/MM/yyyy'),
     };
 
     try {
-      // Compila o HTML salvo no banco (vindo do Tiptap) com os dados atuais
       const template = Handlebars.compile(contract.contractHtml);
       const finalHtml = template(templateData);
 
-      // Gera o PDF a partir do HTML final
       return await generatePdfFromHtml(finalHtml);
     } catch (error) {
       this.logger.error(
-        `Falha ao compilar o template Handlebars do banco ou gerar o PDF para o contrato ${contractId}`,
-        error,
+        `Falha ao compilar o template Handlebars do banco (${contract.id}) ou gerar o PDF: ${error.message}`,
+        error.stack,
       );
       throw new InternalServerErrorException(
-        'Falha ao gerar o documento final do contrato.',
+        `Falha ao gerar o documento final do contrato. Verifique os logs para detalhes. Erro: ${error.message}`,
       );
     }
   }

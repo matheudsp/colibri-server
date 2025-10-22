@@ -320,7 +320,7 @@ export class DocumentsService {
         message: `Olá, ${contract.landlord.name}. Você aprovou todos os documentos do locatário ${contract.tenant.name} para o imóvel "${contract.property.title}". O contrato agora está pronto para as assinaturas.`,
         action: {
           text: 'Ver Contrato',
-          path: `/contracts/${contract.id}`,
+          path: `/contratos/${contract.id}`,
         },
         sendEmail: true,
       });
@@ -332,11 +332,12 @@ export class DocumentsService {
           name: contract.tenant.name,
           email: contract.tenant.email,
         },
-        title: 'Boas notícias! Sua documentação foi aprovada',
+        title:
+          'Boas notícias! Sua documentação foi aprovada. Próximo Passo: Assinaturas',
         message: `Parabéns, ${contract.tenant.name}! Sua documentação para o imóvel "${contract.property.title}" foi totalmente aprovada pelo locador. O próximo passo é a assinatura do contrato.`,
         action: {
           text: 'Ver Contrato',
-          path: `/contracts/${contract.id}`,
+          path: `/contratos/${contract.id}`,
         },
         sendEmail: true,
       });

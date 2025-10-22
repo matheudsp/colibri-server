@@ -34,6 +34,15 @@ import { FindUserPaymentsDto } from './dto/find-user-payments.dto';
 @ApiTags('Payments Orders')
 export class PaymentsOrdersController {
   constructor(private readonly paymentsService: PaymentsOrdersService) {}
+  @Get('user-payments')
+  @Roles(ROLES.LOCATARIO, ROLES.LOCADOR, ROLES.ADMIN)
+  @ApiOperation({ summary: 'List all payments related to the logged-in user' })
+  findUserPayments(
+    @CurrentUser() currentUser: JwtPayload,
+    @Query() filters: FindUserPaymentsDto,
+  ) {
+    return this.paymentsService.findUserPayments(currentUser, filters);
+  }
 
   @Get(':id')
   @Roles(ROLES.LOCATARIO, ROLES.LOCADOR, ROLES.ADMIN)
@@ -78,15 +87,6 @@ export class PaymentsOrdersController {
     @CurrentUser() currentUser: JwtPayload,
   ) {
     return this.paymentsService.findPaymentsByContract(contractId, currentUser);
-  }
-  @Get('user-payments')
-  @Roles(ROLES.LOCATARIO, ROLES.LOCADOR, ROLES.ADMIN)
-  @ApiOperation({ summary: 'List all payments related to the logged-in user' })
-  findUserPayments(
-    @CurrentUser() currentUser: JwtPayload,
-    @Query() filters: FindUserPaymentsDto,
-  ) {
-    return this.paymentsService.findUserPayments(currentUser, filters);
   }
 
   @Post(':paymentOrderId/confirm-cash')

@@ -19,12 +19,12 @@ export interface ContractTemplateData {
     name: string;
     cpfCnpj: string;
     email: string;
-    // O endereço do locatário é opcional no template, mas pode ser adicionado aqui.
   };
   /**
    * Dados do Imóvel que está sendo alugado.
    */
   property: {
+    title: string;
     propertyType: string;
     street: string | null;
     number: string;
@@ -35,42 +35,24 @@ export interface ContractTemplateData {
     cep: string | null;
   };
   /**
-   * A data de início do contrato.
-   * Usada para o prazo e para determinar o dia do vencimento.
+   * Detalhes específicos do contrato (valores, datas, etc.)
+   * Renomeado de 'contract' para 'contractDetails' para evitar conflito de nome
    */
-  startDate: Date | string;
+  contract: {
+    totalAmount: string;
+    rentAmount: string;
+    condoFee?: string | undefined;
+    iptuFee?: string | undefined;
+    securityDeposit?: string | undefined;
+    durationInMonths: string;
+    guaranteeType: string;
+    startDateDay: string;
+    startDate: string;
+    endDate: string;
+  };
+
   /**
-   * A data de término do contrato.
+   * Data atual formatada para exibição (ex: assinatura).
    */
-  endDate: Date | string;
-  /**
-   * Duração do contrato em meses (ex: 30).
-   */
-  durationInMonths: number;
-  /**
-   * Valor do aluguel (sem taxas).
-   */
-  rentAmount: number;
-  /**
-   * Valor da taxa de condomínio (opcional).
-   */
-  condoFee?: number | null;
-  /**
-   * Valor da taxa de IPTU (opcional).
-   */
-  iptuFee?: number | null;
-  totalAmount: number;
-  /**
-   * O tipo de garantia (ex: "DEPOSITO_CAUCAO", "FIADOR").
-   * É um enum do Prisma, mas aqui pode ser tratado como string.
-   */
-  guaranteeType: string;
-  /**
-   * O valor do depósito caução, se aplicável.
-   */
-  securityDeposit?: number | null;
-  /**
-   * A data atual, usada para preencher a data da assinatura no final do contrato.
-   */
-  now: Date | string;
+  todayDate: string; // Formatado como string (dd/MM/yyyy)
 }

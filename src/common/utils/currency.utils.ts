@@ -4,9 +4,10 @@ export class CurrencyUtils {
    * @param value O número a ser formatado.
    * @returns A string formatada, ex: "R$ 1.500,00". Retorna 'N/A' se o valor for nulo ou indefinido.
    */
-  static formatCurrency(value: number | null | undefined): string {
+  static formatCurrency(value: number | null | undefined): string | undefined {
     if (value === null || value === undefined) {
-      return 'N/A';
+      // return 'N/A';
+      return;
     }
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',

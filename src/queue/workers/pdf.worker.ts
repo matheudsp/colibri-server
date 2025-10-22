@@ -38,7 +38,7 @@ export class PdfWorker {
           mimetype: 'application/pdf',
           size: pdfBuffer.length,
         },
-        { folder: `contracts/${contractId}` },
+        { folder: `contratos/${contractId}` },
       );
 
       await this.prisma.generatedPdf.update({

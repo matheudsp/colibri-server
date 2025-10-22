@@ -10,6 +10,10 @@ import * as path from 'path';
 import { GetContractTemplateResponseDto } from './dto/get-contract-template-response.dto';
 import { GuaranteeType } from '@prisma/client';
 import { format } from 'date-fns';
+import { cpfCnpjUtils } from 'src/common/utils/cpfCnpj.utils';
+import { EnumUtils } from 'src/common/utils/enum.utils';
+import { CurrencyUtils } from 'src/common/utils/currency.utils';
+import type { ContractTemplateData } from './types/contract-template.interface';
 
 @Injectable()
 export class PdfsTemplateService {
@@ -58,8 +62,28 @@ export class PdfsTemplateService {
       );
     }
     const templateHtml = fs.readFileSync(templatePath, 'utf-8');
+    let processedTemplateHtml = templateHtml;
+    // Verifica se os campos opcionais existem e têm valor maior que zero
+    const hasCondoFee = contract.condoFee && contract.condoFee.toNumber() > 0;
+    const hasIptuFee = contract.iptuFee && contract.iptuFee.toNumber() > 0;
 
-    const cleanedTemplate = templateHtml.replace(
+    if (!hasCondoFee) {
+      // Remove a linha <li> que contém "Condomínio"
+      processedTemplateHtml = processedTemplateHtml.replace(
+        /<li[^>]*>.*Condomínio.*<\/li>/gi,
+        '',
+      );
+    }
+
+    if (!hasIptuFee) {
+      // Remove a linha <li> que contém "IPTU"
+      processedTemplateHtml = processedTemplateHtml.replace(
+        /<li[^>]*>.*IPTU.*<\/li>/gi,
+        '',
+      );
+    }
+
+    const cleanedTemplate = processedTemplateHtml.replace(
       /{{[#/>]?[^}]+}}/g,
       (match) => {
         const placeholder = match.match(/[a-zA-Z0-9_.]+/);
@@ -67,39 +91,55 @@ export class PdfsTemplateService {
       },
     );
 
-    const templateData = {
+    const templateData: ContractTemplateData = {
       landlord: {
-        name: landlord.name,
-        cpfCnpj: landlord.cpfCnpj,
-        street: landlord.street || '',
-        number: landlord.number || '',
-        province: landlord.province || '',
-        city: landlord.city || '',
-        state: landlord.state || '',
+        name: contract.property.landlord.name,
+        cpfCnpj: cpfCnpjUtils.formatCpfCnpj(contract.property.landlord.cpfCnpj),
+        street: contract.property.landlord.street,
+        number: contract.property.landlord.number,
+        province: contract.property.landlord.province,
+        city: contract.property.landlord.city,
+        state: contract.property.landlord.state,
+        email: contract.property.landlord.email,
       },
       property: {
-        title: property.title,
-        street: property.street || '',
-        number: property.number,
-        complement: property.complement || '',
-        district: property.district || '',
-        city: property.city || '',
-        state: property.state || '',
-        cep: property.cep || '',
-        propertyType: property.propertyType,
+        title: contract.property.title,
+        street: contract.property.street,
+        number: contract.property.number,
+        complement: contract.property.complement?.toString() || '',
+        district: contract.property.district,
+        city: contract.property.city,
+        state: contract.property.state,
+        cep: contract.property.cep,
+        propertyType: contract.property.propertyType,
       },
       tenant: {
-        name: tenant.name,
-        cpfCnpj: tenant.cpfCnpj,
-        email: tenant.email,
+        name: contract.tenant.name,
+        cpfCnpj: cpfCnpjUtils.formatCpfCnpj(contract.tenant.cpfCnpj),
+        email: contract.tenant.email,
       },
-      rentAmount: contract.rentAmount.toNumber(),
-      condoFee: contract.condoFee?.toNumber(),
-      iptuFee: contract.iptuFee?.toNumber(),
-      securityDeposit: contract.securityDeposit?.toNumber(),
-      durationInMonths: contract.durationInMonths,
-      startDate: format(new Date(contract.startDate), 'dd/MM/yyyy'),
-      endDate: format(new Date(contract.endDate), 'dd/MM/yyyy'),
+      contract: {
+        totalAmount:
+          CurrencyUtils.formatCurrency(
+            contract.rentAmount.toNumber() +
+              (contract.condoFee?.toNumber() ?? 0) +
+              (contract.iptuFee?.toNumber() ?? 0),
+          ) || 'R$ 0,00',
+        rentAmount:
+          CurrencyUtils.formatCurrency(contract.rentAmount.toNumber()) ||
+          'R$ 0,00',
+        condoFee: CurrencyUtils.formatCurrency(contract.condoFee?.toNumber()),
+        iptuFee: CurrencyUtils.formatCurrency(contract.iptuFee?.toNumber()),
+        securityDeposit: CurrencyUtils.formatCurrency(
+          contract.securityDeposit?.toNumber(),
+        ),
+        durationInMonths: contract.durationInMonths.toString(),
+        guaranteeType: EnumUtils.formatGuaranteeType(contract.guaranteeType),
+        startDateDay: format(new Date(contract.startDate), 'dd'),
+        startDate: format(new Date(contract.startDate), 'dd/MM/yyyy'),
+        endDate: format(new Date(contract.endDate), 'dd/MM/yyyy'),
+      },
+      todayDate: format(new Date(), 'dd/MM/yyyy'),
     };
 
     return {
