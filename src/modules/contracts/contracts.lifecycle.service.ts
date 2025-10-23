@@ -176,7 +176,7 @@ export class ContractLifecycleService {
         message: `Seu contrato para o imóvel "${contract.property.title}" foi assinado! Para ativá-lo, o próximo passo é realizar o pagamento do depósito caução.`,
         action: {
           text: 'Pagar Depósito Caução',
-          path: `/contratos/${contract.id}`,
+          url: `/contratos/${contract.id}`,
         },
         sendEmail: true,
       });

@@ -45,11 +45,17 @@ export class NotificationsService {
       },
     });
 
-    if (sendEmail) {
+    if (sendEmail && action) {
       const emailJob: NotificationJob = {
         user: { name: user.name, email: user.email },
         notification: { title, message },
-        action: { text: action!.text, url: action?.url ?? action?.path },
+        action: action,
+      };
+      await this.emailQueue.add(EmailJobType.NOTIFICATION, emailJob);
+    } else if (sendEmail) {
+      const emailJob: NotificationJob = {
+        user: { name: user.name, email: user.email },
+        notification: { title, message },
       };
       await this.emailQueue.add(EmailJobType.NOTIFICATION, emailJob);
     }

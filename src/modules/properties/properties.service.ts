@@ -15,7 +15,7 @@ import { ROLES } from 'src/common/constants/roles.constant';
 import { LogHelperService } from '../logs/log-helper.service';
 import { SearchPropertyDto } from './dto/search-property.dto';
 import { ContractStatus, type Prisma } from '@prisma/client';
-import { PhotosService } from '../photos/photos.service';
+
 import { ContractsService } from '../contracts/contracts.service';
 import { DeletePropertyDto } from './dto/delete-property.dto';
 import { VerificationContexts } from 'src/common/constants/verification-contexts.constant';
@@ -25,6 +25,7 @@ import { CacheService } from 'src/modules/cache/cache.service';
 import { UserPreferences } from 'src/common/interfaces/user.preferences.interface';
 import { ContractLifecycleService } from '../contracts/contracts.lifecycle.service';
 import { PropertyCacheService } from './properties-cache.service';
+import { PhotosPropertyService } from '../photos/photos.property.service';
 
 @Injectable()
 export class PropertiesService {
@@ -33,8 +34,8 @@ export class PropertiesService {
   constructor(
     private prisma: PrismaService,
     private logHelper: LogHelperService,
-    @Inject(forwardRef(() => PhotosService))
-    private photosService: PhotosService,
+    @Inject(forwardRef(() => PhotosPropertyService))
+    private photosService: PhotosPropertyService,
     @Inject(forwardRef(() => ContractLifecycleService))
     private contractsLifecycleService: ContractLifecycleService,
     private readonly cacheService: CacheService,

@@ -30,6 +30,7 @@ import { PhotoResponseDto } from './dto/response-photo.dto';
 import { UpdatePhotoDto } from './dto/update-photo.dto';
 import { StorageService } from '../../storage/storage.service';
 import { JwtPayload } from '../../common/interfaces/jwt.payload.interface';
+import { PhotosPropertyService } from './photos.property.service';
 
 @ApiTags('Photos')
 @ApiBearerAuth()
@@ -39,6 +40,7 @@ import { JwtPayload } from '../../common/interfaces/jwt.payload.interface';
 export class PhotosController {
   constructor(
     private readonly photoService: PhotosService,
+    private readonly photoPropertyService: PhotosPropertyService,
     private readonly storageService: StorageService,
   ) {}
 
@@ -52,7 +54,10 @@ export class PhotosController {
       throw new BadRequestException('Nenhum arquivo enviado');
     }
 
-    return this.photoService.uploadPropertyPhotos(files.files, propertyId);
+    return this.photoPropertyService.uploadPropertyPhotos(
+      files.files,
+      propertyId,
+    );
   }
 
   @Get('property/:propertyId')
@@ -66,7 +71,10 @@ export class PhotosController {
     @Param('propertyId', ParseUUIDPipe) propertyId: string,
     @Query('signed') signed: string,
   ) {
-    return this.photoService.getPhotosByProperty(propertyId, signed === 'true');
+    return this.photoPropertyService.getPhotosByProperty(
+      propertyId,
+      signed === 'true',
+    );
   }
 
   @Patch(':id')

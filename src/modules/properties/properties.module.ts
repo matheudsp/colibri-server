@@ -8,6 +8,7 @@ import { PhotosModule } from '../photos/photos.module';
 import { ContractsModule } from '../contracts/contracts.module';
 import { VerificationModule } from '../verification/verification.module';
 import { PropertyCacheService } from './properties-cache.service';
+import { PhotosPropertyService } from '../photos/photos.property.service';
 
 @Module({
   imports: [

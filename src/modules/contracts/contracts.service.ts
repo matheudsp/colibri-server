@@ -47,8 +47,40 @@ export class ContractsService {
         skip,
         take: limit,
         where,
-        include: {
-          property: { select: { title: true, photos: true } },
+        select: {
+          id: true,
+          status: true,
+          rentAmount: true,
+          condoFee: true,
+          iptuFee: true,
+          startDate: true,
+          endDate: true,
+          durationInMonths: true,
+          guaranteeType: true,
+          securityDeposit: true,
+          createdAt: true,
+          updatedAt: true,
+          propertyId: true,
+          landlordId: true,
+          tenantId: true,
+          alterationRequestReason: true,
+          contractFilePath: true,
+          signedContractFilePath: true,
+          clicksignEnvelopeId: true,
+          contractHtml: false,
+          documents: false,
+          signatureRequests: false,
+          GeneratedPdf: false,
+          paymentsOrders: false,
+          property: {
+            select: {
+              title: true,
+              photos: {
+                where: { isCover: true },
+                take: 1,
+              },
+            },
+          },
           landlord: { select: { name: true, email: true } },
           tenant: { select: { name: true, email: true } },
         },
@@ -92,7 +124,27 @@ export class ContractsService {
   async findOne(id: string, currentUser: { sub: string; role: string }) {
     const contract = await this.prisma.contract.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        status: true,
+        rentAmount: true,
+        condoFee: true,
+        iptuFee: true,
+        startDate: true,
+        endDate: true,
+        durationInMonths: true,
+        guaranteeType: true,
+        securityDeposit: true,
+        createdAt: true,
+        updatedAt: true,
+        propertyId: true,
+        landlordId: true,
+        tenantId: true,
+        alterationRequestReason: true,
+        contractFilePath: true,
+        signedContractFilePath: true,
+        clicksignEnvelopeId: true,
+        contractHtml: false,
         paymentsOrders: {
           include: {
             charge: {
@@ -100,15 +152,19 @@ export class ContractsService {
             },
           },
         },
-        signatureRequests: true, // Relação direta com as solicitações de assinatura
+        signatureRequests: true,
         property: {
           include: {
-            photos: true,
+            photos: {
+              where: { isCover: true },
+              take: 1,
+            },
           },
         },
         landlord: { select: { id: true, name: true, email: true } },
         tenant: { select: { id: true, name: true, email: true } },
         documents: { select: { id: true, status: true, type: true } },
+        GeneratedPdf: true,
       },
     });
 
@@ -125,22 +181,17 @@ export class ContractsService {
         'Você não tem permissão para visualizar este contrato.',
       );
     }
-    const coverPhoto = contract.property.photos.find((p) => p.isCover);
-    const firstPhoto = contract.property.photos[0];
-    const photoToUse = coverPhoto || firstPhoto;
-
+    const coverPhoto = contract.property.photos[0];
     const photosWithUrl: (Photo & { url: string })[] = [];
-    if (photoToUse) {
+    if (coverPhoto) {
       photosWithUrl.push({
-        ...photoToUse,
-        url: this.storageService.getPublicImageUrl(photoToUse.filePath),
+        ...coverPhoto,
+        url: this.storageService.getPublicImageUrl(coverPhoto.filePath),
       });
     }
 
-    const { ...contractWithoutGeneratedPdf } = contract;
-
     return {
-      ...contractWithoutGeneratedPdf,
+      ...contract,
       property: {
         ...contract.property,
         photos: photosWithUrl,
