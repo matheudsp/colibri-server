@@ -9,4 +9,6 @@ export class CreateAsaasCustomerDto {
   email!: string;
   @ApiProperty()
   phone!: string;
+  @ApiProperty()
+  notificationDisabled!: boolean;
 }

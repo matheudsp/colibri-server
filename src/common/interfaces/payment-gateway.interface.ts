@@ -67,6 +67,7 @@ export interface CreateAsaasCustomerDto {
   cpfCnpj: string;
   email: string;
   phone: string;
+  notificationDisabled: boolean;
 }
 
 export interface CreateAsaasChargeDto {

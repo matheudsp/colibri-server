@@ -43,6 +43,7 @@ export class AsaasCustomersService {
       cpfCnpj: user.cpfCnpj,
       email: user.email,
       phone: user.phone!,
+      notificationDisabled: false,
     };
 
     const gatewayCustomer = await this.paymentGatewayService.createCustomer(
