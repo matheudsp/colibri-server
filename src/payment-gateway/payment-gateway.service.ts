@@ -19,6 +19,8 @@ import {
 } from 'src/common/interfaces/payment-gateway.interface';
 import * as crypto from 'crypto';
 import FormData from 'form-data';
+import type { UpdateCommercialInfoDto } from 'src/modules/subaccounts/dto/update-commercial-info.dto';
+import type { CompanyType } from '@prisma/client';
 @Injectable()
 export class PaymentGatewayService {
   private readonly logger = new Logger(PaymentGatewayService.name);
@@ -375,5 +377,39 @@ export class PaymentGatewayService {
     this.logger.log(`Obtendo linha digitável para a cobrança: ${chargeId}`);
     const endpoint = `${this.asaasApiUrl}/payments/${chargeId}/identificationField`;
     return this.request<any>('get', endpoint, apiKey);
+  }
+
+  async updateCommercialInfo(
+    apiKey: string,
+    data: UpdateCommercialInfoDto,
+    originalUserData: {
+      cpfCnpj: string;
+      birthDate?: Date | null;
+      companyType?: CompanyType | null;
+    },
+  ): Promise<any> {
+    const endpoint = `${this.asaasApiUrl}/myAccount/commercialInfo`;
+    this.logger.log(`Atualizando informações comerciais...`);
+
+    const isPJ = originalUserData.cpfCnpj.length > 11;
+    const payload = {
+      ...data,
+      personType: isPJ ? 'JURIDICA' : 'FISICA',
+      cpfCnpj: originalUserData.cpfCnpj,
+
+      ...(isPJ
+        ? { companyType: originalUserData.companyType }
+        : {
+            birthDate: originalUserData.birthDate?.toISOString().split('T')[0],
+          }),
+
+      ...(isPJ && { companyName: data.companyName || 'Nome não fornecido' }),
+    };
+
+    if (payload.phone === undefined) delete payload.phone;
+    if (payload.site === undefined) delete payload.site;
+    if (payload.complement === undefined) delete payload.complement;
+    if (!isPJ && payload.companyName) delete payload.companyName;
+    return this.request('post', endpoint, apiKey, payload);
   }
 }

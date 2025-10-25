@@ -258,7 +258,7 @@ export class ContractsService {
         street: contract.property.street,
         number: contract.property.number,
         complement: contract.property.complement?.toString() || undefined,
-        district: contract.property.district,
+        province: contract.property.province,
         city: contract.property.city,
         state: contract.property.state,
         cep: contract.property.cep,

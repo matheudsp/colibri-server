@@ -39,6 +39,7 @@ export class AsaasCustomersService {
       );
     }
     const dto: CreateAsaasCustomerDto = {
+      externalReference: user.id,
       name: user.name,
       cpfCnpj: user.cpfCnpj,
       email: user.email,

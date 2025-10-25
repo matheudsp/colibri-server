@@ -268,7 +268,7 @@ model Condominium {
   cep      String
   street   String
   number   String
-  district String
+  province String
   city     String
   state    String
 
@@ -288,7 +288,7 @@ model Property {
 
   cep      String?
   street   String?
-  district String?
+  province String?
   city     String?
   state    String?
 
@@ -314,7 +314,7 @@ model Property {
   updatedAt DateTime   @updatedAt
   Interest  Interest[]
 
-  @@index([title, street, district, city, state, cep], name: "property_search_idx")
+  @@index([title, street, province, city, state, cep], name: "property_search_idx")
   @@index([landlordId])
 }
 

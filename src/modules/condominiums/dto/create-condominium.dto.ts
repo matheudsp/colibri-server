@@ -18,7 +18,7 @@ export class CreateCondominiumDto {
   @IsString()
   @IsNotEmpty()
   street: string;
-  
+
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
@@ -27,7 +27,7 @@ export class CreateCondominiumDto {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
-  district: string;
+  province: string;
 
   @ApiProperty()
   @IsString()

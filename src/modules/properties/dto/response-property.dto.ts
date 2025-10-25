@@ -27,7 +27,7 @@ export class PropertyResponseDto {
   complement!: string;
 
   @ApiProperty()
-  district!: string;
+  province!: string;
 
   @ApiProperty()
   city!: string;

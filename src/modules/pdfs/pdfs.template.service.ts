@@ -107,7 +107,7 @@ export class PdfsTemplateService {
         street: contract.property.street,
         number: contract.property.number,
         complement: contract.property.complement?.toString() || '',
-        district: contract.property.district,
+        province: contract.property.province,
         city: contract.property.city,
         state: contract.property.state,
         cep: contract.property.cep,

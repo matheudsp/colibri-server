@@ -63,6 +63,7 @@ export interface CreateAsaasSubAccountResponse {
 }
 
 export interface CreateAsaasCustomerDto {
+  externalReference: string;
   name: string;
   cpfCnpj: string;
   email: string;

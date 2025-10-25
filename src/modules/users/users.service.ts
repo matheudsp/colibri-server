@@ -131,16 +131,16 @@ export class UserService {
   }
 
   async search(filters: SearchUserDto) {
-    const { name, email, role, status, cpfCnpj } = filters;
+    const { name, email, role, status } = filters;
 
-    const where = {};
-    if (name) where['name'] = { contains: name, mode: 'insensitive' };
-    if (email) where['email'] = { contains: email, mode: 'insensitive' };
-    if (cpfCnpj) where['cpfCnpj'] = { equals: cpfCnpj };
-    if (role) where['role'] = role;
-    if (status !== undefined) where['status'] = status;
+    const where: Prisma.UserWhereInput = {};
+    if (name) where.name = { contains: name, mode: 'insensitive' };
+    if (email) where.email = { contains: email, mode: 'insensitive' };
 
-    return this.prisma.user.findMany({
+    if (role) where.role = role;
+    if (status !== undefined) where.status = status;
+
+    const usersFound = await this.prisma.user.findMany({
       where,
       select: {
         id: true,
@@ -151,6 +151,14 @@ export class UserService {
         status: true,
       },
     });
+
+    const maskedUsers = usersFound.map((user) => ({
+      ...user,
+
+      cpfCnpj: maskString(user.cpfCnpj, 6, { position: 'end' }),
+    }));
+
+    return maskedUsers;
   }
   async create(
     data: CreateUserDto | CreateLandlordDto,
@@ -229,7 +237,7 @@ export class UserService {
     // Aplica a máscara nos dados sensíveis antes de retornar
     return {
       ...user,
-      phone: maskString(user.phone, 4), // Revela os últimos 4
+      phone: maskString(user.phone, 5), // Revela os últimos 4
     };
   }
 
@@ -375,8 +383,8 @@ export class UserService {
    */
   async findOrCreateTenant(
     data: {
-      email?: string;
-      cpfCnpj: string;
+      email: string;
+      cpfCnpj?: string;
       name?: string;
       password?: string;
       phone?: string;
@@ -389,7 +397,11 @@ export class UserService {
           'Para criar um novo locatário, é necessário fornecer nome, CPF/CNPJ, telefone e senha.',
         );
       }
-
+      if (!data.email) {
+        throw new BadRequestException(
+          'O e-mail é obrigatório para criar um novo locatário.',
+        );
+      }
       const createUserData: CreateUserDto = {
         email: data.email,
         name: data.name,
@@ -400,19 +412,24 @@ export class UserService {
 
       return this.create(createUserData, ROLES.LOCATARIO, creatorRole);
     } else {
-      if (!data.cpfCnpj) {
+      if (!data.email) {
         throw new BadRequestException(
-          'Para associar um locatário existente, o CPF/CNPJ é obrigatório.',
+          'Para associar um locatário existente, o e-mail é obrigatório.',
         );
       }
       const user = await this.prisma.user.findUnique({
         where: {
-          cpfCnpj: data.cpfCnpj,
+          email: data.email,
         },
       });
       if (!user) {
         throw new NotFoundException(
-          `Nenhum locatário encontrado com o CPF/CNPJ fornecido. Cadastre-o.`,
+          `Nenhum locatário encontrado com o e-mail fornecido (${data.email}). Se este for um novo locatário, forneça também nome, CPF/CNPJ, telefone e senha para cadastrá-lo.`,
+        );
+      }
+      if (user.role !== ROLES.LOCATARIO) {
+        throw new ConflictException(
+          `O usuário com o e-mail ${data.email} existe, mas não é um locatário.`,
         );
       }
 

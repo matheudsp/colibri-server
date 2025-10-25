@@ -38,12 +38,13 @@ import { MetricsModule } from './modules/metrics/metrics.module';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { InterestsModule } from './modules/interests/interests.module';
-
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { EncryptionModule } from './core/encryption/encryption.module';
 
 @Module({
   imports: [
     AppConfigModule,
+    EncryptionModule,
     PrismaModule,
     RateLimitModule,
     SwaggerModule,

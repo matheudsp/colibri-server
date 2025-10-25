@@ -373,7 +373,7 @@ export class PropertiesService {
         OR: [
           { title: { contains: normalizedQ, mode: 'insensitive' } },
           { street: { contains: normalizedQ, mode: 'insensitive' } },
-          { district: { contains: normalizedQ, mode: 'insensitive' } },
+          { province: { contains: normalizedQ, mode: 'insensitive' } },
           { city: { contains: normalizedQ, mode: 'insensitive' } },
           { state: { contains: normalizedQ, mode: 'insensitive' } },
           { cep: { contains: normalizedQ, mode: 'insensitive' } },

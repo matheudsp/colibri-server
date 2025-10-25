@@ -76,7 +76,6 @@ export class CreateContractDto {
     description: 'Email do locatário. Usado para buscar ou criar o usuário.',
   })
   @IsEmail()
-  @ValidateIf((o) => o.tenantPassword)
   @IsNotEmpty()
   tenantEmail!: string;
 
@@ -94,7 +93,8 @@ export class CreateContractDto {
     description: 'CPF/CNPJ do locatário. Obrigatório se o usuário não existir.',
   })
   @IsString()
-  @IsNotEmpty()
+  @ValidateIf((o) => o.tenantPassword)
+  @IsOptional()
   tenantCpfCnpj!: string;
 
   @ApiProperty({

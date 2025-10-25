@@ -7,6 +7,10 @@ bucket_id = 'default'
 AND name LIKE 'properties/%'
 );
 
+# Exemplo de como gerar uma chave no terminal:
+
+node -e "console.log(crypto.randomBytes(32).toString('hex'))"
+
 Utilizar extensão unnacent para buscas!
 CREATE EXTENSION IF NOT EXISTS unaccent;
 

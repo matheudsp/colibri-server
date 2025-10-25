@@ -29,7 +29,7 @@ export interface ContractTemplateData {
     street: string | null;
     number: string;
     complement?: string | null;
-    district: string | null;
+    province: string | null;
     city: string | null;
     state: string | null;
     cep: string | null;

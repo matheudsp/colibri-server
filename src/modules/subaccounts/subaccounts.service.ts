@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
@@ -13,6 +14,7 @@ import { PaymentGatewayService } from 'src/payment-gateway/payment-gateway.servi
 import { PrismaService } from 'src/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { UserService } from '../users/users.service';
+import type { UpdateCommercialInfoDto } from './dto/update-commercial-info.dto';
 
 @Injectable()
 export class SubaccountsService {
@@ -394,5 +396,80 @@ export class SubaccountsService {
     return {
       message: 'O e-mail com o link de onboarding foi reenviado com sucesso.',
     };
+  }
+
+  async updateCommercialInfo(
+    userId: string,
+    dto: UpdateCommercialInfoDto,
+  ): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { subAccount: true },
+    });
+
+    if (!user || !user.subAccount?.apiKey) {
+      throw new NotFoundException(
+        'Subconta ou chave de API não encontrada para este usuário.',
+      );
+    }
+
+    this.logger.log(
+      `Iniciando atualização de dados comerciais para usuário ${userId}`,
+    );
+
+    try {
+      await this.paymentGatewayService.updateCommercialInfo(
+        user.subAccount.apiKey,
+        dto,
+        {
+          cpfCnpj: user.cpfCnpj,
+          birthDate: user.birthDate,
+          companyType: user.companyType,
+        },
+      );
+      this.logger.log(
+        `Dados comerciais atualizados com sucesso no Asaas para usuário ${userId}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Falha ao atualizar dados comerciais no Asaas para usuário ${userId}`,
+        error,
+      );
+
+      throw error;
+    }
+
+    try {
+      const isPJ = user.cpfCnpj.length > 11;
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          ...(isPJ && dto.companyName && { name: dto.companyName }),
+          email: dto.email,
+          phone: dto.mobilePhone,
+          incomeValue: dto.incomeValue,
+          cep: formatZipCode(dto.postalCode),
+          street: dto.address,
+          number: dto.addressNumber,
+          complement: dto.complement,
+          province: dto.province,
+        },
+      });
+      this.logger.log(
+        `Dados do usuário ${userId} atualizados no banco de dados local.`,
+      );
+    } catch (dbError) {
+      this.logger.error(
+        `Falha ao atualizar dados do usuário ${userId} no banco local após sucesso no Asaas.`,
+        dbError,
+      );
+      // Aqui você pode implementar uma lógica de compensação ou apenas logar,
+      // pois a fonte da verdade (Asaas) foi atualizada.
+      throw new InternalServerErrorException(
+        'Dados atualizados no gateway, mas falha ao salvar localmente. Contate o suporte.',
+      );
+    }
+
+    return { message: 'Dados comerciais atualizados com sucesso.' };
   }
 }

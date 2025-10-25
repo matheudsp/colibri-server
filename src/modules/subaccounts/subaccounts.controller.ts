@@ -7,6 +7,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Patch,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -25,6 +26,7 @@ import { ROLES } from 'src/common/constants/roles.constant';
 import { JwtPayload } from 'src/common/interfaces/jwt.payload.interface';
 import { SubaccountsService } from './subaccounts.service';
 import { UploadDocumentDto } from './dto/upload-document.dto';
+import { UpdateCommercialInfoDto } from './dto/update-commercial-info.dto';
 
 @ApiTags('Subaccounts')
 @Controller('subaccounts')
@@ -72,6 +74,23 @@ export class SubaccountsController {
       currentUser.sub,
       body.type,
       file,
+    );
+  }
+
+  @Patch('commercial-info')
+  @Roles(ROLES.LOCADOR)
+  @ApiOperation({
+    summary:
+      'Atualiza os dados comerciais da subconta no gateway e no banco local',
+  })
+  @ApiBody({ type: UpdateCommercialInfoDto })
+  updateCommercialInfo(
+    @CurrentUser() currentUser: JwtPayload,
+    @Body() updateDto: UpdateCommercialInfoDto,
+  ) {
+    return this.subaccountsService.updateCommercialInfo(
+      currentUser.sub,
+      updateDto,
     );
   }
 }

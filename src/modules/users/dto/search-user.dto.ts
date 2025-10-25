@@ -16,11 +16,11 @@ export class SearchUserDto {
   @IsString()
   email?: string;
 
-  @Expose()
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsString()
-  cpfCnpj?: string;
+  // @Expose()
+  // @ApiProperty({ required: false })
+  // @IsOptional()
+  // @IsString()
+  // cpfCnpj?: string;
 
   @Expose()
   @ApiProperty({ enum: UserRole, required: false })

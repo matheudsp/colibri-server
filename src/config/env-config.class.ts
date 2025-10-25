@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsString,
   IsBoolean,
+  Length,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
@@ -26,6 +27,12 @@ export class EnvConfig {
 
   @IsString()
   JWT_SECRET!: string;
+
+  @IsString()
+  @Length(64, 64, {
+    message: 'ENCRYPTION_SECRET_KEY must be 64 characters long',
+  })
+  ENCRYPTION_SECRET_KEY!: string;
 
   @IsString()
   @IsOptional()
@@ -97,6 +104,7 @@ export class EnvConfig {
 
   @IsString()
   SUPABASE_KEY!: string;
+
   @IsString()
   ASAAS_API_URL!: string;
 
